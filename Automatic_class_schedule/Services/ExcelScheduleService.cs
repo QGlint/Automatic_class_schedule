@@ -37,10 +37,17 @@ public sealed class ExcelScheduleService
             {
                 string name = row.Cell(1).GetString().Trim();
                 string subject = row.Cell(2).GetString().Trim();
-                string role = row.Cell(3).GetString().Trim();
-                if (!string.IsNullOrWhiteSpace(name))
+                string classes = row.Cell(3).GetString().Trim();
+                int weeklyCount = row.Cell(4).GetValue<int>();
+                if (!string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(subject))
                 {
-                    data.Teachers.Add(new Teacher { Name = name, Subject = subject, Role = string.IsNullOrWhiteSpace(role) ? "教师" : role });
+                    data.TeacherAssignments.Add(new TeacherAssignment
+                    {
+                        TeacherName = name,
+                        Subject = subject,
+                        ClassNames = string.IsNullOrWhiteSpace(classes) ? "全部" : classes,
+                        WeeklyCount = weeklyCount
+                    });
                 }
             }
         }
@@ -84,9 +91,9 @@ public sealed class ExcelScheduleService
             }
         }
 
-        if (data.Requirements.Count == 0 && data.Classes.Count > 0 && data.Teachers.Count > 0)
+        if (data.Requirements.Count == 0 && data.Classes.Count > 0 && data.TeacherAssignments.Count > 0)
         {
-            data.Requirements.AddRange(new ScheduleService().BuildRequirements(data.Classes, data.Teachers));
+            data.Requirements.AddRange(new ScheduleService().BuildRequirementsFromAssignments(data.TeacherAssignments, data.Classes, data.Subjects));
         }
 
         IXLWorksheet? fixedSheet = workbook.Worksheets.FirstOrDefault(x => x.Name == "固定课程");

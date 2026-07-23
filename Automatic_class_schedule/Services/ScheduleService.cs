@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using Automatic_class_schedule.Models;
 using Automatic_class_schedule.Solver;
 
@@ -103,31 +104,102 @@ public sealed class ScheduleService
         return classes;
     }
 
-    public List<LessonRequirement> BuildRequirements(IEnumerable<SchoolClass> classes, IEnumerable<Teacher> teachers)
+    public void GenerateAssignments(ICollection<TeacherAssignment> assignments, IEnumerable<SubjectDefinition> subjects, IEnumerable<SchoolClass> classes)
+    {
+        assignments.Clear();
+        string[] defaultSubjects = { "语文", "数学", "英语", "体育", "政治", "历史", "地理", "物理", "化学", "生物" };
+        string[] teacherNames = { "张老师", "李老师", "王老师", "赵老师", "钱老师", "孙老师", "周老师", "吴老师", "郑老师", "冯老师" };
+        string[][] subjectTeachers =
+        {
+            new[] { "张老师", "李老师" },
+            new[] { "王老师", "周老师" },
+            new[] { "赵老师", "钱老师" },
+            new[] { "孙老师" },
+            new[] { "吴老师" },
+            new[] { "郑老师" },
+            new[] { "冯老师" },
+            new[] { "张老师" },
+            new[] { "李老师" },
+            new[] { "王老师" }
+        };
+
+        List<string> classNames = classes.Select(c => c.Name).ToList();
+        if (classNames.Count == 0) return;
+
+        for (int si = 0; si < defaultSubjects.Length; si++)
+        {
+            string subject = defaultSubjects[si];
+            int weeklyCount = subjects.FirstOrDefault(s => s.Name == subject)?.DefaultWeeklyCount ?? GetDefaultWeeklyCount(subject);
+            string[] teachers = subjectTeachers[si];
+
+            int classesPerTeacher = (int)Math.Ceiling((double)classNames.Count / teachers.Length);
+
+            for (int ti = 0; ti < teachers.Length; ti++)
+            {
+                int start = ti * classesPerTeacher;
+                int end = Math.Min(start + classesPerTeacher, classNames.Count);
+                if (start >= classNames.Count) break;
+
+                List<string> teacherClasses = classNames.Skip(start).Take(end - start).ToList();
+                bool preferMorning = subject is "数学" or "英语" or "语文" or "物理" or "化学";
+                bool avoidLast = subject is "体育";
+
+                TeacherAssignment ta = new()
+                {
+                    TeacherName = teachers[ti],
+                    Subject = subject,
+                    WeeklyCount = weeklyCount,
+                    ClassNames = string.Join("、", teacherClasses),
+                    DistributionRule = preferMorning ? "每天一次" : "均衡分布",
+                    PreferMorning = preferMorning,
+                    AvoidLastPeriod = avoidLast
+                };
+                assignments.Add(ta);
+            }
+        }
+    }
+
+    public List<LessonRequirement> BuildRequirementsFromAssignments(IEnumerable<TeacherAssignment> assignments, IEnumerable<SchoolClass> allClasses, IEnumerable<SubjectDefinition> subjects)
     {
         List<LessonRequirement> requirements = new();
-        Dictionary<string, Teacher> teacherMap = teachers.Where(x => !string.IsNullOrWhiteSpace(x.Name)).GroupBy(x => x.Name).ToDictionary(x => x.Key, x => x.First(), StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, SubjectDefinition> subjectMap = subjects.Where(x => !string.IsNullOrWhiteSpace(x.Name)).GroupBy(x => x.Name).ToDictionary(x => x.Key, x => x.First(), StringComparer.OrdinalIgnoreCase);
 
-        foreach (SchoolClass schoolClass in classes)
+        foreach (TeacherAssignment assignment in assignments)
         {
-            foreach (Teacher teacher in teachers)
+            if (string.IsNullOrWhiteSpace(assignment.TeacherName) || string.IsNullOrWhiteSpace(assignment.Subject))
             {
-                if (string.IsNullOrWhiteSpace(teacher.Subject))
+                continue;
+            }
+
+            int weeklyCount = assignment.WeeklyCount > 0 ? assignment.WeeklyCount : (subjectMap.TryGetValue(assignment.Subject, out SubjectDefinition? sub) ? sub.DefaultWeeklyCount : GetDefaultWeeklyCount(assignment.Subject));
+
+            string[] classNames = assignment.ClassNames.Split(new[] { '、', ',', '，', ';', '；', ' ' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            foreach (string className in classNames)
+            {
+                SchoolClass? schoolClass = allClasses.FirstOrDefault(c => string.Equals(c.Name, className, StringComparison.OrdinalIgnoreCase));
+                if (schoolClass is null)
                 {
-                    continue;
+                    schoolClass = new SchoolClass { Name = className, GradeName = className, ClassNumber = 1 };
                 }
+
+                Teacher teacher = new()
+                {
+                    Name = assignment.TeacherName,
+                    Subject = assignment.Subject
+                };
 
                 requirements.Add(new LessonRequirement
                 {
                     ClassId = schoolClass.Id,
                     ClassName = schoolClass.Name,
                     TeacherId = teacher.Id,
-                    TeacherName = teacher.Name,
-                    Subject = teacher.Subject,
-                    WeeklyCount = GetDefaultWeeklyCount(teacher.Subject),
-                    DistributionRule = teacher.Subject is "数学" or "英语" ? "每天一次" : "均衡分布",
-                    PreferMorning = teacher.Subject is "数学" or "英语",
-                    AvoidLastPeriod = teacher.Subject is "体育" or "英语"
+                    TeacherName = assignment.TeacherName,
+                    Subject = assignment.Subject,
+                    WeeklyCount = weeklyCount,
+                    DistributionRule = assignment.DistributionRule,
+                    PreferMorning = assignment.PreferMorning,
+                    AvoidLastPeriod = assignment.AvoidLastPeriod
                 });
             }
         }
@@ -147,20 +219,20 @@ public sealed class ScheduleService
         };
     }
 
-    private static int GetDefaultWeeklyCount(string subject)
+    public static int GetDefaultWeeklyCount(string subject)
     {
         return subject switch
         {
-            "语文" => 5,
-            "数学" => 5,
-            "英语" => 4,
-            "物理" => 3,
+            "语文" => 6,
+            "数学" => 6,
+            "英语" => 5,
+            "物理" => 4,
             "化学" => 3,
-            "生物" => 2,
-            "历史" => 2,
-            "地理" => 2,
-            "政治" => 2,
-            "体育" => 2,
+            "生物" => 3,
+            "历史" => 3,
+            "地理" => 3,
+            "政治" => 3,
+            "体育" => 3,
             "音乐" => 1,
             "美术" => 1,
             _ => 2

@@ -13,11 +13,13 @@ public sealed class MainViewModel : ObservableObject
     private readonly ScheduleService _scheduleService;
     private readonly SchoolDataStore _store;
     private readonly ExcelScheduleService _excelService;
-    private string _schoolName = string.Empty;
+    private string _schoolName = "中学";
     private int _daysPerWeek = 5;
     private int _periodsPerDay = 7;
-    private int _selectedSectionIndex;
+    private int _morningPeriods = 4;
+    private int _afternoonPeriods = 3;
     private string _selectedMainPage = "配置";
+    private string _selectedConfigPage = "基础设置";
     private string _selectedViewMode = "年级总表";
     private GradeInput? _selectedGradeInput;
     private SchoolClass? _selectedClass;
@@ -26,6 +28,7 @@ public sealed class MainViewModel : ObservableObject
     private ScheduleEntry? _selectedScheduleEntry;
     private LessonRequirement? _selectedRequirement;
     private FixedLesson? _selectedFixedLesson;
+    private TeacherAssignment? _selectedTeacherAssignment;
     private string _statusMessage = "就绪";
 
     public MainViewModel()
@@ -34,12 +37,14 @@ public sealed class MainViewModel : ObservableObject
         _store = new SchoolDataStore();
         _excelService = new ExcelScheduleService();
 
-        Sections = new ObservableCollection<string>
+        ConfigPages = new ObservableCollection<string>
         {
-            "基础数据",
-            "课表视图",
-            "冲突检查",
-            "导入导出"
+            "基础设置",
+            "班级配置",
+            "课程配置",
+            "教师配置",
+            "固定课程",
+            "自动排课"
         };
 
         MainPages = new ObservableCollection<string>
@@ -53,6 +58,7 @@ public sealed class MainViewModel : ObservableObject
         Classes = new ObservableCollection<SchoolClass>();
         Teachers = new ObservableCollection<Teacher>();
         Subjects = new ObservableCollection<SubjectDefinition>();
+        TeacherAssignments = new ObservableCollection<TeacherAssignment>();
         Requirements = new ObservableCollection<LessonRequirement>();
         FixedLessons = new ObservableCollection<FixedLesson>();
         ScheduleEntries = new ObservableCollection<ScheduleEntry>();
@@ -64,16 +70,19 @@ public sealed class MainViewModel : ObservableObject
         SeedSampleDataCommand = new RelayCommand(LoadSampleData);
         GenerateClassesCommand = new RelayCommand(GenerateClasses);
         GenerateRequirementsCommand = new RelayCommand(GenerateRequirements);
+        GenerateAssignmentsCommand = new RelayCommand(GenerateAssignments);
         AutoScheduleCommand = new RelayCommand(AutoSchedule);
         ValidateCommand = new RelayCommand(ValidateSchedule);
         SaveCommand = new RelayCommand(SaveData);
         LoadCommand = new RelayCommand(LoadData);
+        NewProjectCommand = new RelayCommand(NewProject);
         ExportCommand = new RelayCommand(ExportExcel);
         ImportCommand = new RelayCommand(ImportExcel);
         RefreshViewCommand = new RelayCommand(RefreshViews);
         UseFiveDayCommand = new RelayCommand(() => SetDaysPerWeek(5));
         UseSevenDayCommand = new RelayCommand(() => SetDaysPerWeek(7));
         SelectMainPageCommand = new RelayCommand<string>(SetMainPage);
+        SelectConfigPageCommand = new RelayCommand<string>(SetConfigPage);
         SelectViewModeCommand = new RelayCommand<string>(SetViewMode);
         SelectGradeCommand = new RelayCommand<GradeInput>(SelectGrade);
         SelectClassCommand = new RelayCommand<SchoolClass>(SelectClass);
@@ -90,14 +99,16 @@ public sealed class MainViewModel : ObservableObject
         }
 
         SelectedMainPage = "配置";
+        SelectedConfigPage = "基础设置";
     }
 
-    public ObservableCollection<string> Sections { get; }
+    public ObservableCollection<string> ConfigPages { get; }
     public ObservableCollection<string> MainPages { get; }
     public ObservableCollection<GradeInput> GradeInputs { get; }
     public ObservableCollection<SchoolClass> Classes { get; }
     public ObservableCollection<Teacher> Teachers { get; }
     public ObservableCollection<SubjectDefinition> Subjects { get; }
+    public ObservableCollection<TeacherAssignment> TeacherAssignments { get; }
     public ObservableCollection<LessonRequirement> Requirements { get; }
     public ObservableCollection<FixedLesson> FixedLessons { get; }
     public ObservableCollection<ScheduleEntry> ScheduleEntries { get; }
@@ -138,10 +149,34 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
-    public int SelectedSectionIndex
+    public int MorningPeriods
     {
-        get => _selectedSectionIndex;
-        set => SetProperty(ref _selectedSectionIndex, value);
+        get => _morningPeriods;
+        set
+        {
+            if (SetProperty(ref _morningPeriods, value))
+            {
+                if (_morningPeriods + _afternoonPeriods != _periodsPerDay)
+                {
+                    PeriodsPerDay = _morningPeriods + _afternoonPeriods;
+                }
+            }
+        }
+    }
+
+    public int AfternoonPeriods
+    {
+        get => _afternoonPeriods;
+        set
+        {
+            if (SetProperty(ref _afternoonPeriods, value))
+            {
+                if (_morningPeriods + _afternoonPeriods != _periodsPerDay)
+                {
+                    PeriodsPerDay = _morningPeriods + _afternoonPeriods;
+                }
+            }
+        }
     }
 
     public string SelectedMainPage
@@ -154,6 +189,12 @@ public sealed class MainViewModel : ObservableObject
                 OnPropertyChanged(nameof(CurrentScopeSummary));
             }
         }
+    }
+
+    public string SelectedConfigPage
+    {
+        get => _selectedConfigPage;
+        set => SetProperty(ref _selectedConfigPage, value);
     }
 
     public string SelectedViewMode
@@ -232,6 +273,12 @@ public sealed class MainViewModel : ObservableObject
         set => SetProperty(ref _selectedFixedLesson, value);
     }
 
+    public TeacherAssignment? SelectedTeacherAssignment
+    {
+        get => _selectedTeacherAssignment;
+        set => SetProperty(ref _selectedTeacherAssignment, value);
+    }
+
     public string StatusMessage
     {
         get => _statusMessage;
@@ -252,7 +299,7 @@ public sealed class MainViewModel : ObservableObject
                     : SelectedClass.DisplayName,
                 "教师课表" => SelectedTeacher is null
                     ? "未选择教师"
-                    : $"{SelectedTeacher.Name} · {SelectedTeacher.Subject}",
+                    : SelectedTeacher.Name,
                 _ => "未选择"
             };
         }
@@ -261,19 +308,29 @@ public sealed class MainViewModel : ObservableObject
     public string ExportFolderPath => AppPaths.ExportFolder;
     public string DataFilePath => AppPaths.DataFile;
 
+    public int TotalClasses => Classes.Count;
+    public int TotalSubjects => Subjects.Count;
+    public int TotalAssignments => TeacherAssignments.Count;
+    public int TotalRequirements => Requirements.Count;
+    public int TotalScheduleEntries => ScheduleEntries.Count;
+    public int TotalConflicts => Conflicts.Count;
+
     public RelayCommand SeedSampleDataCommand { get; }
     public RelayCommand GenerateClassesCommand { get; }
     public RelayCommand GenerateRequirementsCommand { get; }
+    public RelayCommand GenerateAssignmentsCommand { get; }
     public RelayCommand AutoScheduleCommand { get; }
     public RelayCommand ValidateCommand { get; }
     public RelayCommand SaveCommand { get; }
     public RelayCommand LoadCommand { get; }
+    public RelayCommand NewProjectCommand { get; }
     public RelayCommand ExportCommand { get; }
     public RelayCommand ImportCommand { get; }
     public RelayCommand RefreshViewCommand { get; }
     public RelayCommand UseFiveDayCommand { get; }
     public RelayCommand UseSevenDayCommand { get; }
     public RelayCommand<string> SelectMainPageCommand { get; }
+    public RelayCommand<string> SelectConfigPageCommand { get; }
     public RelayCommand<string> SelectViewModeCommand { get; }
     public RelayCommand<GradeInput> SelectGradeCommand { get; }
     public RelayCommand<SchoolClass> SelectClassCommand { get; }
@@ -322,10 +379,32 @@ public sealed class MainViewModel : ObservableObject
         StatusMessage = conflicts.FirstOrDefault()?.Message ?? "换课失败";
     }
 
+    private void NewProject()
+    {
+        GradeInputs.Clear();
+        Classes.Clear();
+        Teachers.Clear();
+        Subjects.Clear();
+        TeacherAssignments.Clear();
+        Requirements.Clear();
+        FixedLessons.Clear();
+        ScheduleEntries.Clear();
+        Conflicts.Clear();
+        SchoolName = "中学";
+        DaysPerWeek = 5;
+        PeriodsPerDay = 7;
+        MorningPeriods = 4;
+        AfternoonPeriods = 3;
+        StatusMessage = "已创建新项目";
+        SelectedConfigPage = "基础设置";
+        RefreshViews();
+    }
+
     private void LoadSampleData()
     {
         ApplySchoolData(SampleDataFactory.Create());
         SelectedMainPage = "配置";
+        SelectedConfigPage = "基础设置";
         SelectedViewMode = "年级总表";
         SelectedGradeInput = GradeInputs.FirstOrDefault();
         SelectedClass = Classes.FirstOrDefault();
@@ -352,15 +431,27 @@ public sealed class MainViewModel : ObservableObject
         RefreshViews();
     }
 
+    private void GenerateAssignments()
+    {
+        _scheduleService.GenerateAssignments(TeacherAssignments, Subjects, Classes);
+        StatusMessage = $"已生成 {TeacherAssignments.Count} 条教师授课安排";
+        Log($"生成教师安排：{TeacherAssignments.Count} 条");
+    }
+
     private void GenerateRequirements()
     {
         Requirements.Clear();
+        Teachers.Clear();
         ScheduleEntries.Clear();
         Conflicts.Clear();
 
-        foreach (LessonRequirement requirement in _scheduleService.BuildRequirements(Classes, Teachers))
+        foreach (LessonRequirement requirement in _scheduleService.BuildRequirementsFromAssignments(TeacherAssignments, Classes, Subjects))
         {
             Requirements.Add(requirement);
+            if (Teachers.All(t => t.Name != requirement.TeacherName))
+            {
+                Teachers.Add(new Teacher { Name = requirement.TeacherName, Subject = requirement.Subject });
+            }
         }
 
         SelectedRequirement = Requirements.FirstOrDefault();
@@ -371,6 +462,8 @@ public sealed class MainViewModel : ObservableObject
 
     private void AutoSchedule()
     {
+        GenerateRequirements();
+
         ScheduleResult result = _scheduleService.Generate(BuildSchoolData());
         ScheduleEntries.Clear();
         foreach (ScheduleEntry entry in result.Entries.OrderBy(x => x.DayIndex).ThenBy(x => x.PeriodIndex))
@@ -383,6 +476,9 @@ public sealed class MainViewModel : ObservableObject
         {
             Conflicts.Add(conflict);
         }
+
+        OnPropertyChanged(nameof(TotalScheduleEntries));
+        OnPropertyChanged(nameof(TotalConflicts));
 
         StatusMessage = $"排课完成：{ScheduleEntries.Count} 节课，{Conflicts.Count} 条提示";
         Log($"自动排课：{ScheduleEntries.Count} 节课");
@@ -397,6 +493,7 @@ public sealed class MainViewModel : ObservableObject
             Conflicts.Add(conflict);
         }
 
+        OnPropertyChanged(nameof(TotalConflicts));
         StatusMessage = $"检查完成：{Conflicts.Count} 条提示";
         Log($"检查冲突：{Conflicts.Count} 条");
     }
@@ -417,6 +514,7 @@ public sealed class MainViewModel : ObservableObject
 
         ApplySchoolData(data);
         SelectedMainPage = "配置";
+        SelectedConfigPage = "基础设置";
         SelectedViewMode = "年级总表";
         SelectedGradeInput = GradeInputs.FirstOrDefault();
         SelectedClass = Classes.FirstOrDefault();
@@ -462,6 +560,16 @@ public sealed class MainViewModel : ObservableObject
 
         SelectedMainPage = page;
         OnPropertyChanged(nameof(CurrentScopeSummary));
+    }
+
+    private void SetConfigPage(string? page)
+    {
+        if (string.IsNullOrWhiteSpace(page))
+        {
+            return;
+        }
+
+        SelectedConfigPage = page;
     }
 
     private void SetViewMode(string? viewMode)
@@ -533,6 +641,12 @@ public sealed class MainViewModel : ObservableObject
         RefreshVisibleEntries();
         RefreshTimetable();
         OnPropertyChanged(nameof(CurrentScopeSummary));
+        OnPropertyChanged(nameof(TotalClasses));
+        OnPropertyChanged(nameof(TotalSubjects));
+        OnPropertyChanged(nameof(TotalAssignments));
+        OnPropertyChanged(nameof(TotalRequirements));
+        OnPropertyChanged(nameof(TotalScheduleEntries));
+        OnPropertyChanged(nameof(TotalConflicts));
     }
 
     private void RefreshVisibleEntries()
@@ -602,11 +716,14 @@ public sealed class MainViewModel : ObservableObject
         SchoolName = data.Settings.SchoolName;
         DaysPerWeek = data.Settings.DaysPerWeek;
         PeriodsPerDay = data.Settings.PeriodsPerDay;
+        MorningPeriods = data.Settings.MorningPeriods;
+        AfternoonPeriods = data.Settings.AfternoonPeriods;
 
         ReplaceCollection(GradeInputs, data.GradeInputs);
         ReplaceCollection(Classes, data.Classes);
         ReplaceCollection(Teachers, data.Teachers);
         ReplaceCollection(Subjects, data.Subjects);
+        ReplaceCollection(TeacherAssignments, data.TeacherAssignments);
         ReplaceCollection(Requirements, data.Requirements);
         ReplaceCollection(FixedLessons, data.FixedLessons);
         ReplaceCollection(ScheduleEntries, data.ScheduleEntries);
@@ -617,22 +734,38 @@ public sealed class MainViewModel : ObservableObject
         SelectedSubject = Subjects.FirstOrDefault();
         SelectedRequirement = Requirements.FirstOrDefault();
         SelectedFixedLesson = FixedLessons.FirstOrDefault();
+        SelectedTeacherAssignment = TeacherAssignments.FirstOrDefault();
     }
 
     private SchoolData BuildSchoolData()
     {
+        List<Teacher> teacherList = Teachers.ToList();
+        if (teacherList.Count == 0)
+        {
+            foreach (LessonRequirement r in Requirements)
+            {
+                if (teacherList.All(t => t.Name != r.TeacherName))
+                {
+                    teacherList.Add(new Teacher { Name = r.TeacherName, Subject = r.Subject });
+                }
+            }
+        }
+
         return new SchoolData
         {
             Settings = new ScheduleSettings
             {
                 SchoolName = SchoolName,
                 DaysPerWeek = DaysPerWeek,
-                PeriodsPerDay = PeriodsPerDay
+                PeriodsPerDay = PeriodsPerDay,
+                MorningPeriods = MorningPeriods,
+                AfternoonPeriods = AfternoonPeriods
             },
             GradeInputs = GradeInputs.ToList(),
             Classes = Classes.ToList(),
-            Teachers = Teachers.ToList(),
+            Teachers = teacherList,
             Subjects = Subjects.ToList(),
+            TeacherAssignments = TeacherAssignments.ToList(),
             Requirements = Requirements.ToList(),
             FixedLessons = FixedLessons.ToList(),
             ScheduleEntries = ScheduleEntries.ToList()
