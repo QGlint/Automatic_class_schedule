@@ -57,6 +57,7 @@ public sealed class MainViewModel : ObservableObject
         Conflicts = new ObservableCollection<ScheduleConflict>();
         ActivityLog = new ObservableCollection<string>();
         TimetableDays = new ObservableCollection<ScheduleDayViewModel>();
+        TimetableRows = new ObservableCollection<SchedulePeriodRowViewModel>();
 
         SeedSampleDataCommand = new RelayCommand(() => _ = LoadSampleDataAsync());
         GenerateClassesCommand = new RelayCommand(GenerateClasses);
@@ -105,16 +106,16 @@ public sealed class MainViewModel : ObservableObject
 
     private void InitDefaultSubjects()
     {
-        Subjects.Add(new SubjectDefinition { Name = "语文", Category = "主科", DefaultWeeklyCount = 6 });
-        Subjects.Add(new SubjectDefinition { Name = "数学", Category = "主科", DefaultWeeklyCount = 6 });
-        Subjects.Add(new SubjectDefinition { Name = "英语", Category = "主科", DefaultWeeklyCount = 5 });
-        Subjects.Add(new SubjectDefinition { Name = "物理", Category = "理科", DefaultWeeklyCount = 4 });
-        Subjects.Add(new SubjectDefinition { Name = "化学", Category = "理科", DefaultWeeklyCount = 3 });
-        Subjects.Add(new SubjectDefinition { Name = "生物", Category = "理科", DefaultWeeklyCount = 3 });
-        Subjects.Add(new SubjectDefinition { Name = "历史", Category = "文科", DefaultWeeklyCount = 3 });
-        Subjects.Add(new SubjectDefinition { Name = "地理", Category = "文科", DefaultWeeklyCount = 3 });
-        Subjects.Add(new SubjectDefinition { Name = "政治", Category = "文科", DefaultWeeklyCount = 3 });
-        Subjects.Add(new SubjectDefinition { Name = "体育", Category = "副科", DefaultWeeklyCount = 3 });
+        Subjects.Add(new SubjectDefinition { Name = "语文", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次" });
+        Subjects.Add(new SubjectDefinition { Name = "数学", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次" });
+        Subjects.Add(new SubjectDefinition { Name = "英语", Category = "主科", DefaultWeeklyCount = 5, DistributionRule = "每天一次" });
+        Subjects.Add(new SubjectDefinition { Name = "物理", Category = "理科", DefaultWeeklyCount = 3, DistributionRule = "均衡分布" });
+        Subjects.Add(new SubjectDefinition { Name = "化学", Category = "理科", DefaultWeeklyCount = 3, DistributionRule = "均衡分布" });
+        Subjects.Add(new SubjectDefinition { Name = "生物", Category = "理科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布" });
+        Subjects.Add(new SubjectDefinition { Name = "历史", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布" });
+        Subjects.Add(new SubjectDefinition { Name = "地理", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布" });
+        Subjects.Add(new SubjectDefinition { Name = "政治", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布" });
+        Subjects.Add(new SubjectDefinition { Name = "体育", Category = "副科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布" });
     }
 
     public ObservableCollection<GradeInput> GradeInputs { get; }
@@ -129,6 +130,7 @@ public sealed class MainViewModel : ObservableObject
     public ObservableCollection<ScheduleConflict> Conflicts { get; }
     public ObservableCollection<string> ActivityLog { get; }
     public ObservableCollection<ScheduleDayViewModel> TimetableDays { get; private set; }
+    public ObservableCollection<SchedulePeriodRowViewModel> TimetableRows { get; private set; }
 
     public string SchoolName
     {
@@ -262,6 +264,9 @@ public sealed class MainViewModel : ObservableObject
             if (SetProperty(ref _selectedViewMode, value))
             {
                 OnPropertyChanged(nameof(CurrentScopeSummary));
+                OnPropertyChanged(nameof(IsGradeViewMode));
+                OnPropertyChanged(nameof(IsClassViewMode));
+                OnPropertyChanged(nameof(IsTeacherViewMode));
                 RefreshViews();
             }
         }
@@ -427,6 +432,10 @@ public sealed class MainViewModel : ObservableObject
     public bool IsTeacherConfigVisible => SelectedMainPage == "配置" && SelectedConfigPage == "教师配置";
     public bool IsFixedLessonConfigVisible => SelectedMainPage == "配置" && SelectedConfigPage == "固定课程";
     public bool IsAutoScheduleVisible => SelectedMainPage == "配置" && SelectedConfigPage == "自动排课";
+
+    public bool IsGradeViewMode => SelectedViewMode == "年级总表";
+    public bool IsClassViewMode => SelectedViewMode == "班级课表";
+    public bool IsTeacherViewMode => SelectedViewMode == "教师课表";
 
     public int TotalClasses => Classes.Count;
     public int TotalSubjects => Subjects.Count;
@@ -844,8 +853,11 @@ public sealed class MainViewModel : ObservableObject
 
     private void RefreshTimetable()
     {
+        int daysPerWeek = Math.Max(1, DaysPerWeek);
+        int periodsPerDay = Math.Max(1, PeriodsPerDay);
+
         ObservableCollection<ScheduleDayViewModel> days = new();
-        for (int day = 0; day < Math.Max(1, DaysPerWeek); day++)
+        for (int day = 0; day < daysPerWeek; day++)
         {
             ScheduleDayViewModel dayView = new()
             {
@@ -853,7 +865,7 @@ public sealed class MainViewModel : ObservableObject
                 DayName = GetDayName(day)
             };
 
-            for (int period = 1; period <= Math.Max(1, PeriodsPerDay); period++)
+            for (int period = 1; period <= periodsPerDay; period++)
             {
                 string periodType = period <= MorningPeriods ? "上午" :
                     period <= MorningPeriods + AfternoonPeriods ? "下午" : "晚自习";
@@ -881,6 +893,44 @@ public sealed class MainViewModel : ObservableObject
 
         TimetableDays = days;
         OnPropertyChanged(nameof(TimetableDays));
+
+        ObservableCollection<SchedulePeriodRowViewModel> rows = new();
+        for (int period = 1; period <= periodsPerDay; period++)
+        {
+            string periodType = period <= MorningPeriods ? "上午" :
+                period <= MorningPeriods + AfternoonPeriods ? "下午" : "晚自习";
+
+            SchedulePeriodRowViewModel row = new()
+            {
+                PeriodIndex = period,
+                PeriodLabel = $"第{period}节",
+                PeriodType = periodType
+            };
+
+            for (int day = 0; day < daysPerWeek; day++)
+            {
+                SchedulePeriodDayColumn col = new()
+                {
+                    DayIndex = day,
+                    DayName = GetDayName(day)
+                };
+
+                foreach (ScheduleEntry entry in VisibleScheduleEntries
+                    .Where(x => x.DayIndex == day && x.PeriodIndex == period)
+                    .OrderBy(x => x.ClassName)
+                    .ThenBy(x => x.Subject))
+                {
+                    col.Entries.Add(entry);
+                }
+
+                row.DayColumns.Add(col);
+            }
+
+            rows.Add(row);
+        }
+
+        TimetableRows = rows;
+        OnPropertyChanged(nameof(TimetableRows));
     }
 
     private void ApplySchoolData(SchoolData data)

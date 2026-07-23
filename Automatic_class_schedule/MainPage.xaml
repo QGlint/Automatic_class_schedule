@@ -80,10 +80,11 @@
                     CanDrag="True" AllowDrop="True"
                     DragStarting="Entry_DragStarting"
                     DragOver="Entry_DragOver" Drop="Entry_Drop">
-                <StackPanel>
-                    <TextBlock Text="{Binding Subject}" FontSize="12" />
-                    <TextBlock Text="{Binding TeacherName}" FontSize="10" Foreground="#FF556070" />
-                </StackPanel>
+                <TextBlock FontSize="12" TextWrapping="NoWrap">
+                    <Run Text="{Binding Subject}" />
+                    <Run Text=" " />
+                    <Run Text="{Binding TeacherName}" Foreground="#FF556070" />
+                </TextBlock>
             </Border>
         </DataTemplate>
     </Page.Resources>
@@ -225,34 +226,40 @@
                                 Visibility="{Binding SelectedViewMode, Converter={StaticResource StringMatchToVisibility}, ConverterParameter=教师课表}" />
                         <Rectangle Height="1" Fill="#FFD9E1EC" Margin="0,6,0,10" />
 
-                        <TextBox PlaceholderText="搜索教师..." Text="{Binding TeacherSearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6" Padding="6,4" />
-                        <TextBlock Text="教师" FontWeight="SemiBold" Margin="0,0,0,6" />
-                        <ItemsControl ItemsSource="{Binding FilteredTeachers}" MaxHeight="160">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Button Content="{Binding Name}" Click="TeacherButton_Click" Style="{StaticResource TagButtonStyle}" />
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                        <StackPanel Visibility="{Binding IsTeacherViewMode, Converter={StaticResource BoolToVisibility}}">
+                            <TextBox PlaceholderText="搜索教师..." Text="{Binding TeacherSearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6" Padding="6,4" />
+                            <TextBlock Text="教师" FontWeight="SemiBold" Margin="0,0,0,6" />
+                            <ItemsControl ItemsSource="{Binding FilteredTeachers}" MaxHeight="160">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Content="{Binding Name}" Click="TeacherButton_Click" Style="{StaticResource TagButtonStyle}" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
 
-                        <TextBox PlaceholderText="筛选年级..." Text="{Binding GradeFilterText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,6" Padding="6,4" />
-                        <TextBlock Text="年级" FontWeight="SemiBold" Margin="0,0,0,6" />
-                        <ItemsControl ItemsSource="{Binding FilteredGrades}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Button Content="{Binding GradeName}" Click="GradeButton_Click" Style="{StaticResource TagButtonStyle}" />
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                        <StackPanel Visibility="{Binding IsGradeViewMode, Converter={StaticResource BoolToVisibility}}">
+                            <TextBox PlaceholderText="筛选年级..." Text="{Binding GradeFilterText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,6" Padding="6,4" />
+                            <TextBlock Text="年级" FontWeight="SemiBold" Margin="0,0,0,6" />
+                            <ItemsControl ItemsSource="{Binding FilteredGrades}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Content="{Binding GradeName}" Click="GradeButton_Click" Style="{StaticResource TagButtonStyle}" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
 
-                        <TextBlock Text="班级" FontWeight="SemiBold" Margin="0,8,0,6" />
-                        <ItemsControl ItemsSource="{Binding FilteredClasses}" MaxHeight="160">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Button Content="{Binding DisplayName}" Click="ClassButton_Click" Style="{StaticResource TagButtonStyle}" />
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                        <StackPanel Visibility="{Binding IsClassViewMode, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="班级" FontWeight="SemiBold" Margin="0,8,0,6" />
+                            <ItemsControl ItemsSource="{Binding FilteredClasses}" MaxHeight="160">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Content="{Binding DisplayName}" Click="ClassButton_Click" Style="{StaticResource TagButtonStyle}" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
 
                         <Rectangle Height="1" Fill="#FFD9E1EC" Margin="0,6,0,10" />
                         <Button Content="5 天制" Command="{Binding UseFiveDayCommand}" Style="{StaticResource NavButtonStyle}" />
@@ -408,7 +415,7 @@
                             <StackPanel>
                                 <TextBlock Text="分布规则" FontWeight="SemiBold" />
                                 <TextBlock Text="选择课程在每周的分布方式。" Foreground="#FF5A6877" />
-                                <ComboBox SelectedValue="{Binding SelectedSubject.Name}" Margin="0,6,0,0" Width="180" HorizontalAlignment="Left">
+                                <ComboBox SelectedValue="{Binding SelectedSubject.DistributionRule, Mode=TwoWay}" Margin="0,6,0,0" Width="180" HorizontalAlignment="Left">
                                     <x:String>每天一次</x:String>
                                     <x:String>均衡分布</x:String>
                                     <x:String>集中安排</x:String>
@@ -441,11 +448,11 @@
                                 </Grid>
                                 <controls:DataGrid ItemsSource="{Binding TeacherAssignments}" SelectedItem="{Binding SelectedTeacherAssignment, Mode=TwoWay}">
                                     <controls:DataGrid.Columns>
-                                        <controls:DataGridTextColumn Header="教师" Binding="{Binding TeacherName, UpdateSourceTrigger=PropertyChanged}" Width="100" />
-                                        <controls:DataGridTextColumn Header="科目" Binding="{Binding Subject, UpdateSourceTrigger=PropertyChanged}" Width="80" />
-                                        <controls:DataGridTextColumn Header="所带班级" Binding="{Binding ClassNames, UpdateSourceTrigger=PropertyChanged}" Width="*" />
-                                        <controls:DataGridTextColumn Header="周课时" Binding="{Binding WeeklyCount, UpdateSourceTrigger=PropertyChanged}" Width="70" />
-                                        <controls:DataGridTextColumn Header="分布规则" Binding="{Binding DistributionRule, UpdateSourceTrigger=PropertyChanged}" Width="90" />
+                                        <controls:DataGridTextColumn Header="教师" Binding="{Binding TeacherName, UpdateSourceTrigger=PropertyChanged}" Width="80" />
+                                        <controls:DataGridTextColumn Header="科目" Binding="{Binding Subject, UpdateSourceTrigger=PropertyChanged}" Width="70" />
+                                        <controls:DataGridTextColumn Header="所带班级" Binding="{Binding ClassNames, UpdateSourceTrigger=PropertyChanged}" Width="*" MinWidth="120" />
+                                        <controls:DataGridTextColumn Header="周课时" Binding="{Binding WeeklyCount, UpdateSourceTrigger=PropertyChanged}" Width="60" />
+                                        <controls:DataGridTextColumn Header="分布规则" Binding="{Binding DistributionRule, UpdateSourceTrigger=PropertyChanged}" Width="80" />
                                     </controls:DataGrid.Columns>
                                 </controls:DataGrid>
                             </StackPanel>

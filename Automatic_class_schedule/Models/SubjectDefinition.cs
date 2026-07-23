@@ -30,4 +30,12 @@ public sealed class SubjectDefinition : Infrastructure.ObservableObject
         get => _defaultWeeklyCount;
         set => SetProperty(ref _defaultWeeklyCount, value);
     }
+
+    private string _distributionRule = "均衡分布";
+
+    public string DistributionRule
+    {
+        get => _distributionRule;
+        set => SetProperty(ref _distributionRule, value);
+    }
 }

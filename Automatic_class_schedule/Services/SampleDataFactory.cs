@@ -12,9 +12,9 @@ public static class SampleDataFactory
             {
                 SchoolName = "自动排课示例",
                 DaysPerWeek = 5,
-                PeriodsPerDay = 7,
+                PeriodsPerDay = 8,
                 MorningPeriods = 4,
-                AfternoonPeriods = 3
+                AfternoonPeriods = 4
             }
         };
 
@@ -32,32 +32,22 @@ public static class SampleDataFactory
 
         data.Subjects.AddRange(new[]
         {
-            new SubjectDefinition { Name = "语文", Category = "主科", DefaultWeeklyCount = 6 },
-            new SubjectDefinition { Name = "数学", Category = "主科", DefaultWeeklyCount = 6 },
-            new SubjectDefinition { Name = "英语", Category = "主科", DefaultWeeklyCount = 5 },
-            new SubjectDefinition { Name = "物理", Category = "理科", DefaultWeeklyCount = 4 },
-            new SubjectDefinition { Name = "化学", Category = "理科", DefaultWeeklyCount = 3 },
-            new SubjectDefinition { Name = "生物", Category = "理科", DefaultWeeklyCount = 3 },
-            new SubjectDefinition { Name = "历史", Category = "文科", DefaultWeeklyCount = 3 },
-            new SubjectDefinition { Name = "地理", Category = "文科", DefaultWeeklyCount = 3 },
-            new SubjectDefinition { Name = "政治", Category = "文科", DefaultWeeklyCount = 3 },
-            new SubjectDefinition { Name = "体育", Category = "副科", DefaultWeeklyCount = 3 }
+            new SubjectDefinition { Name = "语文", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次" },
+            new SubjectDefinition { Name = "数学", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次" },
+            new SubjectDefinition { Name = "英语", Category = "主科", DefaultWeeklyCount = 5, DistributionRule = "每天一次" },
+            new SubjectDefinition { Name = "物理", Category = "理科", DefaultWeeklyCount = 3, DistributionRule = "均衡分布" },
+            new SubjectDefinition { Name = "化学", Category = "理科", DefaultWeeklyCount = 3, DistributionRule = "均衡分布" },
+            new SubjectDefinition { Name = "生物", Category = "理科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布" },
+            new SubjectDefinition { Name = "历史", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布" },
+            new SubjectDefinition { Name = "地理", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布" },
+            new SubjectDefinition { Name = "政治", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布" },
+            new SubjectDefinition { Name = "体育", Category = "副科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布" }
         });
         ct.ThrowIfCancellationRequested();
         progress?.Report(0.25);
 
         service.GenerateAssignments(data.TeacherAssignments, data.Subjects, data.Classes);
         data.Requirements.AddRange(service.BuildRequirementsFromAssignments(data.TeacherAssignments, data.Classes, data.Subjects));
-
-        data.FixedLessons.Add(new FixedLesson
-        {
-            Scope = FixedLessonScope.All,
-            ScopeValue = "全校",
-            DayIndex = 0,
-            PeriodIndex = 1,
-            Subject = "升旗",
-            Reason = "全校升旗"
-        });
         ct.ThrowIfCancellationRequested();
         progress?.Report(0.5);
 

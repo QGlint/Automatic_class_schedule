@@ -117,12 +117,14 @@ public sealed class ScheduleService
         for (int si = 0; si < allSubjects.Length; si++)
         {
             string subject = allSubjects[si];
-            int weeklyCount = subjects.FirstOrDefault(s => s.Name == subject)?.DefaultWeeklyCount ?? GetDefaultWeeklyCount(subject);
+            SubjectDefinition? subDef = subjects.FirstOrDefault(s => s.Name == subject);
+            int weeklyCount = subDef?.DefaultWeeklyCount ?? GetDefaultWeeklyCount(subject);
             int perTeacher = cpTeacher[si];
             int numTeachers = (int)Math.Ceiling((double)classCount / perTeacher);
 
             bool preferMorning = subject is "数学" or "英语" or "语文" or "物理" or "化学";
             bool avoidLast = subject is "体育";
+            string distributionRule = subDef?.DistributionRule ?? (preferMorning ? "每天一次" : "均衡分布");
 
             int currentOffset = 0;
             for (int ti = 0; ti < numTeachers; ti++)
@@ -142,7 +144,7 @@ public sealed class ScheduleService
                     Subject = subject,
                     WeeklyCount = weeklyCount,
                     ClassNames = string.Join("、", teacherClasses),
-                    DistributionRule = preferMorning ? "每天一次" : "均衡分布",
+                    DistributionRule = distributionRule,
                     PreferMorning = preferMorning,
                     AvoidLastPeriod = avoidLast
                 };
@@ -219,13 +221,13 @@ public sealed class ScheduleService
             "语文" => 6,
             "数学" => 6,
             "英语" => 5,
-            "物理" => 4,
+            "物理" => 3,
             "化学" => 3,
-            "生物" => 3,
-            "历史" => 3,
-            "地理" => 3,
-            "政治" => 3,
-            "体育" => 3,
+            "生物" => 2,
+            "历史" => 2,
+            "地理" => 2,
+            "政治" => 2,
+            "体育" => 2,
             "音乐" => 1,
             "美术" => 1,
             _ => 2

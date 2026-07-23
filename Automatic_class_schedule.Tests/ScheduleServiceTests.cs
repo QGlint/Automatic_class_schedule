@@ -229,8 +229,11 @@ public sealed class ScheduleServiceTests
         Assert.Equal(6, ScheduleService.GetDefaultWeeklyCount("语文"));
         Assert.Equal(6, ScheduleService.GetDefaultWeeklyCount("数学"));
         Assert.Equal(5, ScheduleService.GetDefaultWeeklyCount("英语"));
-        Assert.Equal(4, ScheduleService.GetDefaultWeeklyCount("物理"));
+        Assert.Equal(3, ScheduleService.GetDefaultWeeklyCount("物理"));
         Assert.Equal(3, ScheduleService.GetDefaultWeeklyCount("化学"));
+        Assert.Equal(2, ScheduleService.GetDefaultWeeklyCount("体育"));
+        Assert.Equal(2, ScheduleService.GetDefaultWeeklyCount("生物"));
+        Assert.Equal(2, ScheduleService.GetDefaultWeeklyCount("历史"));
         Assert.Equal(1, ScheduleService.GetDefaultWeeklyCount("音乐"));
         Assert.Equal(2, ScheduleService.GetDefaultWeeklyCount("未知科目"));
     }
