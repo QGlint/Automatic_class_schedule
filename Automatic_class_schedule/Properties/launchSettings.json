@@ -1,10 +1,11 @@
 {
   "profiles": {
+    "Automatic_class_schedule (Unpackaged)": {
+      "commandName": "Project",
+      "nativeDebugging": false
+    },
     "Automatic_class_schedule (Package)": {
       "commandName": "MsixPackage"
-    },
-    "Automatic_class_schedule (Unpackaged)": {
-      "commandName": "Project"
     }
   }
 }
