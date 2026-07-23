@@ -33,6 +33,8 @@ public sealed class InverseBoolToVisibilityConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, string language)
     {
+        if (parameter is string s && value is string v)
+            return !string.Equals(v, s, StringComparison.Ordinal) ? Visibility.Visible : Visibility.Collapsed;
         return value is false ? Visibility.Visible : Visibility.Collapsed;
     }
 
