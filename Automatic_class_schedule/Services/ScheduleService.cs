@@ -107,46 +107,39 @@ public sealed class ScheduleService
     public void GenerateAssignments(ICollection<TeacherAssignment> assignments, IEnumerable<SubjectDefinition> subjects, IEnumerable<SchoolClass> classes)
     {
         assignments.Clear();
-        string[] defaultSubjects = { "语文", "数学", "英语", "体育", "政治", "历史", "地理", "物理", "化学", "生物" };
-        string[] teacherNames = { "张老师", "李老师", "王老师", "赵老师", "钱老师", "孙老师", "周老师", "吴老师", "郑老师", "冯老师" };
-        string[][] subjectTeachers =
-        {
-            new[] { "张老师", "李老师" },
-            new[] { "王老师", "周老师" },
-            new[] { "赵老师", "钱老师" },
-            new[] { "孙老师" },
-            new[] { "吴老师" },
-            new[] { "郑老师" },
-            new[] { "冯老师" },
-            new[] { "张老师" },
-            new[] { "李老师" },
-            new[] { "王老师" }
-        };
-
         List<string> classNames = classes.Select(c => c.Name).ToList();
         if (classNames.Count == 0) return;
 
-        for (int si = 0; si < defaultSubjects.Length; si++)
+        string[] allSubjects = { "语文", "数学", "英语", "体育", "政治", "历史", "地理", "物理", "化学", "生物" };
+        int[] cpTeacher = { 2, 2, 2, 6, 3, 3, 3, 3, 3, 3 };
+
+        int classCount = classNames.Count;
+
+        for (int si = 0; si < allSubjects.Length; si++)
         {
-            string subject = defaultSubjects[si];
+            string subject = allSubjects[si];
             int weeklyCount = subjects.FirstOrDefault(s => s.Name == subject)?.DefaultWeeklyCount ?? GetDefaultWeeklyCount(subject);
-            string[] teachers = subjectTeachers[si];
+            int perTeacher = cpTeacher[si];
+            int numTeachers = (int)Math.Ceiling((double)classCount / perTeacher);
 
-            int classesPerTeacher = (int)Math.Ceiling((double)classNames.Count / teachers.Length);
+            bool preferMorning = subject is "数学" or "英语" or "语文" or "物理" or "化学";
+            bool avoidLast = subject is "体育";
 
-            for (int ti = 0; ti < teachers.Length; ti++)
+            int currentOffset = 0;
+            for (int ti = 0; ti < numTeachers; ti++)
             {
-                int start = ti * classesPerTeacher;
-                int end = Math.Min(start + classesPerTeacher, classNames.Count);
-                if (start >= classNames.Count) break;
+                int remaining = classCount - currentOffset;
+                int take = Math.Min(perTeacher, remaining);
+                if (take <= 0) break;
 
-                List<string> teacherClasses = classNames.Skip(start).Take(end - start).ToList();
-                bool preferMorning = subject is "数学" or "英语" or "语文" or "物理" or "化学";
-                bool avoidLast = subject is "体育";
+                List<string> teacherClasses = classNames.Skip(currentOffset).Take(take).ToList();
+                currentOffset += take;
+
+                string teacherName = $"{subject.Substring(0, 1)}老师{ti + 1}";
 
                 TeacherAssignment ta = new()
                 {
-                    TeacherName = teachers[ti],
+                    TeacherName = teacherName,
                     Subject = subject,
                     WeeklyCount = weeklyCount,
                     ClassNames = string.Join("、", teacherClasses),
@@ -156,6 +149,7 @@ public sealed class ScheduleService
                 };
                 assignments.Add(ta);
             }
+
         }
     }
 

@@ -91,7 +91,8 @@ public sealed class MainViewModel : ObservableObject
         LoadData();
         if (GradeInputs.Count == 0)
         {
-            LoadSampleData();
+            InitDefaultGrades();
+            InitDefaultSubjects();
         }
         else
         {
@@ -100,6 +101,27 @@ public sealed class MainViewModel : ObservableObject
 
         SelectedMainPage = "配置";
         SelectedConfigPage = "基础设置";
+    }
+
+    private void InitDefaultGrades()
+    {
+        GradeInputs.Add(new GradeInput { GradeName = "七年级", ClassCount = 8 });
+        GradeInputs.Add(new GradeInput { GradeName = "八年级", ClassCount = 8 });
+        GradeInputs.Add(new GradeInput { GradeName = "九年级", ClassCount = 6 });
+    }
+
+    private void InitDefaultSubjects()
+    {
+        Subjects.Add(new SubjectDefinition { Name = "语文", Category = "主科", DefaultWeeklyCount = 6 });
+        Subjects.Add(new SubjectDefinition { Name = "数学", Category = "主科", DefaultWeeklyCount = 6 });
+        Subjects.Add(new SubjectDefinition { Name = "英语", Category = "主科", DefaultWeeklyCount = 5 });
+        Subjects.Add(new SubjectDefinition { Name = "物理", Category = "理科", DefaultWeeklyCount = 4 });
+        Subjects.Add(new SubjectDefinition { Name = "化学", Category = "理科", DefaultWeeklyCount = 3 });
+        Subjects.Add(new SubjectDefinition { Name = "生物", Category = "理科", DefaultWeeklyCount = 3 });
+        Subjects.Add(new SubjectDefinition { Name = "历史", Category = "文科", DefaultWeeklyCount = 3 });
+        Subjects.Add(new SubjectDefinition { Name = "地理", Category = "文科", DefaultWeeklyCount = 3 });
+        Subjects.Add(new SubjectDefinition { Name = "政治", Category = "文科", DefaultWeeklyCount = 3 });
+        Subjects.Add(new SubjectDefinition { Name = "体育", Category = "副科", DefaultWeeklyCount = 3 });
     }
 
     public ObservableCollection<string> ConfigPages { get; }

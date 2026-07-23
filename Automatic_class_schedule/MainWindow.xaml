@@ -148,17 +148,14 @@
     <Grid Margin="10">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- ===== 顶部导航栏 ===== -->
+        <!-- ===== 顶部工具按钮栏 ===== -->
         <Border Background="White" CornerRadius="12" BorderBrush="#FFD9E1EC" BorderThickness="1" Padding="8,4">
             <DockPanel LastChildFill="False">
                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
-                    <Button Content="配置" Command="{Binding SelectMainPageCommand}" CommandParameter="配置" Style="{StaticResource TopButtonStyle}" Background="#FF214E78" Foreground="White" />
-                    <Button Content="课表" Command="{Binding SelectMainPageCommand}" CommandParameter="课表" Style="{StaticResource TopButtonStyle}" Background="#FFE8EDF4" Foreground="#FF214E78" />
-                    <Button Content="导出" Command="{Binding SelectMainPageCommand}" CommandParameter="导出" Style="{StaticResource TopButtonStyle}" Background="#FFE8EDF4" Foreground="#FF214E78" />
-                    <Separator Margin="12,4" Width="1" Background="#FFD9E1EC" />
                     <Button Content="新建项目" Command="{Binding NewProjectCommand}" Style="{StaticResource TopButtonStyle}" Background="#FFF0F5FF" Foreground="#FF214E78" />
                     <Button Content="加载示例" Command="{Binding SeedSampleDataCommand}" Style="{StaticResource TopButtonStyle}" Background="#FFF0F5FF" Foreground="#FF214E78" />
                     <Button Content="保存配置" Command="{Binding SaveCommand}" Style="{StaticResource TopButtonStyle}" Background="#FFF0F5FF" Foreground="#FF214E78" />
@@ -168,7 +165,55 @@
             </DockPanel>
         </Border>
 
-        <Grid Grid.Row="1" Margin="0,10,0,0">
+        <!-- ===== 页面切换栏 ===== -->
+        <Border Grid.Row="1" Background="White" CornerRadius="12" BorderBrush="#FFD9E1EC" BorderThickness="1" Padding="8,4" Margin="0,6,0,0">
+            <StackPanel Orientation="Horizontal">
+                <Button Content="配置" Command="{Binding SelectMainPageCommand}" CommandParameter="配置">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource TopButtonStyle}">
+                            <Setter Property="Background" Value="#FFE8EDF4" />
+                            <Setter Property="Foreground" Value="#FF214E78" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding SelectedMainPage}" Value="配置">
+                                    <Setter Property="Background" Value="#FF214E78" />
+                                    <Setter Property="Foreground" Value="White" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
+                <Button Content="课表" Command="{Binding SelectMainPageCommand}" CommandParameter="课表">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource TopButtonStyle}">
+                            <Setter Property="Background" Value="#FFE8EDF4" />
+                            <Setter Property="Foreground" Value="#FF214E78" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding SelectedMainPage}" Value="课表">
+                                    <Setter Property="Background" Value="#FF214E78" />
+                                    <Setter Property="Foreground" Value="White" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
+                <Button Content="导出" Command="{Binding SelectMainPageCommand}" CommandParameter="导出">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource TopButtonStyle}">
+                            <Setter Property="Background" Value="#FFE8EDF4" />
+                            <Setter Property="Foreground" Value="#FF214E78" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding SelectedMainPage}" Value="导出">
+                                    <Setter Property="Background" Value="#FF214E78" />
+                                    <Setter Property="Foreground" Value="White" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
+            </StackPanel>
+        </Border>
+
+        <Grid Grid.Row="2" Margin="0,10,0,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="260" />
                 <ColumnDefinition Width="*" />
@@ -441,10 +486,10 @@
                                     <TextBlock Text="添加年级和班级数，点击「生成班级」创建具体班级。" Foreground="#FF5A6877" VerticalAlignment="Center" />
                                     <Button Grid.Column="1" Content="生成班级" Command="{Binding GenerateClassesCommand}" Style="{StaticResource RoundButtonStyle}" Background="#FF214E78" Foreground="White" Margin="10,0,0,0" />
                                 </Grid>
-                                <DataGrid ItemsSource="{Binding GradeInputs}" SelectedItem="{Binding SelectedGradeInput, Mode=TwoWay}" Margin="0,10,0,0">
+                                <DataGrid ItemsSource="{Binding GradeInputs}" SelectedItem="{Binding SelectedGradeInput, Mode=TwoWay}" Margin="0,10,0,0" MinColumnWidth="100">
                                     <DataGrid.Columns>
-                                        <DataGridTextColumn Header="年级" Binding="{Binding GradeName, UpdateSourceTrigger=PropertyChanged}" Width="*" />
-                                        <DataGridTextColumn Header="班级数" Binding="{Binding ClassCount, UpdateSourceTrigger=PropertyChanged}" Width="120" />
+                                        <DataGridTextColumn Header="年级" Binding="{Binding GradeName, UpdateSourceTrigger=PropertyChanged}" Width="*" MinWidth="120" />
+                                        <DataGridTextColumn Header="班级数" Binding="{Binding ClassCount, UpdateSourceTrigger=PropertyChanged}" Width="140" MinWidth="100" />
                                     </DataGrid.Columns>
                                 </DataGrid>
                             </StackPanel>
@@ -498,11 +543,11 @@
                         <TextBlock Text="配置课程名称、类别和默认每周课时。教师配置中如未指定课时则继承此默认值。" Foreground="#FF5A6877" Margin="0,0,0,12" />
                         <GroupBox Header="课程列表" Style="{StaticResource SectionGroupStyle}">
                             <StackPanel Margin="10">
-                                <DataGrid ItemsSource="{Binding Subjects}" SelectedItem="{Binding SelectedSubject, Mode=TwoWay}">
+                                <DataGrid ItemsSource="{Binding Subjects}" SelectedItem="{Binding SelectedSubject, Mode=TwoWay}" MinColumnWidth="100">
                                     <DataGrid.Columns>
-                                        <DataGridTextColumn Header="课程" Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Width="*" />
-                                        <DataGridTextColumn Header="类别" Binding="{Binding Category, UpdateSourceTrigger=PropertyChanged}" Width="140" />
-                                        <DataGridTextColumn Header="每周课时" Binding="{Binding DefaultWeeklyCount, UpdateSourceTrigger=PropertyChanged}" Width="100" />
+                                        <DataGridTextColumn Header="课程" Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Width="*" MinWidth="100" />
+                                        <DataGridTextColumn Header="类别" Binding="{Binding Category, UpdateSourceTrigger=PropertyChanged}" Width="160" MinWidth="100" />
+                                        <DataGridTextColumn Header="每周课时" Binding="{Binding DefaultWeeklyCount, UpdateSourceTrigger=PropertyChanged}" Width="120" MinWidth="80" />
                                     </DataGrid.Columns>
                                 </DataGrid>
                             </StackPanel>
@@ -543,15 +588,15 @@
                                     <TextBlock Text="每行配置一个教师，可带多个班级（用、分隔）。" Foreground="#FF5A6877" VerticalAlignment="Center" />
                                     <Button Grid.Column="1" Content="生成授课需求" Command="{Binding GenerateRequirementsCommand}" Style="{StaticResource RoundButtonStyle}" Background="#FF214E78" Foreground="White" Margin="10,0,0,0" />
                                 </Grid>
-                                <DataGrid ItemsSource="{Binding TeacherAssignments}" SelectedItem="{Binding SelectedTeacherAssignment, Mode=TwoWay}" Margin="0,10,0,0">
+                                <DataGrid ItemsSource="{Binding TeacherAssignments}" SelectedItem="{Binding SelectedTeacherAssignment, Mode=TwoWay}" Margin="0,10,0,0" MinColumnWidth="80">
                                     <DataGrid.Columns>
-                                        <DataGridTextColumn Header="教师" Binding="{Binding TeacherName, UpdateSourceTrigger=PropertyChanged}" Width="120" />
-                                        <DataGridTextColumn Header="科目" Binding="{Binding Subject, UpdateSourceTrigger=PropertyChanged}" Width="100" />
-                                        <DataGridTextColumn Header="所带班级" Binding="{Binding ClassNames, UpdateSourceTrigger=PropertyChanged}" Width="*" />
-                                        <DataGridTextColumn Header="周课时(0=默认)" Binding="{Binding WeeklyCount, UpdateSourceTrigger=PropertyChanged}" Width="100" />
-                                        <DataGridTextColumn Header="分布" Binding="{Binding DistributionRule, UpdateSourceTrigger=PropertyChanged}" Width="100" />
-                                        <DataGridCheckBoxColumn Header="上午优先" Binding="{Binding PreferMorning, UpdateSourceTrigger=PropertyChanged}" Width="80" />
-                                        <DataGridCheckBoxColumn Header="避开末节" Binding="{Binding AvoidLastPeriod, UpdateSourceTrigger=PropertyChanged}" Width="80" />
+                                        <DataGridTextColumn Header="教师" Binding="{Binding TeacherName, UpdateSourceTrigger=PropertyChanged}" Width="130" MinWidth="100" />
+                                        <DataGridTextColumn Header="科目" Binding="{Binding Subject, UpdateSourceTrigger=PropertyChanged}" Width="110" MinWidth="80" />
+                                        <DataGridTextColumn Header="所带班级" Binding="{Binding ClassNames, UpdateSourceTrigger=PropertyChanged}" Width="*" MinWidth="150" />
+                                        <DataGridTextColumn Header="周课时" Binding="{Binding WeeklyCount, UpdateSourceTrigger=PropertyChanged}" Width="100" MinWidth="80" />
+                                        <DataGridTextColumn Header="分布规则" Binding="{Binding DistributionRule, UpdateSourceTrigger=PropertyChanged}" Width="120" MinWidth="80" />
+                                        <DataGridCheckBoxColumn Header="上午优先" Binding="{Binding PreferMorning, UpdateSourceTrigger=PropertyChanged}" Width="90" MinWidth="70" />
+                                        <DataGridCheckBoxColumn Header="避开末节" Binding="{Binding AvoidLastPeriod, UpdateSourceTrigger=PropertyChanged}" Width="90" MinWidth="70" />
                                     </DataGrid.Columns>
                                 </DataGrid>
                             </StackPanel>
@@ -583,13 +628,13 @@
                         <TextBlock Text="配置全校、年级、班级或教师级别的固定课程。" Foreground="#FF5A6877" Margin="0,0,0,12" />
                         <GroupBox Header="固定课程列表" Style="{StaticResource SectionGroupStyle}">
                             <StackPanel Margin="10">
-                                <DataGrid ItemsSource="{Binding FixedLessons}" SelectedItem="{Binding SelectedFixedLesson, Mode=TwoWay}">
+                                <DataGrid ItemsSource="{Binding FixedLessons}" SelectedItem="{Binding SelectedFixedLesson, Mode=TwoWay}" MinColumnWidth="80">
                                     <DataGrid.Columns>
-                                        <DataGridTextColumn Header="范围" Binding="{Binding ScopeValue, UpdateSourceTrigger=PropertyChanged}" Width="120" />
-                                        <DataGridTextColumn Header="星期" Binding="{Binding DayIndex, UpdateSourceTrigger=PropertyChanged}" Width="70" />
-                                        <DataGridTextColumn Header="节次" Binding="{Binding PeriodIndex, UpdateSourceTrigger=PropertyChanged}" Width="70" />
-                                        <DataGridTextColumn Header="课程" Binding="{Binding Subject, UpdateSourceTrigger=PropertyChanged}" Width="100" />
-                                        <DataGridTextColumn Header="原因" Binding="{Binding Reason, UpdateSourceTrigger=PropertyChanged}" Width="*" />
+                                        <DataGridTextColumn Header="范围" Binding="{Binding ScopeValue, UpdateSourceTrigger=PropertyChanged}" Width="130" MinWidth="80" />
+                                        <DataGridTextColumn Header="星期" Binding="{Binding DayIndex, UpdateSourceTrigger=PropertyChanged}" Width="80" MinWidth="60" />
+                                        <DataGridTextColumn Header="节次" Binding="{Binding PeriodIndex, UpdateSourceTrigger=PropertyChanged}" Width="80" MinWidth="60" />
+                                        <DataGridTextColumn Header="课程" Binding="{Binding Subject, UpdateSourceTrigger=PropertyChanged}" Width="120" MinWidth="80" />
+                                        <DataGridTextColumn Header="原因" Binding="{Binding Reason, UpdateSourceTrigger=PropertyChanged}" Width="*" MinWidth="100" />
                                     </DataGrid.Columns>
                                 </DataGrid>
                             </StackPanel>
