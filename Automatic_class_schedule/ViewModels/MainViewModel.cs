@@ -22,6 +22,7 @@ public sealed class MainViewModel : ObservableObject
     private GradeInput? _selectedGradeInput;
     private SchoolClass? _selectedClass;
     private Teacher? _selectedTeacher;
+    private SubjectDefinition? _selectedSubject;
     private ScheduleEntry? _selectedScheduleEntry;
     private LessonRequirement? _selectedRequirement;
     private FixedLesson? _selectedFixedLesson;
@@ -87,6 +88,8 @@ public sealed class MainViewModel : ObservableObject
         {
             RefreshViews();
         }
+
+        SelectedMainPage = "配置";
     }
 
     public ObservableCollection<string> Sections { get; }
@@ -141,6 +144,18 @@ public sealed class MainViewModel : ObservableObject
         set => SetProperty(ref _selectedSectionIndex, value);
     }
 
+    public string SelectedMainPage
+    {
+        get => _selectedMainPage;
+        set
+        {
+            if (SetProperty(ref _selectedMainPage, value))
+            {
+                OnPropertyChanged(nameof(CurrentScopeSummary));
+            }
+        }
+    }
+
     public string SelectedViewMode
     {
         get => _selectedViewMode;
@@ -193,6 +208,12 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
+    public SubjectDefinition? SelectedSubject
+    {
+        get => _selectedSubject;
+        set => SetProperty(ref _selectedSubject, value);
+    }
+
     public ScheduleEntry? SelectedScheduleEntry
     {
         get => _selectedScheduleEntry;
@@ -237,6 +258,9 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
+    public string ExportFolderPath => AppPaths.ExportFolder;
+    public string DataFilePath => AppPaths.DataFile;
+
     public RelayCommand SeedSampleDataCommand { get; }
     public RelayCommand GenerateClassesCommand { get; }
     public RelayCommand GenerateRequirementsCommand { get; }
@@ -249,6 +273,7 @@ public sealed class MainViewModel : ObservableObject
     public RelayCommand RefreshViewCommand { get; }
     public RelayCommand UseFiveDayCommand { get; }
     public RelayCommand UseSevenDayCommand { get; }
+    public RelayCommand<string> SelectMainPageCommand { get; }
     public RelayCommand<string> SelectViewModeCommand { get; }
     public RelayCommand<GradeInput> SelectGradeCommand { get; }
     public RelayCommand<SchoolClass> SelectClassCommand { get; }
@@ -300,6 +325,7 @@ public sealed class MainViewModel : ObservableObject
     private void LoadSampleData()
     {
         ApplySchoolData(SampleDataFactory.Create());
+        SelectedMainPage = "配置";
         SelectedViewMode = "年级总表";
         SelectedGradeInput = GradeInputs.FirstOrDefault();
         SelectedClass = Classes.FirstOrDefault();
@@ -390,6 +416,7 @@ public sealed class MainViewModel : ObservableObject
         }
 
         ApplySchoolData(data);
+        SelectedMainPage = "配置";
         SelectedViewMode = "年级总表";
         SelectedGradeInput = GradeInputs.FirstOrDefault();
         SelectedClass = Classes.FirstOrDefault();
@@ -424,6 +451,17 @@ public sealed class MainViewModel : ObservableObject
         RefreshViews();
         StatusMessage = "已导入 Excel 数据";
         Log("导入 Excel");
+    }
+
+    private void SetMainPage(string? page)
+    {
+        if (string.IsNullOrWhiteSpace(page))
+        {
+            return;
+        }
+
+        SelectedMainPage = page;
+        OnPropertyChanged(nameof(CurrentScopeSummary));
     }
 
     private void SetViewMode(string? viewMode)
@@ -576,6 +614,7 @@ public sealed class MainViewModel : ObservableObject
         SelectedGradeInput = GradeInputs.FirstOrDefault();
         SelectedClass = Classes.FirstOrDefault();
         SelectedTeacher = Teachers.FirstOrDefault();
+        SelectedSubject = Subjects.FirstOrDefault();
         SelectedRequirement = Requirements.FirstOrDefault();
         SelectedFixedLesson = FixedLessons.FirstOrDefault();
     }

@@ -11,63 +11,84 @@
         MinHeight="760"
         MinWidth="1280"
         WindowState="Maximized"
-        Background="#FFF3F5F9">
+        Background="#FFF3F5F9"
+        FontFamily="Segoe UI Variable Text"
+        FontSize="16">
     <Window.Resources>
-        <Style x:Key="ToolbarButtonStyle" TargetType="Button">
-            <Setter Property="Margin" Value="0,0,8,0" />
-            <Setter Property="Padding" Value="14,6" />
-            <Setter Property="MinWidth" Value="86" />
+        <Style x:Key="TopButtonStyle" TargetType="Button">
+            <Setter Property="MinHeight" Value="48" />
+            <Setter Property="MinWidth" Value="140" />
+            <Setter Property="Margin" Value="0,0,12,0" />
+            <Setter Property="Padding" Value="18,10" />
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="FontWeight" Value="SemiBold" />
         </Style>
 
-        <Style x:Key="ModeButtonStyle" TargetType="Button">
-            <Setter Property="Margin" Value="0,0,0,6" />
-            <Setter Property="Padding" Value="10,8" />
+        <Style x:Key="NavButtonStyle" TargetType="Button">
+            <Setter Property="MinHeight" Value="46" />
+            <Setter Property="Margin" Value="0,0,0,10" />
+            <Setter Property="Padding" Value="14,10" />
+            <Setter Property="FontSize" Value="16" />
             <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="FontWeight" Value="SemiBold" />
         </Style>
 
-        <Style x:Key="ChipButtonStyle" TargetType="Button">
-            <Setter Property="Margin" Value="0,0,0,6" />
-            <Setter Property="Padding" Value="10,6" />
+        <Style x:Key="TagButtonStyle" TargetType="Button">
+            <Setter Property="MinHeight" Value="42" />
+            <Setter Property="Margin" Value="0,0,0,8" />
+            <Setter Property="Padding" Value="12,8" />
+            <Setter Property="FontSize" Value="16" />
             <Setter Property="HorizontalContentAlignment" Value="Left" />
         </Style>
 
         <Style x:Key="SectionGroupStyle" TargetType="GroupBox">
-            <Setter Property="Margin" Value="0,0,0,10" />
+            <Setter Property="Margin" Value="0,0,0,12" />
             <Setter Property="Background" Value="White" />
             <Setter Property="BorderBrush" Value="#FFD9E1EC" />
         </Style>
 
-        <Style x:Key="ModeVisibleGroupStyle" TargetType="GroupBox" BasedOn="{StaticResource SectionGroupStyle}">
+        <Style x:Key="HiddenPageBorderStyle" TargetType="Border">
             <Setter Property="Visibility" Value="Collapsed" />
         </Style>
 
+        <Style TargetType="DataGrid">
+            <Setter Property="Margin" Value="0,8,0,0" />
+            <Setter Property="AutoGenerateColumns" Value="False" />
+            <Setter Property="CanUserAddRows" Value="True" />
+            <Setter Property="CanUserDeleteRows" Value="True" />
+            <Setter Property="HeadersVisibility" Value="Column" />
+            <Setter Property="GridLinesVisibility" Value="Horizontal" />
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="RowHeight" Value="34" />
+        </Style>
+
         <DataTemplate DataType="{x:Type vm:ScheduleRowViewModel}">
-            <Border Margin="0,0,10,0" Padding="8" Background="White" BorderBrush="#FFD9E1EC" BorderThickness="1" CornerRadius="8">
+            <Border Margin="0,0,12,0" Padding="10" Background="White" BorderBrush="#FFD9E1EC" BorderThickness="1" CornerRadius="10">
                 <DockPanel>
-                    <Border DockPanel.Dock="Top" Background="#FFF0F5FF" CornerRadius="6" Padding="8" Margin="0,0,0,8">
-                        <TextBlock Text="{Binding DayName}" FontSize="16" FontWeight="Bold" Foreground="#FF214E78" HorizontalAlignment="Center" />
+                    <Border DockPanel.Dock="Top" Background="#FFF0F5FF" CornerRadius="8" Padding="10" Margin="0,0,0,10">
+                        <TextBlock Text="{Binding DayName}" FontSize="18" FontWeight="Bold" Foreground="#FF214E78" HorizontalAlignment="Center" />
                     </Border>
                     <ItemsControl ItemsSource="{Binding Cells}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate DataType="{x:Type vm:ScheduleCellViewModel}">
-                                <Border Margin="0,0,0,6" Padding="6" Background="#FFFAFCFF" BorderBrush="#FFD8E3F0" BorderThickness="1" CornerRadius="6" AllowDrop="True" Drop="PeriodBlock_Drop">
+                                <Border Margin="0,0,0,8" Padding="8" Background="#FFFBFDFF" BorderBrush="#FFD8E3F0" BorderThickness="1" CornerRadius="8" AllowDrop="True" Drop="PeriodBlock_Drop">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="56" />
+                                            <ColumnDefinition Width="60" />
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
-                                        <Border Background="#FFEAF2FF" CornerRadius="4" Padding="4" Margin="0,0,6,0">
-                                            <TextBlock Text="{Binding PeriodLabel}" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        <Border Background="#FFEAF2FF" CornerRadius="6" Padding="6" Margin="0,0,8,0">
+                                            <TextBlock Text="{Binding PeriodLabel}" FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                         </Border>
                                         <ItemsControl Grid.Column="1" ItemsSource="{Binding Entries}">
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate>
-                                                    <Border Margin="0,0,0,4"
-                                                            Padding="5,2"
+                                                    <Border Margin="0,0,0,6"
+                                                            Padding="6,4"
                                                             Background="#FFF8FBFF"
                                                             BorderBrush="#FFBFD7EE"
                                                             BorderThickness="1"
-                                                            CornerRadius="4"
+                                                            CornerRadius="6"
                                                             AllowDrop="True"
                                                             Drop="LessonCard_Drop"
                                                             PreviewMouseMove="LessonCard_MouseMove">
@@ -77,17 +98,18 @@
                                                                 <ColumnDefinition Width="Auto" />
                                                             </Grid.ColumnDefinitions>
                                                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                                                <TextBlock Text="{Binding Subject}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                                                                <TextBlock Text=" · " />
-                                                                <TextBlock Text="{Binding TeacherName}" FontSize="11" Foreground="#FF556070" TextTrimming="CharacterEllipsis" />
+                                                                <TextBlock Text="{Binding Subject}" FontSize="16" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                                                <TextBlock Text=" · " FontSize="16" />
+                                                                <TextBlock Text="{Binding TeacherName}" FontSize="14" Foreground="#FF556070" TextTrimming="CharacterEllipsis" />
                                                             </StackPanel>
                                                             <TextBlock Grid.Column="1"
                                                                        Text="{Binding ClassName}"
-                                                                       FontSize="11"
+                                                                       FontSize="14"
                                                                        FontWeight="SemiBold"
                                                                        Foreground="#FF1F4E79"
                                                                        TextTrimming="CharacterEllipsis"
-                                                                       Margin="10,0,0,0" />
+                                                                       Margin="12,0,0,0"
+                                                                       VerticalAlignment="Center" />
                                                         </Grid>
                                                     </Border>
                                                 </DataTemplate>
@@ -109,140 +131,227 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <Border Background="White" CornerRadius="10" BorderBrush="#FFD9E1EC" BorderThickness="1" Padding="10">
-            <WrapPanel>
-                <Button Content="加载示例" Command="{Binding SeedSampleDataCommand}" Style="{StaticResource ToolbarButtonStyle}" />
-                <Button Content="生成班级" Command="{Binding GenerateClassesCommand}" Style="{StaticResource ToolbarButtonStyle}" />
-                <Button Content="生成需求" Command="{Binding GenerateRequirementsCommand}" Style="{StaticResource ToolbarButtonStyle}" />
-                <Button Content="自动排课" Command="{Binding AutoScheduleCommand}" Style="{StaticResource ToolbarButtonStyle}" />
-                <Button Content="检查冲突" Command="{Binding ValidateCommand}" Style="{StaticResource ToolbarButtonStyle}" />
-                <Button Content="保存" Command="{Binding SaveCommand}" Style="{StaticResource ToolbarButtonStyle}" />
-                <Button Content="导入" Command="{Binding ImportCommand}" Style="{StaticResource ToolbarButtonStyle}" />
-                <Button Content="导出" Command="{Binding ExportCommand}" Style="{StaticResource ToolbarButtonStyle}" />
-                <Separator Width="14" Opacity="0" />
-                <Button Content="5天" Command="{Binding UseFiveDayCommand}" Style="{StaticResource ToolbarButtonStyle}" />
-                <Button Content="7天" Command="{Binding UseSevenDayCommand}" Style="{StaticResource ToolbarButtonStyle}" />
-                <TextBlock VerticalAlignment="Center" Margin="10,0,0,0" Foreground="#FF5A6877" Text="{Binding StatusMessage}" />
-            </WrapPanel>
+        <Border Background="White" CornerRadius="12" BorderBrush="#FFD9E1EC" BorderThickness="1" Padding="12">
+            <DockPanel LastChildFill="False">
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
+                    <Button Content="配置" Command="{Binding SelectMainPageCommand}" CommandParameter="配置" Style="{StaticResource TopButtonStyle}" />
+                    <Button Content="课表" Command="{Binding SelectMainPageCommand}" CommandParameter="课表" Style="{StaticResource TopButtonStyle}" />
+                    <Button Content="导出" Command="{Binding SelectMainPageCommand}" CommandParameter="导出" Style="{StaticResource TopButtonStyle}" />
+                </StackPanel>
+                <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center" Foreground="#FF5A6877" Text="{Binding StatusMessage}" />
+            </DockPanel>
         </Border>
 
         <Grid Grid.Row="1" Margin="0,12,0,0">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="280" />
+                <ColumnDefinition Width="290" />
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="320" />
+                <ColumnDefinition Width="330" />
             </Grid.ColumnDefinitions>
 
-            <Border Background="White" CornerRadius="10" BorderBrush="#FFD9E1EC" BorderThickness="1" Padding="10" Margin="0,0,12,0">
+            <Border Grid.Column="0" Background="White" CornerRadius="12" BorderBrush="#FFD9E1EC" BorderThickness="1" Padding="12" Margin="0,0,12,0">
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource HiddenPageBorderStyle}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding SelectedMainPage}" Value="配置">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel>
-                        <GroupBox Header="视图切换" Style="{StaticResource SectionGroupStyle}">
+                        <TextBlock Text="配置导航" FontSize="18" FontWeight="Bold" Foreground="#FF214E78" Margin="0,0,0,8" />
+                        <Button Content="加载示例" Command="{Binding SeedSampleDataCommand}" Style="{StaticResource NavButtonStyle}" />
+                        <Button Content="生成班级" Command="{Binding GenerateClassesCommand}" Style="{StaticResource NavButtonStyle}" />
+                        <Button Content="生成需求" Command="{Binding GenerateRequirementsCommand}" Style="{StaticResource NavButtonStyle}" />
+                        <Button Content="自动排课" Command="{Binding AutoScheduleCommand}" Style="{StaticResource NavButtonStyle}" />
+                        <Button Content="检查冲突" Command="{Binding ValidateCommand}" Style="{StaticResource NavButtonStyle}" />
+                        <Button Content="保存配置" Command="{Binding SaveCommand}" Style="{StaticResource NavButtonStyle}" />
+                        <Button Content="载入配置" Command="{Binding LoadCommand}" Style="{StaticResource NavButtonStyle}" />
+                        <Separator Margin="0,8,0,12" />
+                        <TextBlock Text="配置页说明" FontWeight="SemiBold" Margin="0,0,0,8" />
+                        <TextBlock Text="在右侧编辑班级、课程、需求和固定课程。生成班级和生成需求都放在这里。" TextWrapping="Wrap" Foreground="#FF5A6877" />
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+
+            <Border Grid.Column="0" Background="White" CornerRadius="12" BorderBrush="#FFD9E1EC" BorderThickness="1" Padding="12" Margin="0,0,12,0">
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource HiddenPageBorderStyle}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding SelectedMainPage}" Value="课表">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <TextBlock Text="课表导航" FontSize="18" FontWeight="Bold" Foreground="#FF214E78" Margin="0,0,0,8" />
+                        <Button Content="年级总表" Command="{Binding SelectViewModeCommand}" CommandParameter="年级总表" Style="{StaticResource NavButtonStyle}" />
+                        <Button Content="班级课表" Command="{Binding SelectViewModeCommand}" CommandParameter="班级课表" Style="{StaticResource NavButtonStyle}" />
+                        <Button Content="教师课表" Command="{Binding SelectViewModeCommand}" CommandParameter="教师课表" Style="{StaticResource NavButtonStyle}" />
+                        <Separator Margin="0,8,0,12" />
+                        <TextBlock Text="年级" FontWeight="SemiBold" Margin="0,0,0,8" />
+                        <ItemsControl ItemsSource="{Binding GradeInputs}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Content="{Binding GradeName}" Command="{Binding DataContext.SelectGradeCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" Style="{StaticResource TagButtonStyle}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock Text="班级" FontWeight="SemiBold" Margin="0,10,0,8" />
+                        <ItemsControl ItemsSource="{Binding Classes}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Content="{Binding DisplayName}" Command="{Binding DataContext.SelectClassCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" Style="{StaticResource TagButtonStyle}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock Text="教师" FontWeight="SemiBold" Margin="0,10,0,8" />
+                        <ItemsControl ItemsSource="{Binding Teachers}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Content="{Binding Name}" Command="{Binding DataContext.SelectTeacherCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" Style="{StaticResource TagButtonStyle}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Separator Margin="0,8,0,12" />
+                        <Button Content="5天制" Command="{Binding UseFiveDayCommand}" Style="{StaticResource NavButtonStyle}" />
+                        <Button Content="7天制" Command="{Binding UseSevenDayCommand}" Style="{StaticResource NavButtonStyle}" />
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+
+            <Border Grid.Column="0" Background="White" CornerRadius="12" BorderBrush="#FFD9E1EC" BorderThickness="1" Padding="12" Margin="0,0,12,0">
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource HiddenPageBorderStyle}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding SelectedMainPage}" Value="导出">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <TextBlock Text="导出导航" FontSize="18" FontWeight="Bold" Foreground="#FF214E78" Margin="0,0,0,8" />
+                        <Button Content="导出课表" Command="{Binding ExportCommand}" Style="{StaticResource NavButtonStyle}" />
+                        <Button Content="导入数据" Command="{Binding ImportCommand}" Style="{StaticResource NavButtonStyle}" />
+                        <Button Content="保存数据" Command="{Binding SaveCommand}" Style="{StaticResource NavButtonStyle}" />
+                        <Separator Margin="0,8,0,12" />
+                        <TextBlock Text="输出目录" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding ExportFolderPath}" TextWrapping="Wrap" Foreground="#FF5A6877" Margin="0,0,0,8" />
+                        <TextBlock Text="本地数据文件" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding DataFilePath}" TextWrapping="Wrap" Foreground="#FF5A6877" />
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+
+            <Border Grid.Column="1" Background="White" CornerRadius="12" BorderBrush="#FFD9E1EC" BorderThickness="1" Padding="12" Margin="0,0,12,0">
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource HiddenPageBorderStyle}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding SelectedMainPage}" Value="配置">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <TextBlock Text="配置界面" FontSize="20" FontWeight="Bold" Foreground="#FF214E78" />
+                        <TextBlock Text="班级、课程、需求三块集中配置。" Foreground="#FF5A6877" Margin="0,0,0,12" />
+
+                        <GroupBox Header="配置班级" Style="{StaticResource SectionGroupStyle}">
                             <StackPanel Margin="10">
-                                <Button Content="年级总表" Command="{Binding SelectViewModeCommand}" CommandParameter="年级总表" Style="{StaticResource ModeButtonStyle}" />
-                                <Button Content="班级课表" Command="{Binding SelectViewModeCommand}" CommandParameter="班级课表" Style="{StaticResource ModeButtonStyle}" />
-                                <Button Content="教师课表" Command="{Binding SelectViewModeCommand}" CommandParameter="教师课表" Style="{StaticResource ModeButtonStyle}" />
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="年级配置" FontWeight="SemiBold" />
+                                    <TextBlock Grid.Column="1" Text="班级会自动生成到右侧课表。" Foreground="#FF5A6877" HorizontalAlignment="Right" />
+                                </Grid>
+                                <DataGrid ItemsSource="{Binding GradeInputs}" SelectedItem="{Binding SelectedGradeInput, Mode=TwoWay}">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="年级" Binding="{Binding GradeName, UpdateSourceTrigger=PropertyChanged}" Width="*" />
+                                        <DataGridTextColumn Header="班级数" Binding="{Binding ClassCount, UpdateSourceTrigger=PropertyChanged}" Width="120" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
                             </StackPanel>
                         </GroupBox>
 
-                        <GroupBox Header="年级选择">
-                            <GroupBox.Style>
-                                <Style TargetType="GroupBox" BasedOn="{StaticResource ModeVisibleGroupStyle}">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding SelectedViewMode}" Value="年级总表">
-                                            <Setter Property="Visibility" Value="Visible" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </GroupBox.Style>
-                            <ScrollViewer Margin="10" Height="180" VerticalScrollBarVisibility="Auto">
-                                <ItemsControl ItemsSource="{Binding GradeInputs}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <Button Content="{Binding GradeName}"
-                                                    Command="{Binding DataContext.SelectGradeCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                    CommandParameter="{Binding}"
-                                                    Style="{StaticResource ChipButtonStyle}" />
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </ScrollViewer>
-                        </GroupBox>
-
-                        <GroupBox Header="班级选择">
-                            <GroupBox.Style>
-                                <Style TargetType="GroupBox" BasedOn="{StaticResource ModeVisibleGroupStyle}">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding SelectedViewMode}" Value="班级课表">
-                                            <Setter Property="Visibility" Value="Visible" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </GroupBox.Style>
-                            <ScrollViewer Margin="10" Height="220" VerticalScrollBarVisibility="Auto">
-                                <ItemsControl ItemsSource="{Binding Classes}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <Button Content="{Binding DisplayName}"
-                                                    Command="{Binding DataContext.SelectClassCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                    CommandParameter="{Binding}"
-                                                    Style="{StaticResource ChipButtonStyle}" />
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </ScrollViewer>
-                        </GroupBox>
-
-                        <GroupBox Header="教师选择">
-                            <GroupBox.Style>
-                                <Style TargetType="GroupBox" BasedOn="{StaticResource ModeVisibleGroupStyle}">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding SelectedViewMode}" Value="教师课表">
-                                            <Setter Property="Visibility" Value="Visible" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </GroupBox.Style>
-                            <ScrollViewer Margin="10" Height="220" VerticalScrollBarVisibility="Auto">
-                                <ItemsControl ItemsSource="{Binding Teachers}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <Button Content="{Binding Name}"
-                                                    Command="{Binding DataContext.SelectTeacherCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                    CommandParameter="{Binding}"
-                                                    Style="{StaticResource ChipButtonStyle}" />
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </ScrollViewer>
-                        </GroupBox>
-
-                        <GroupBox Header="排课范围" Style="{StaticResource SectionGroupStyle}">
+                        <GroupBox Header="配置课程" Style="{StaticResource SectionGroupStyle}">
                             <StackPanel Margin="10">
-                                <TextBlock Text="当前范围" FontWeight="SemiBold" />
-                                <TextBlock Text="{Binding CurrentScopeSummary}" Margin="0,0,0,8" />
-                                <TextBlock Text="每周天数" FontWeight="SemiBold" />
-                                <TextBlock Text="{Binding DaysPerWeek}" Margin="0,0,0,8" />
-                                <TextBlock Text="每天节数" FontWeight="SemiBold" />
-                                <TextBlock Text="{Binding PeriodsPerDay}" />
+                                <TextBlock Text="直接编辑课程字典，后续生成需求会引用这些课程。" Foreground="#FF5A6877" />
+                                <DataGrid ItemsSource="{Binding Subjects}" SelectedItem="{Binding SelectedSubject, Mode=TwoWay}">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="课程" Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Width="*" />
+                                        <DataGridTextColumn Header="类别" Binding="{Binding Category, UpdateSourceTrigger=PropertyChanged}" Width="160" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <GroupBox Header="配置需求" Style="{StaticResource SectionGroupStyle}">
+                            <StackPanel Margin="10">
+                                <TextBlock Text="生成班级之后，再生成授课需求。" Foreground="#FF5A6877" />
+                                <DataGrid ItemsSource="{Binding Requirements}" SelectedItem="{Binding SelectedRequirement, Mode=TwoWay}">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="班级" Binding="{Binding ClassName, UpdateSourceTrigger=PropertyChanged}" Width="150" />
+                                        <DataGridTextColumn Header="教师" Binding="{Binding TeacherName, UpdateSourceTrigger=PropertyChanged}" Width="120" />
+                                        <DataGridTextColumn Header="课程" Binding="{Binding Subject, UpdateSourceTrigger=PropertyChanged}" Width="100" />
+                                        <DataGridTextColumn Header="周课时" Binding="{Binding WeeklyCount, UpdateSourceTrigger=PropertyChanged}" Width="90" />
+                                        <DataGridTextColumn Header="分布" Binding="{Binding DistributionRule, UpdateSourceTrigger=PropertyChanged}" Width="120" />
+                                        <DataGridCheckBoxColumn Header="上午优先" Binding="{Binding PreferMorning, UpdateSourceTrigger=PropertyChanged}" Width="90" />
+                                        <DataGridCheckBoxColumn Header="避开最后节" Binding="{Binding AvoidLastPeriod, UpdateSourceTrigger=PropertyChanged}" Width="100" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <GroupBox Header="固定课程" Style="{StaticResource SectionGroupStyle}">
+                            <StackPanel Margin="10">
+                                <TextBlock Text="全校、年级、班级或教师级别固定课。" Foreground="#FF5A6877" />
+                                <DataGrid ItemsSource="{Binding FixedLessons}" SelectedItem="{Binding SelectedFixedLesson, Mode=TwoWay}">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="范围" Binding="{Binding ScopeValue, UpdateSourceTrigger=PropertyChanged}" Width="140" />
+                                        <DataGridTextColumn Header="星期" Binding="{Binding DayIndex, UpdateSourceTrigger=PropertyChanged}" Width="80" />
+                                        <DataGridTextColumn Header="节次" Binding="{Binding PeriodIndex, UpdateSourceTrigger=PropertyChanged}" Width="80" />
+                                        <DataGridTextColumn Header="课程" Binding="{Binding Subject, UpdateSourceTrigger=PropertyChanged}" Width="100" />
+                                        <DataGridTextColumn Header="原因" Binding="{Binding Reason, UpdateSourceTrigger=PropertyChanged}" Width="*" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
                             </StackPanel>
                         </GroupBox>
                     </StackPanel>
                 </ScrollViewer>
             </Border>
 
-            <Border Grid.Column="1" Background="White" CornerRadius="10" BorderBrush="#FFD9E1EC" BorderThickness="1" Padding="10" Margin="0,0,12,0">
+            <Border Grid.Column="1" Background="White" CornerRadius="12" BorderBrush="#FFD9E1EC" BorderThickness="1" Padding="12" Margin="0,0,12,0">
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource HiddenPageBorderStyle}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding SelectedMainPage}" Value="课表">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
                 <DockPanel>
-                    <Border DockPanel.Dock="Top" Background="#FFF0F5FF" CornerRadius="8" Padding="10" Margin="0,0,0,10">
+                    <Border DockPanel.Dock="Top" Background="#FFF0F5FF" CornerRadius="10" Padding="12" Margin="0,0,0,12">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <StackPanel>
-                                <TextBlock Text="{Binding SchoolName}" FontSize="18" FontWeight="Bold" Foreground="#FF214E78" />
+                                <TextBlock Text="{Binding SchoolName}" FontSize="20" FontWeight="Bold" Foreground="#FF214E78" />
                                 <TextBlock Text="{Binding CurrentScopeSummary}" Foreground="#FF5A6877" />
                             </StackPanel>
-                            <TextBlock Grid.Column="1" Text="{Binding DaysPerWeek}" VerticalAlignment="Center" Foreground="#FF5A6877" />
+                            <TextBlock Grid.Column="1" Text="{Binding DaysPerWeek}" VerticalAlignment="Center" Foreground="#FF5A6877" FontSize="16" />
                         </Grid>
                     </Border>
 
@@ -255,32 +364,32 @@
                             </ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate DataType="{x:Type vm:ScheduleRowViewModel}">
-                                    <Border Margin="0,0,10,0" Padding="8" Background="#FFFBFDFF" BorderBrush="#FFD9E1EC" BorderThickness="1" CornerRadius="8">
+                                    <Border Margin="0,0,12,0" Padding="10" Background="#FFFBFDFF" BorderBrush="#FFD9E1EC" BorderThickness="1" CornerRadius="10">
                                         <DockPanel>
-                                            <Border DockPanel.Dock="Top" Background="#FFF0F5FF" CornerRadius="6" Padding="8" Margin="0,0,0,8">
-                                                <TextBlock Text="{Binding DayName}" FontSize="16" FontWeight="Bold" Foreground="#FF214E78" HorizontalAlignment="Center" />
+                                            <Border DockPanel.Dock="Top" Background="#FFF0F5FF" CornerRadius="8" Padding="10" Margin="0,0,0,10">
+                                                <TextBlock Text="{Binding DayName}" FontSize="18" FontWeight="Bold" Foreground="#FF214E78" HorizontalAlignment="Center" />
                                             </Border>
                                             <ItemsControl ItemsSource="{Binding Cells}">
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate DataType="{x:Type vm:ScheduleCellViewModel}">
-                                                        <Border Margin="0,0,0,6" Padding="6" Background="White" BorderBrush="#FFD8E3F0" BorderThickness="1" CornerRadius="6" AllowDrop="True" Drop="PeriodBlock_Drop">
+                                                        <Border Margin="0,0,0,8" Padding="8" Background="White" BorderBrush="#FFD8E3F0" BorderThickness="1" CornerRadius="8" AllowDrop="True" Drop="PeriodBlock_Drop">
                                                             <Grid>
                                                                 <Grid.ColumnDefinitions>
-                                                                    <ColumnDefinition Width="56" />
+                                                                    <ColumnDefinition Width="60" />
                                                                     <ColumnDefinition Width="*" />
                                                                 </Grid.ColumnDefinitions>
-                                                                <Border Background="#FFEAF2FF" CornerRadius="4" Padding="4" Margin="0,0,6,0">
-                                                                    <TextBlock Text="{Binding PeriodLabel}" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                                <Border Background="#FFEAF2FF" CornerRadius="6" Padding="6" Margin="0,0,8,0">
+                                                                    <TextBlock Text="{Binding PeriodLabel}" FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                                                 </Border>
                                                                 <ItemsControl Grid.Column="1" ItemsSource="{Binding Entries}">
                                                                     <ItemsControl.ItemTemplate>
                                                                         <DataTemplate>
-                                                                            <Border Margin="0,0,0,4"
-                                                                                    Padding="5,2"
+                                                                            <Border Margin="0,0,0,6"
+                                                                                    Padding="6,4"
                                                                                     Background="#FFF8FBFF"
                                                                                     BorderBrush="#FFBFD7EE"
                                                                                     BorderThickness="1"
-                                                                                    CornerRadius="4"
+                                                                                    CornerRadius="6"
                                                                                     AllowDrop="True"
                                                                                     Drop="LessonCard_Drop"
                                                                                     PreviewMouseMove="LessonCard_MouseMove">
@@ -290,17 +399,18 @@
                                                                                         <ColumnDefinition Width="Auto" />
                                                                                     </Grid.ColumnDefinitions>
                                                                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                                                                        <TextBlock Text="{Binding Subject}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                                                                                        <TextBlock Text=" · " />
-                                                                                        <TextBlock Text="{Binding TeacherName}" FontSize="11" Foreground="#FF556070" TextTrimming="CharacterEllipsis" />
+                                                                                        <TextBlock Text="{Binding Subject}" FontSize="16" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                                                                        <TextBlock Text=" · " FontSize="16" />
+                                                                                        <TextBlock Text="{Binding TeacherName}" FontSize="14" Foreground="#FF556070" TextTrimming="CharacterEllipsis" />
                                                                                     </StackPanel>
                                                                                     <TextBlock Grid.Column="1"
                                                                                                Text="{Binding ClassName}"
-                                                                                               FontSize="11"
+                                                                                               FontSize="14"
                                                                                                FontWeight="SemiBold"
                                                                                                Foreground="#FF1F4E79"
                                                                                                TextTrimming="CharacterEllipsis"
-                                                                                               Margin="10,0,0,0" />
+                                                                                               Margin="12,0,0,0"
+                                                                                               VerticalAlignment="Center" />
                                                                                 </Grid>
                                                                             </Border>
                                                                         </DataTemplate>
@@ -320,21 +430,94 @@
                 </DockPanel>
             </Border>
 
-            <Border Grid.Column="2" Background="White" CornerRadius="10" BorderBrush="#FFD9E1EC" BorderThickness="1" Padding="12">
+            <Border Grid.Column="1" Background="White" CornerRadius="12" BorderBrush="#FFD9E1EC" BorderThickness="1" Padding="12" Margin="0,0,12,0">
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource HiddenPageBorderStyle}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding SelectedMainPage}" Value="导出">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel>
-                        <TextBlock Text="详情 / 冲突" FontSize="16" FontWeight="Bold" Foreground="#FF214E78" />
-                        <Separator Margin="0,8,0,8" />
+                        <TextBlock Text="导出界面" FontSize="20" FontWeight="Bold" Foreground="#FF214E78" />
+                        <TextBlock Text="导入、导出、保存都放在这里。" Foreground="#FF5A6877" Margin="0,0,0,12" />
+                        <GroupBox Header="导出操作" Style="{StaticResource SectionGroupStyle}">
+                            <StackPanel Margin="10">
+                                <Button Content="导出课表" Command="{Binding ExportCommand}" Style="{StaticResource NavButtonStyle}" />
+                                <Button Content="导入数据" Command="{Binding ImportCommand}" Style="{StaticResource NavButtonStyle}" />
+                                <Button Content="保存数据" Command="{Binding SaveCommand}" Style="{StaticResource NavButtonStyle}" />
+                            </StackPanel>
+                        </GroupBox>
+                        <GroupBox Header="输出目录" Style="{StaticResource SectionGroupStyle}">
+                            <StackPanel Margin="10">
+                                <TextBlock Text="{Binding ExportFolderPath}" TextWrapping="Wrap" Foreground="#FF5A6877" />
+                                <TextBlock Text="本地数据文件" FontWeight="SemiBold" Margin="0,10,0,0" />
+                                <TextBlock Text="{Binding DataFilePath}" TextWrapping="Wrap" Foreground="#FF5A6877" />
+                            </StackPanel>
+                        </GroupBox>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+
+            <Border Grid.Column="2" Background="White" CornerRadius="12" BorderBrush="#FFD9E1EC" BorderThickness="1" Padding="12">
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource HiddenPageBorderStyle}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding SelectedMainPage}" Value="配置">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <TextBlock Text="配置详情" FontSize="18" FontWeight="Bold" Foreground="#FF214E78" />
+                        <Separator Margin="0,8,0,10" />
+                        <TextBlock Text="当前年级" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding SelectedGradeInput.GradeName, TargetNullValue=无}" />
+                        <TextBlock Text="当前班级" FontWeight="SemiBold" Margin="0,10,0,0" />
+                        <TextBlock Text="{Binding SelectedClass.DisplayName, TargetNullValue=无}" />
+                        <TextBlock Text="当前教师" FontWeight="SemiBold" Margin="0,10,0,0" />
+                        <TextBlock Text="{Binding SelectedTeacher.Name, TargetNullValue=无}" />
+                        <TextBlock Text="当前课程" FontWeight="SemiBold" Margin="0,10,0,0" />
+                        <TextBlock Text="{Binding SelectedSubject.Name, TargetNullValue=无}" />
+                        <TextBlock Text="{Binding SelectedSubject.Category, TargetNullValue=无}" />
+                        <TextBlock Text="当前需求" FontWeight="SemiBold" Margin="0,10,0,0" />
+                        <TextBlock Text="{Binding SelectedRequirement.Subject, TargetNullValue=无}" />
+                        <TextBlock Text="{Binding SelectedRequirement.ClassName, TargetNullValue=无}" />
+                        <TextBlock Text="{Binding SelectedRequirement.TeacherName, TargetNullValue=无}" />
+                        <TextBlock Text="当前固定课" FontWeight="SemiBold" Margin="0,10,0,0" />
+                        <TextBlock Text="{Binding SelectedFixedLesson.Subject, TargetNullValue=无}" />
+                        <TextBlock Text="{Binding SelectedFixedLesson.ScopeValue, TargetNullValue=无}" />
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+
+            <Border Grid.Column="2" Background="White" CornerRadius="12" BorderBrush="#FFD9E1EC" BorderThickness="1" Padding="12">
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource HiddenPageBorderStyle}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding SelectedMainPage}" Value="课表">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <TextBlock Text="课表详情" FontSize="18" FontWeight="Bold" Foreground="#FF214E78" />
+                        <Separator Margin="0,8,0,10" />
                         <TextBlock Text="当前选中课程" FontWeight="SemiBold" />
                         <TextBlock Text="{Binding SelectedScheduleEntry.Subject, TargetNullValue=无}" />
                         <TextBlock Text="{Binding SelectedScheduleEntry.TeacherName, TargetNullValue=无}" />
                         <TextBlock Text="{Binding SelectedScheduleEntry.ClassName, TargetNullValue=无}" />
                         <TextBlock Text="{Binding SelectedScheduleEntry.SlotLabel, TargetNullValue=无}" Margin="0,0,0,8" />
-
                         <TextBlock Text="当前冲突" FontWeight="SemiBold" />
-                        <TextBlock Text="{Binding Conflicts.Count}" Margin="0,0,0,8" />
-
-                        <GroupBox Header="冲突列表" Style="{StaticResource SectionGroupStyle}">
+                        <TextBlock Text="{Binding Conflicts.Count}" />
+                        <GroupBox Header="冲突列表" Style="{StaticResource SectionGroupStyle}" Margin="0,10,0,0">
                             <DataGrid ItemsSource="{Binding Conflicts}" IsReadOnly="True" AutoGenerateColumns="False" HeadersVisibility="Column" Margin="10">
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="级别" Binding="{Binding Severity}" Width="70" />
@@ -343,10 +526,30 @@
                                 </DataGrid.Columns>
                             </DataGrid>
                         </GroupBox>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
 
-                        <GroupBox Header="操作记录" Style="{StaticResource SectionGroupStyle}">
-                            <ListBox ItemsSource="{Binding ActivityLog}" Margin="10" />
-                        </GroupBox>
+            <Border Grid.Column="2" Background="White" CornerRadius="12" BorderBrush="#FFD9E1EC" BorderThickness="1" Padding="12">
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource HiddenPageBorderStyle}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding SelectedMainPage}" Value="导出">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <TextBlock Text="导出详情" FontSize="18" FontWeight="Bold" Foreground="#FF214E78" />
+                        <Separator Margin="0,8,0,10" />
+                        <TextBlock Text="当前状态" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" />
+                        <TextBlock Text="输出路径" FontWeight="SemiBold" Margin="0,10,0,0" />
+                        <TextBlock Text="{Binding ExportFolderPath}" TextWrapping="Wrap" />
+                        <TextBlock Text="操作记录" FontWeight="SemiBold" Margin="0,10,0,0" />
+                        <ListBox ItemsSource="{Binding ActivityLog}" />
                     </StackPanel>
                 </ScrollViewer>
             </Border>
