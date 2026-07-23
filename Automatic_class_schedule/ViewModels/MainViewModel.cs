@@ -22,6 +22,7 @@ public sealed class MainViewModel : ObservableObject
     private string _selectedMainPage = "配置";
     private string _selectedConfigPage = "基础设置";
     private string _selectedViewMode = "年级总表";
+    private string _projectFilePath = string.Empty;
     private GradeInput? _selectedGradeInput;
     private SchoolClass? _selectedClass;
     private Teacher? _selectedTeacher;
@@ -229,6 +230,9 @@ public sealed class MainViewModel : ObservableObject
             if (SetProperty(ref _selectedMainPage, value))
             {
                 OnPropertyChanged(nameof(CurrentScopeSummary));
+                OnPropertyChanged(nameof(ConfigPageVisibility));
+                OnPropertyChanged(nameof(SchedulePageVisibility));
+                OnPropertyChanged(nameof(ExportPageVisibility));
             }
         }
     }
@@ -236,7 +240,18 @@ public sealed class MainViewModel : ObservableObject
     public string SelectedConfigPage
     {
         get => _selectedConfigPage;
-        set => SetProperty(ref _selectedConfigPage, value);
+        set
+        {
+            if (SetProperty(ref _selectedConfigPage, value))
+            {
+                OnPropertyChanged(nameof(IsBasicSettingsVisible));
+                OnPropertyChanged(nameof(IsClassConfigVisible));
+                OnPropertyChanged(nameof(IsSubjectConfigVisible));
+                OnPropertyChanged(nameof(IsTeacherConfigVisible));
+                OnPropertyChanged(nameof(IsFixedLessonConfigVisible));
+                OnPropertyChanged(nameof(IsAutoScheduleVisible));
+            }
+        }
     }
 
     public string SelectedViewMode
@@ -397,6 +412,21 @@ public sealed class MainViewModel : ObservableObject
 
     public string ExportFolderPath => AppPaths.ExportFolder;
     public string DataFilePath => AppPaths.DataFile;
+    public string ProjectFilePath => _projectFilePath;
+
+    public Microsoft.UI.Xaml.Visibility ConfigPageVisibility =>
+        SelectedMainPage == "配置" ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+    public Microsoft.UI.Xaml.Visibility SchedulePageVisibility =>
+        SelectedMainPage == "课表" ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+    public Microsoft.UI.Xaml.Visibility ExportPageVisibility =>
+        SelectedMainPage == "导出" ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+
+    public bool IsBasicSettingsVisible => SelectedMainPage == "配置" && SelectedConfigPage == "基础设置";
+    public bool IsClassConfigVisible => SelectedMainPage == "配置" && SelectedConfigPage == "班级配置";
+    public bool IsSubjectConfigVisible => SelectedMainPage == "配置" && SelectedConfigPage == "课程配置";
+    public bool IsTeacherConfigVisible => SelectedMainPage == "配置" && SelectedConfigPage == "教师配置";
+    public bool IsFixedLessonConfigVisible => SelectedMainPage == "配置" && SelectedConfigPage == "固定课程";
+    public bool IsAutoScheduleVisible => SelectedMainPage == "配置" && SelectedConfigPage == "自动排课";
 
     public int TotalClasses => Classes.Count;
     public int TotalSubjects => Subjects.Count;

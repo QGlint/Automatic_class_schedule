@@ -164,6 +164,7 @@ public sealed class ScheduleService
             }
 
             int weeklyCount = assignment.WeeklyCount > 0 ? assignment.WeeklyCount : (subjectMap.TryGetValue(assignment.Subject, out SubjectDefinition? sub) ? sub.DefaultWeeklyCount : GetDefaultWeeklyCount(assignment.Subject));
+            Guid teacherId = DeterministicGuid(assignment.TeacherName);
 
             string[] classNames = assignment.ClassNames.Split(new[] { '、', ',', '，', ';', '；', ' ' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
@@ -179,7 +180,7 @@ public sealed class ScheduleService
                 {
                     ClassId = schoolClass.Id,
                     ClassName = schoolClass.Name,
-                    TeacherId = Guid.NewGuid(),
+                    TeacherId = teacherId,
                     TeacherName = assignment.TeacherName,
                     Subject = assignment.Subject,
                     WeeklyCount = weeklyCount,
@@ -191,6 +192,12 @@ public sealed class ScheduleService
         }
 
         return requirements;
+    }
+
+    private static Guid DeterministicGuid(string input)
+    {
+        byte[] bytes = System.Text.Encoding.UTF8.GetBytes(input);
+        return new Guid(bytes.Concat(new byte[16 - bytes.Length]).Take(16).ToArray());
     }
 
     private static ScheduleProblem CreateProblem(SchoolData data)
