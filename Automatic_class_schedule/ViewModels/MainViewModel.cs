@@ -4,7 +4,7 @@ using Automatic_class_schedule.Infrastructure;
 using Automatic_class_schedule.Models;
 using Automatic_class_schedule.Services;
 using Automatic_class_schedule.Solver;
-using Microsoft.Win32;
+using Microsoft.UI.Xaml;
 
 namespace Automatic_class_schedule.ViewModels;
 
@@ -69,7 +69,6 @@ public sealed class MainViewModel : ObservableObject
         SaveCommand = new RelayCommand(SaveData);
         LoadCommand = new RelayCommand(LoadData);
         ExportCommand = new RelayCommand(ExportExcel);
-        ImportCommand = new RelayCommand(ImportExcel);
         RefreshViewCommand = new RelayCommand(RefreshViews);
         UseFiveDayCommand = new RelayCommand(() => SetDaysPerWeek(5));
         UseSevenDayCommand = new RelayCommand(() => SetDaysPerWeek(7));
@@ -78,6 +77,7 @@ public sealed class MainViewModel : ObservableObject
         SelectGradeCommand = new RelayCommand<GradeInput>(SelectGrade);
         SelectClassCommand = new RelayCommand<SchoolClass>(SelectClass);
         SelectTeacherCommand = new RelayCommand<Teacher>(SelectTeacher);
+        LoadDataCommand = new RelayCommand<SchoolData>(ApplySchoolData!);
 
         LoadData();
         if (GradeInputs.Count == 0)
@@ -152,6 +152,9 @@ public sealed class MainViewModel : ObservableObject
             if (SetProperty(ref _selectedMainPage, value))
             {
                 OnPropertyChanged(nameof(CurrentScopeSummary));
+                OnPropertyChanged(nameof(ConfigPageVisibility));
+                OnPropertyChanged(nameof(SchedulePageVisibility));
+                OnPropertyChanged(nameof(ExportPageVisibility));
             }
         }
     }
@@ -238,6 +241,10 @@ public sealed class MainViewModel : ObservableObject
         set => SetProperty(ref _statusMessage, value);
     }
 
+    public Visibility ConfigPageVisibility => SelectedMainPage == "配置" ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility SchedulePageVisibility => SelectedMainPage == "课表" ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility ExportPageVisibility => SelectedMainPage == "导出" ? Visibility.Visible : Visibility.Collapsed;
+
     public string CurrentScopeSummary
     {
         get
@@ -269,7 +276,6 @@ public sealed class MainViewModel : ObservableObject
     public RelayCommand SaveCommand { get; }
     public RelayCommand LoadCommand { get; }
     public RelayCommand ExportCommand { get; }
-    public RelayCommand ImportCommand { get; }
     public RelayCommand RefreshViewCommand { get; }
     public RelayCommand UseFiveDayCommand { get; }
     public RelayCommand UseSevenDayCommand { get; }
@@ -278,6 +284,7 @@ public sealed class MainViewModel : ObservableObject
     public RelayCommand<GradeInput> SelectGradeCommand { get; }
     public RelayCommand<SchoolClass> SelectClassCommand { get; }
     public RelayCommand<Teacher> SelectTeacherCommand { get; }
+    public RelayCommand<SchoolData> LoadDataCommand { get; }
 
     public void MoveEntry(ScheduleEntry entry, int dayIndex, int periodIndex)
     {
@@ -433,20 +440,9 @@ public sealed class MainViewModel : ObservableObject
         Log("导出 Excel");
     }
 
-    private void ImportExcel()
+    public void ImportExcel(string filePath)
     {
-        OpenFileDialog dialog = new()
-        {
-            Filter = "Excel 文件 (*.xlsx)|*.xlsx",
-            Title = "导入排课数据"
-        };
-
-        if (dialog.ShowDialog() != true)
-        {
-            return;
-        }
-
-        SchoolData data = _excelService.Import(dialog.FileName);
+        SchoolData data = _excelService.Import(filePath);
         ApplySchoolData(data);
         RefreshViews();
         StatusMessage = "已导入 Excel 数据";
