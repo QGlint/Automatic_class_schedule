@@ -9,7 +9,9 @@ public sealed class ScheduleCellViewModel
 
     public int PeriodIndex { get; init; }
 
-    public string PeriodLabel => $"第{PeriodIndex}节";
+    public string PeriodType { get; init; } = "上午";
+
+    public string PeriodLabel => $"{PeriodType} 第{PeriodIndex}节";
 
     public ObservableCollection<ScheduleEntry> Entries { get; } = new();
 }

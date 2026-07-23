@@ -2,7 +2,7 @@ using System.Collections.ObjectModel;
 
 namespace Automatic_class_schedule.ViewModels;
 
-public sealed class ScheduleRowViewModel
+public sealed class ScheduleDayViewModel
 {
     public int DayIndex { get; init; }
 

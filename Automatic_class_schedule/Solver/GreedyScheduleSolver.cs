@@ -7,17 +7,17 @@ public sealed class GreedyScheduleSolver : IScheduleSolver
 {
     private readonly ConflictService _conflictService = new();
 
-    public ScheduleResult Solve(ScheduleProblem problem)
+    public ScheduleResult Solve(ScheduleProblem problem, IProgress<double>? progress = null, CancellationToken ct = default)
     {
-        return SolveInternal(problem, Array.Empty<LockedLesson>());
+        return SolveInternal(problem, Array.Empty<LockedLesson>(), progress, ct);
     }
 
-    public ScheduleResult SolveWithLocks(ScheduleProblem problem, List<LockedLesson> locks)
+    public ScheduleResult SolveWithLocks(ScheduleProblem problem, List<LockedLesson> locks, IProgress<double>? progress = null, CancellationToken ct = default)
     {
-        return SolveInternal(problem, locks);
+        return SolveInternal(problem, locks, progress, ct);
     }
 
-    private ScheduleResult SolveInternal(ScheduleProblem problem, IReadOnlyCollection<LockedLesson> locks)
+    private ScheduleResult SolveInternal(ScheduleProblem problem, IReadOnlyCollection<LockedLesson> locks, IProgress<double>? progress = null, CancellationToken ct = default)
     {
         ScheduleResult result = new();
         List<ScheduleEntry> placed = new();
@@ -25,9 +25,13 @@ public sealed class GreedyScheduleSolver : IScheduleSolver
         Dictionary<Guid, int> lockedCounts = locks.GroupBy(x => x.RequirementId).ToDictionary(x => x.Key, x => x.Count());
 
         List<LessonInstance> instances = BuildInstances(problem.Requirements, lockedCounts).OrderByDescending(GetPriority).ToList();
+        int total = instances.Count;
+        int completed = 0;
 
         foreach (LockedLesson locked in locks)
         {
+            ct.ThrowIfCancellationRequested();
+
             if (!requirementMap.TryGetValue(locked.RequirementId, out LessonRequirement? requirement))
             {
                 continue;
@@ -47,6 +51,8 @@ public sealed class GreedyScheduleSolver : IScheduleSolver
 
         foreach (LessonInstance instance in instances)
         {
+            ct.ThrowIfCancellationRequested();
+
             LessonRequirement requirement = problem.Requirements.First(x => x.Id == instance.RequirementId);
             ScheduleEntry? bestEntry = FindBestSlot(problem, placed, requirement, instance);
             if (bestEntry is null)
@@ -59,11 +65,15 @@ public sealed class GreedyScheduleSolver : IScheduleSolver
                     Message = $"无法安排 {instance.ClassName} {instance.Subject} 第 {instance.Sequence} 节",
                     Scope = instance.ClassName
                 });
-                continue;
+            }
+            else
+            {
+                placed.Add(bestEntry);
+                result.Entries.Add(bestEntry);
             }
 
-            placed.Add(bestEntry);
-            result.Entries.Add(bestEntry);
+            completed++;
+            progress?.Report((double)completed / total);
         }
 
         result.Conflicts.AddRange(_conflictService.Analyze(problem, result.Entries));

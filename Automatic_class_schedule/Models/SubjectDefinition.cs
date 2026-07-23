@@ -5,6 +5,7 @@ public sealed class SubjectDefinition : Infrastructure.ObservableObject
     private Guid _id = Guid.NewGuid();
     private string _name = string.Empty;
     private string _category = string.Empty;
+    private int _defaultWeeklyCount = 4;
 
     public Guid Id
     {
@@ -22,5 +23,11 @@ public sealed class SubjectDefinition : Infrastructure.ObservableObject
     {
         get => _category;
         set => SetProperty(ref _category, value);
+    }
+
+    public int DefaultWeeklyCount
+    {
+        get => _defaultWeeklyCount;
+        set => SetProperty(ref _defaultWeeklyCount, value);
     }
 }

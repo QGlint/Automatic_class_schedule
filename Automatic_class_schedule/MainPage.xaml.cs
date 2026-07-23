@@ -39,18 +39,9 @@ public sealed partial class MainPage : Page
         }
     }
 
-    private async void ImportButton_Click(object sender, RoutedEventArgs e)
+    private void ImportButton_Click(object sender, RoutedEventArgs e)
     {
-        var picker = new Windows.Storage.Pickers.FileOpenPicker();
-        picker.FileTypeFilter.Add(".xlsx");
-
-        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
-        WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
-
-        var file = await picker.PickSingleFileAsync();
-        if (file == null) return;
-
-        ((MainViewModel)DataContext).ImportExcel(file.Path);
+        ((MainViewModel)DataContext).ImportCommand.Execute(null);
     }
 
     private void Entry_DragStarting(UIElement sender, DragStartingEventArgs e)
