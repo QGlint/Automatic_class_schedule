@@ -17,6 +17,7 @@ public sealed class MainViewModel : ObservableObject
     private int _daysPerWeek = 5;
     private int _periodsPerDay = 7;
     private int _selectedSectionIndex;
+    private string _selectedMainPage = "配置";
     private string _selectedViewMode = "年级总表";
     private GradeInput? _selectedGradeInput;
     private SchoolClass? _selectedClass;
@@ -38,6 +39,13 @@ public sealed class MainViewModel : ObservableObject
             "课表视图",
             "冲突检查",
             "导入导出"
+        };
+
+        MainPages = new ObservableCollection<string>
+        {
+            "配置",
+            "课表",
+            "导出"
         };
 
         GradeInputs = new ObservableCollection<GradeInput>();
@@ -64,10 +72,11 @@ public sealed class MainViewModel : ObservableObject
         RefreshViewCommand = new RelayCommand(RefreshViews);
         UseFiveDayCommand = new RelayCommand(() => SetDaysPerWeek(5));
         UseSevenDayCommand = new RelayCommand(() => SetDaysPerWeek(7));
-        SelectViewModeCommand = new RelayCommand<string?>(SetViewMode);
-        SelectGradeCommand = new RelayCommand<GradeInput?>(SelectGrade);
-        SelectClassCommand = new RelayCommand<SchoolClass?>(SelectClass);
-        SelectTeacherCommand = new RelayCommand<Teacher?>(SelectTeacher);
+        SelectMainPageCommand = new RelayCommand<string>(SetMainPage);
+        SelectViewModeCommand = new RelayCommand<string>(SetViewMode);
+        SelectGradeCommand = new RelayCommand<GradeInput>(SelectGrade);
+        SelectClassCommand = new RelayCommand<SchoolClass>(SelectClass);
+        SelectTeacherCommand = new RelayCommand<Teacher>(SelectTeacher);
 
         LoadData();
         if (GradeInputs.Count == 0)
@@ -81,6 +90,7 @@ public sealed class MainViewModel : ObservableObject
     }
 
     public ObservableCollection<string> Sections { get; }
+    public ObservableCollection<string> MainPages { get; }
     public ObservableCollection<GradeInput> GradeInputs { get; }
     public ObservableCollection<SchoolClass> Classes { get; }
     public ObservableCollection<Teacher> Teachers { get; }
@@ -239,10 +249,10 @@ public sealed class MainViewModel : ObservableObject
     public RelayCommand RefreshViewCommand { get; }
     public RelayCommand UseFiveDayCommand { get; }
     public RelayCommand UseSevenDayCommand { get; }
-    public RelayCommand<string?> SelectViewModeCommand { get; }
-    public RelayCommand<GradeInput?> SelectGradeCommand { get; }
-    public RelayCommand<SchoolClass?> SelectClassCommand { get; }
-    public RelayCommand<Teacher?> SelectTeacherCommand { get; }
+    public RelayCommand<string> SelectViewModeCommand { get; }
+    public RelayCommand<GradeInput> SelectGradeCommand { get; }
+    public RelayCommand<SchoolClass> SelectClassCommand { get; }
+    public RelayCommand<Teacher> SelectTeacherCommand { get; }
 
     public void MoveEntry(ScheduleEntry entry, int dayIndex, int periodIndex)
     {
@@ -527,6 +537,7 @@ public sealed class MainViewModel : ObservableObject
             {
                 ScheduleCellViewModel periodView = new()
                 {
+                    DayIndex = day,
                     PeriodIndex = period
                 };
 
