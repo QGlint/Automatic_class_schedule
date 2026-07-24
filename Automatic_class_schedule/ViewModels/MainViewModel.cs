@@ -39,6 +39,7 @@ public sealed class MainViewModel : ObservableObject
     private string _gradeFilterText = string.Empty;
     private string _currentSubjectGradeName = string.Empty;
     private CancellationTokenSource? _cts;
+    private string _selectedCourseTemplate = string.Empty;
 
     public MainViewModel()
     {
@@ -86,8 +87,12 @@ public sealed class MainViewModel : ObservableObject
         FilterGradeCommand = new RelayCommand(RefreshViews);
         AddSubjectCommand = new RelayCommand(AddSubject);
         DeleteSubjectCommand = new RelayCommand(DeleteSubject, () => SelectedSubject is not null);
+        SaveCourseTemplateCommand = new RelayCommand(SaveCourseTemplate);
+        LoadCourseTemplateCommand = new RelayCommand(LoadCourseTemplate);
+        DeleteCourseTemplateCommand = new RelayCommand(DeleteCourseTemplate, () => !string.IsNullOrEmpty(_selectedCourseTemplate));
 
         LoadData();
+        LoadCourseTemplates();
         if (GradeInputs.Count == 0)
         {
             InitDefaultGrades();
@@ -102,6 +107,11 @@ public sealed class MainViewModel : ObservableObject
         {
             RefreshViews();
         }
+
+        // Default course config to first grade
+        _currentSubjectGradeName = GradeInputs.FirstOrDefault()?.GradeName ?? "";
+        OnPropertyChanged(nameof(CurrentSubjectGradeName));
+        OnPropertyChanged(nameof(FilteredSubjects));
 
         SelectedMainPage = "配置";
         SelectedConfigPage = "基础设置";
@@ -130,9 +140,15 @@ public sealed class MainViewModel : ObservableObject
             {
                 Subjects.Add(new SubjectDefinition { Name = "化学", Category = "理科", DefaultWeeklyCount = 3, DistributionRule = "均衡分布", GradeName = grade });
             }
-            Subjects.Add(new SubjectDefinition { Name = "生物", Category = "理科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = grade });
+            if (grade != "九年级")
+            {
+                Subjects.Add(new SubjectDefinition { Name = "生物", Category = "理科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = grade });
+            }
+            if (grade != "九年级")
+            {
+                Subjects.Add(new SubjectDefinition { Name = "地理", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = grade });
+            }
             Subjects.Add(new SubjectDefinition { Name = "历史", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = grade });
-            Subjects.Add(new SubjectDefinition { Name = "地理", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = grade });
             Subjects.Add(new SubjectDefinition { Name = "政治", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = grade });
             Subjects.Add(new SubjectDefinition { Name = "体育", Category = "副科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = grade });
         }
@@ -182,9 +198,11 @@ public sealed class MainViewModel : ObservableObject
     public ObservableCollection<string> ActivityLog { get; }
     public ObservableCollection<ScheduleDayViewModel> TimetableDays { get; private set; }
     public ObservableCollection<SchedulePeriodRowViewModel> TimetableRows { get; private set; }
-    public ObservableCollection<ScheduleMatrixRow> ScheduleMatrix { get; private set; } = new();
+    public ObservableCollection<PeriodGroup> GradePeriodGroups { get; private set; } = new();
+    public ObservableCollection<ScheduleGridRow> MatrixRows { get; private set; } = new();
     public ObservableCollection<SchoolClass> AvailableClasses { get; private set; } = new();
     public ObservableCollection<DayTabItem> DayTabs { get; private set; } = new();
+    public ObservableCollection<string> CourseTemplates { get; private set; } = new();
     public string[] DayNames => Enumerable.Range(0, DaysPerWeek).Select(i => GetDayName(i)).ToArray();
 
     private int _selectedDayIndex;
@@ -506,6 +524,8 @@ public sealed class MainViewModel : ObservableObject
     public int TotalScheduleEntries => ScheduleEntries.Count;
     public int TotalConflicts => Conflicts.Count;
 
+    public List<string> DistributionRuleOptions { get; } = new() { "均衡分布", "每天一次", "集中安排" };
+
     public List<GradeInput> FilteredGrades => string.IsNullOrWhiteSpace(GradeFilterText)
         ? GradeInputs.ToList()
         : GradeInputs.Where(g => g.GradeName.Contains(GradeFilterText, StringComparison.OrdinalIgnoreCase)).ToList();
@@ -518,6 +538,12 @@ public sealed class MainViewModel : ObservableObject
     public List<SchoolClass> FilteredClasses => string.IsNullOrWhiteSpace(GradeFilterText)
         ? Classes.ToList()
         : Classes.Where(c => c.GradeName.Contains(GradeFilterText, StringComparison.OrdinalIgnoreCase)).ToList();
+
+    public string SelectedCourseTemplate
+    {
+        get => _selectedCourseTemplate;
+        set => SetProperty(ref _selectedCourseTemplate, value);
+    }
 
     public string CurrentSubjectGradeName
     {
@@ -565,6 +591,9 @@ public sealed class MainViewModel : ObservableObject
     public RelayCommand SearchTeacherCommand { get; }
     public RelayCommand AddSubjectCommand { get; }
     public RelayCommand DeleteSubjectCommand { get; }
+    public RelayCommand SaveCourseTemplateCommand { get; }
+    public RelayCommand LoadCourseTemplateCommand { get; }
+    public RelayCommand DeleteCourseTemplateCommand { get; }
     public RelayCommand FilterGradeCommand { get; }
 
     public string SerializeSubjects()
@@ -582,6 +611,243 @@ public sealed class MainViewModel : ObservableObject
             foreach (var s in subjects)
                 Subjects.Add(s);
         }
+    }
+
+    public void LoadCourseTemplates()
+    {
+        CourseTemplates.Clear();
+        string filePath = AppPaths.TemplatesFile;
+        if (File.Exists(filePath))
+        {
+            var json = File.ReadAllText(filePath);
+            var names = System.Text.Json.JsonSerializer.Deserialize<List<string>>(json);
+            if (names != null)
+            {
+                foreach (var n in names)
+                    CourseTemplates.Add(n);
+            }
+        }
+
+        // Seed defaults if empty
+        if (CourseTemplates.Count == 0)
+        {
+            SeedDefaults();
+        }
+
+        OnPropertyChanged(nameof(CourseTemplates));
+        _selectedCourseTemplate = CourseTemplates.FirstOrDefault() ?? "";
+        OnPropertyChanged(nameof(SelectedCourseTemplate));
+    }
+
+    private void SeedDefaults()
+    {
+        var defaults = new Dictionary<string, List<SubjectDefinition>>
+        {
+            ["初中标准"] = new()
+            {
+                new() { Name = "语文", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次", GradeName = "七年级" },
+                new() { Name = "语文", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次", GradeName = "八年级" },
+                new() { Name = "语文", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次", GradeName = "九年级" },
+                new() { Name = "数学", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次", GradeName = "七年级" },
+                new() { Name = "数学", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次", GradeName = "八年级" },
+                new() { Name = "数学", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次", GradeName = "九年级" },
+                new() { Name = "英语", Category = "主科", DefaultWeeklyCount = 5, DistributionRule = "每天一次", GradeName = "七年级" },
+                new() { Name = "英语", Category = "主科", DefaultWeeklyCount = 5, DistributionRule = "每天一次", GradeName = "八年级" },
+                new() { Name = "英语", Category = "主科", DefaultWeeklyCount = 5, DistributionRule = "每天一次", GradeName = "九年级" },
+            },
+            ["初中标准（含理科）"] = new()
+            {
+                new() { Name = "语文", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次", GradeName = "七年级" },
+                new() { Name = "数学", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次", GradeName = "七年级" },
+                new() { Name = "英语", Category = "主科", DefaultWeeklyCount = 5, DistributionRule = "每天一次", GradeName = "七年级" },
+                new() { Name = "生物", Category = "理科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "七年级" },
+                new() { Name = "地理", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "七年级" },
+                new() { Name = "历史", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "七年级" },
+                new() { Name = "政治", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "七年级" },
+                new() { Name = "体育", Category = "副科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "七年级" },
+                new() { Name = "语文", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次", GradeName = "八年级" },
+                new() { Name = "数学", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次", GradeName = "八年级" },
+                new() { Name = "英语", Category = "主科", DefaultWeeklyCount = 5, DistributionRule = "每天一次", GradeName = "八年级" },
+                new() { Name = "物理", Category = "理科", DefaultWeeklyCount = 3, DistributionRule = "均衡分布", GradeName = "八年级" },
+                new() { Name = "生物", Category = "理科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "八年级" },
+                new() { Name = "地理", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "八年级" },
+                new() { Name = "历史", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "八年级" },
+                new() { Name = "政治", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "八年级" },
+                new() { Name = "体育", Category = "副科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "八年级" },
+                new() { Name = "语文", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次", GradeName = "九年级" },
+                new() { Name = "数学", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次", GradeName = "九年级" },
+                new() { Name = "英语", Category = "主科", DefaultWeeklyCount = 5, DistributionRule = "每天一次", GradeName = "九年级" },
+                new() { Name = "物理", Category = "理科", DefaultWeeklyCount = 3, DistributionRule = "均衡分布", GradeName = "九年级" },
+                new() { Name = "化学", Category = "理科", DefaultWeeklyCount = 3, DistributionRule = "均衡分布", GradeName = "九年级" },
+                new() { Name = "历史", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "九年级" },
+                new() { Name = "政治", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "九年级" },
+                new() { Name = "体育", Category = "副科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "九年级" },
+            },
+        };
+
+        foreach (var kv in defaults)
+        {
+            var json = System.Text.Json.JsonSerializer.Serialize(kv.Value, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+            var dict = new Dictionary<string, string> { { kv.Key, json } };
+            CourseTemplates.Add(kv.Key);
+        }
+
+        SaveTemplatesToDisk();
+    }
+
+    private void SaveTemplatesToDisk()
+    {
+        string dir = Path.GetDirectoryName(AppPaths.TemplatesFile)!;
+        if (!Directory.Exists(dir))
+            Directory.CreateDirectory(dir);
+
+        var names = CourseTemplates.ToList();
+        var json = System.Text.Json.JsonSerializer.Serialize(names);
+        File.WriteAllText(AppPaths.TemplatesFile, json);
+
+        // Save individual template files
+        foreach (var name in CourseTemplates)
+        {
+            SaveTemplateContent(name);
+        }
+    }
+
+    private string GetTemplateFilePath(string name)
+    {
+        string safe = string.Join("_", name.Split(Path.GetInvalidFileNameChars()));
+        return Path.Combine(Path.GetDirectoryName(AppPaths.TemplatesFile)!, $"template_{safe}.json");
+    }
+
+    private string LoadTemplateContent(string name)
+    {
+        string path = GetTemplateFilePath(name);
+        return File.Exists(path) ? File.ReadAllText(path) : "[]";
+    }
+
+    private void SaveTemplateContent(string name)
+    {
+        // Only save if name exists in our template list
+        var dict = new Dictionary<string, string>();
+        string path = GetTemplateFilePath(name);
+
+        // If there's a JSON file for this template name, keep it
+        if (File.Exists(path))
+            return;
+
+        // For seeded defaults, write the content
+        var subjects = GetDefaultTemplate(name);
+        if (subjects != null)
+        {
+            var json = System.Text.Json.JsonSerializer.Serialize(subjects, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(path, json);
+        }
+    }
+
+    private List<SubjectDefinition>? GetDefaultTemplate(string name)
+    {
+        return name switch
+        {
+            "初中标准" => new()
+            {
+                new() { Name = "语文", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次", GradeName = "七年级" },
+                new() { Name = "语文", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次", GradeName = "八年级" },
+                new() { Name = "语文", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次", GradeName = "九年级" },
+                new() { Name = "数学", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次", GradeName = "七年级" },
+                new() { Name = "数学", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次", GradeName = "八年级" },
+                new() { Name = "数学", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次", GradeName = "九年级" },
+                new() { Name = "英语", Category = "主科", DefaultWeeklyCount = 5, DistributionRule = "每天一次", GradeName = "七年级" },
+                new() { Name = "英语", Category = "主科", DefaultWeeklyCount = 5, DistributionRule = "每天一次", GradeName = "八年级" },
+                new() { Name = "英语", Category = "主科", DefaultWeeklyCount = 5, DistributionRule = "每天一次", GradeName = "九年级" },
+            },
+            "初中标准（含理科）" => new()
+            {
+                new() { Name = "语文", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次", GradeName = "七年级" },
+                new() { Name = "数学", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次", GradeName = "七年级" },
+                new() { Name = "英语", Category = "主科", DefaultWeeklyCount = 5, DistributionRule = "每天一次", GradeName = "七年级" },
+                new() { Name = "生物", Category = "理科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "七年级" },
+                new() { Name = "地理", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "七年级" },
+                new() { Name = "历史", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "七年级" },
+                new() { Name = "政治", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "七年级" },
+                new() { Name = "体育", Category = "副科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "七年级" },
+                new() { Name = "语文", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次", GradeName = "八年级" },
+                new() { Name = "数学", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次", GradeName = "八年级" },
+                new() { Name = "英语", Category = "主科", DefaultWeeklyCount = 5, DistributionRule = "每天一次", GradeName = "八年级" },
+                new() { Name = "物理", Category = "理科", DefaultWeeklyCount = 3, DistributionRule = "均衡分布", GradeName = "八年级" },
+                new() { Name = "生物", Category = "理科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "八年级" },
+                new() { Name = "地理", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "八年级" },
+                new() { Name = "历史", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "八年级" },
+                new() { Name = "政治", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "八年级" },
+                new() { Name = "体育", Category = "副科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "八年级" },
+                new() { Name = "语文", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次", GradeName = "九年级" },
+                new() { Name = "数学", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次", GradeName = "九年级" },
+                new() { Name = "英语", Category = "主科", DefaultWeeklyCount = 5, DistributionRule = "每天一次", GradeName = "九年级" },
+                new() { Name = "物理", Category = "理科", DefaultWeeklyCount = 3, DistributionRule = "均衡分布", GradeName = "九年级" },
+                new() { Name = "化学", Category = "理科", DefaultWeeklyCount = 3, DistributionRule = "均衡分布", GradeName = "九年级" },
+                new() { Name = "历史", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "九年级" },
+                new() { Name = "政治", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "九年级" },
+                new() { Name = "体育", Category = "副科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "九年级" },
+            },
+            _ => null,
+        };
+    }
+
+    public void SaveCourseTemplate()
+    {
+        string dir = Path.GetDirectoryName(AppPaths.TemplatesFile)!;
+        if (!Directory.Exists(dir))
+            Directory.CreateDirectory(dir);
+
+        // Prompt for name via dialog
+        var vm = this;
+        string name = $"自定义模板 {CourseTemplates.Count + 1}";
+        CourseTemplates.Add(name);
+        string path = GetTemplateFilePath(name);
+        var json = System.Text.Json.JsonSerializer.Serialize(Subjects.ToList(), new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+        File.WriteAllText(path, json);
+        SaveTemplatesToDisk();
+        OnPropertyChanged(nameof(CourseTemplates));
+        _selectedCourseTemplate = name;
+        OnPropertyChanged(nameof(SelectedCourseTemplate));
+        Log($"已保存课程模板: {name}");
+    }
+
+    public void LoadCourseTemplate()
+    {
+        if (string.IsNullOrEmpty(_selectedCourseTemplate))
+            return;
+
+        string path = GetTemplateFilePath(_selectedCourseTemplate);
+        if (!File.Exists(path))
+        {
+            StatusMessage = "模板文件不存在";
+            return;
+        }
+
+        var json = File.ReadAllText(path);
+        var subjects = System.Text.Json.JsonSerializer.Deserialize<List<SubjectDefinition>>(json);
+        if (subjects != null)
+        {
+            Subjects.Clear();
+            foreach (var s in subjects)
+                Subjects.Add(s);
+            StatusMessage = $"已载入模板: {_selectedCourseTemplate}";
+        }
+    }
+
+    public void DeleteCourseTemplate()
+    {
+        if (string.IsNullOrEmpty(_selectedCourseTemplate))
+            return;
+
+        string path = GetTemplateFilePath(_selectedCourseTemplate);
+        if (File.Exists(path))
+            File.Delete(path);
+
+        CourseTemplates.Remove(_selectedCourseTemplate);
+        SaveTemplatesToDisk();
+        _selectedCourseTemplate = CourseTemplates.FirstOrDefault() ?? "";
+        OnPropertyChanged(nameof(SelectedCourseTemplate));
+        StatusMessage = $"已删除模板";
     }
 
     public void MoveEntry(ScheduleEntry entry, int dayIndex, int periodIndex)
@@ -1059,11 +1325,11 @@ public sealed class MainViewModel : ObservableObject
     private void BuildScheduleMatrix()
     {
         int periodsPerDay = Math.Max(1, PeriodsPerDay);
-        int dayIdx = SelectedDayIndex;
+        int daysPerWeek = Math.Max(1, DaysPerWeek);
 
         // Build day tabs
         var dayTabs = new ObservableCollection<DayTabItem>();
-        for (int i = 0; i < DaysPerWeek; i++)
+        for (int i = 0; i < daysPerWeek; i++)
         {
             dayTabs.Add(new DayTabItem { Index = i, Name = GetDayName(i) });
         }
@@ -1082,35 +1348,134 @@ public sealed class MainViewModel : ObservableObject
         AvailableClasses = new ObservableCollection<SchoolClass>(classes);
         OnPropertyChanged(nameof(AvailableClasses));
 
-        var matrix = new ObservableCollection<ScheduleMatrixRow>();
+        if (SelectedViewMode == "年级总表")
+        {
+            var groups = new ObservableCollection<PeriodGroup>();
+            BuildGradeMatrix(groups, classes, periodsPerDay, daysPerWeek);
+            GradePeriodGroups = groups;
+            OnPropertyChanged(nameof(GradePeriodGroups));
+        }
+        else if (SelectedViewMode == "班级课表" && SelectedClass is not null)
+        {
+            var rows = new ObservableCollection<ScheduleGridRow>();
+            BuildSingleClassMatrix(rows, SelectedClass, periodsPerDay, daysPerWeek);
+            MatrixRows = rows;
+            OnPropertyChanged(nameof(MatrixRows));
+        }
+        else if (SelectedViewMode == "教师课表" && SelectedTeacher is not null)
+        {
+            var rows = new ObservableCollection<ScheduleGridRow>();
+            BuildTeacherMatrix(rows, periodsPerDay, daysPerWeek);
+            MatrixRows = rows;
+            OnPropertyChanged(nameof(MatrixRows));
+        }
+
+        OnPropertyChanged(nameof(DayNames));
+    }
+
+    private void BuildGradeMatrix(ObservableCollection<PeriodGroup> groups, List<SchoolClass> classes, int periodsPerDay, int daysPerWeek)
+    {
         for (int period = 1; period <= periodsPerDay; period++)
         {
-            var row = new ScheduleMatrixRow
+            var group = new PeriodGroup
             {
-                PeriodIndex = period,
                 PeriodLabel = $"第{period}节",
-                IsOdd = period % 2 == 1
+                PeriodIndex = period,
             };
 
             foreach (var cls in classes)
             {
-                var entry = VisibleScheduleEntries
-                    .FirstOrDefault(e => e.DayIndex == dayIdx && e.PeriodIndex == period && e.ClassId == cls.Id);
-
-                row.Cells.Add(new ScheduleMatrixCell
+                var row = new ScheduleGridRow
                 {
+                    PeriodLabel = "",
+                    PeriodIndex = period,
                     ClassName = cls.DisplayName,
+                    ClassId = cls.Id,
+                };
+
+                for (int day = 0; day < daysPerWeek; day++)
+                {
+                    var entry = VisibleScheduleEntries
+                        .FirstOrDefault(e => e.DayIndex == day && e.PeriodIndex == period && e.ClassId == cls.Id);
+
+                    row.Cells.Add(new ScheduleGridCell
+                    {
+                        DayIndex = day,
+                        Subject = entry?.Subject ?? "",
+                        TeacherName = entry?.TeacherName ?? "",
+                        ClassName = cls.DisplayName,
+                        EntryId = entry?.Id ?? Guid.Empty,
+                        Entry = entry,
+                    });
+                }
+
+                group.ClassRows.Add(row);
+            }
+
+            groups.Add(group);
+        }
+    }
+
+    private void BuildSingleClassMatrix(ObservableCollection<ScheduleGridRow> rows, SchoolClass cls, int periodsPerDay, int daysPerWeek)
+    {
+        for (int period = 1; period <= periodsPerDay; period++)
+        {
+            var row = new ScheduleGridRow
+            {
+                PeriodLabel = $"第{period}节",
+                PeriodIndex = period,
+                ClassName = cls.DisplayName,
+                ClassId = cls.Id,
+            };
+
+            for (int day = 0; day < daysPerWeek; day++)
+            {
+                var entry = VisibleScheduleEntries
+                    .FirstOrDefault(e => e.DayIndex == day && e.PeriodIndex == period && e.ClassId == cls.Id);
+
+                row.Cells.Add(new ScheduleGridCell
+                {
+                    DayIndex = day,
                     Subject = entry?.Subject ?? "",
                     TeacherName = entry?.TeacherName ?? "",
+                    ClassName = cls.DisplayName,
+                    EntryId = entry?.Id ?? Guid.Empty,
+                    Entry = entry,
                 });
             }
 
-            matrix.Add(row);
+            rows.Add(row);
         }
+    }
 
-        ScheduleMatrix = matrix;
-        OnPropertyChanged(nameof(ScheduleMatrix));
-        OnPropertyChanged(nameof(DayNames));
+    private void BuildTeacherMatrix(ObservableCollection<ScheduleGridRow> rows, int periodsPerDay, int daysPerWeek)
+    {
+        for (int period = 1; period <= periodsPerDay; period++)
+        {
+            var row = new ScheduleGridRow
+            {
+                PeriodLabel = $"第{period}节",
+                PeriodIndex = period,
+            };
+
+            for (int day = 0; day < daysPerWeek; day++)
+            {
+                var entry = VisibleScheduleEntries
+                    .FirstOrDefault(e => e.DayIndex == day && e.PeriodIndex == period);
+
+                row.Cells.Add(new ScheduleGridCell
+                {
+                    DayIndex = day,
+                    Subject = entry?.Subject ?? "",
+                    TeacherName = entry?.TeacherName ?? "",
+                    ClassName = entry?.ClassName ?? "",
+                    EntryId = entry?.Id ?? Guid.Empty,
+                    Entry = entry,
+                });
+            }
+
+            rows.Add(row);
+        }
     }
 
     private void ApplySchoolData(SchoolData data)

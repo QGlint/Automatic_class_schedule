@@ -126,4 +126,30 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
             }
         }
     }
+
+    private void GridCell_DragStarting(UIElement sender, DragStartingEventArgs e)
+    {
+        if (sender is FrameworkElement element && element.DataContext is ScheduleGridCell cell && cell.Entry != null)
+        {
+            e.Data.Properties.Add("ScheduleEntry", cell.Entry);
+            e.Data.RequestedOperation = DataPackageOperation.Move;
+        }
+    }
+
+    private void GridCell_DragOver(object sender, DragEventArgs e)
+    {
+        e.AcceptedOperation = DataPackageOperation.Move;
+    }
+
+    private void GridCell_Drop(object sender, DragEventArgs e)
+    {
+        if (sender is FrameworkElement element && element.DataContext is ScheduleGridCell targetCell && targetCell.Entry != null)
+        {
+            if (e.DataView.Properties.TryGetValue("ScheduleEntry", out object value) && value is ScheduleEntry source && source.Id != targetCell.Entry.Id)
+            {
+                ((MainViewModel)DataContext).SwapEntries(source, targetCell.Entry);
+                e.Handled = true;
+            }
+        }
+    }
 }

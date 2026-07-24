@@ -421,11 +421,13 @@
                             </ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Button Content="{Binding GradeName}" Click="SubjectGradeTabButton_Click"
-                                            Height="36" MinWidth="80" Margin="0,0,6,0" Padding="12,4"
-                                            CornerRadius="6" FontSize="14" FontWeight="SemiBold"
-                                            BorderThickness="0"
-                                            Background="#FFF0F5FF" Foreground="#FF214E78" />
+                                    <Grid>
+                                        <Button Content="{Binding GradeName}" Click="SubjectGradeTabButton_Click"
+                                                Height="36" MinWidth="80" Margin="0,0,6,0" Padding="12,4"
+                                                CornerRadius="6" FontSize="14" FontWeight="SemiBold"
+                                                BorderThickness="0"
+                                                Background="#FFF0F5FF" Foreground="#FF214E78" />
+                                    </Grid>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
@@ -447,17 +449,19 @@
                                         <controls:DataGridTextColumn Header="课程" Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Width="*" />
                                         <controls:DataGridTextColumn Header="类别" Binding="{Binding Category, UpdateSourceTrigger=PropertyChanged}" Width="*" />
                                         <controls:DataGridTextColumn Header="周课时" Binding="{Binding DefaultWeeklyCount, UpdateSourceTrigger=PropertyChanged}" Width="*" />
-                                        <controls:DataGridTextColumn Header="分布规则" Binding="{Binding DistributionRule, UpdateSourceTrigger=PropertyChanged}" Width="*" />
+                                        <controls:DataGridTemplateColumn Header="分布规则" Width="*">
+                                            <controls:DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <ComboBox ItemsSource="{Binding DataContext.DistributionRuleOptions, ElementName=SchedulePageRoot}"
+                                                              SelectedItem="{Binding DistributionRule, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                              BorderThickness="0" MinHeight="28" VerticalAlignment="Center" />
+                                                </DataTemplate>
+                                            </controls:DataGridTemplateColumn.CellTemplate>
+                                        </controls:DataGridTemplateColumn>
                                     </controls:DataGrid.Columns>
                                 </controls:DataGrid>
                             </StackPanel>
                         </Border>
-                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
-                            <Button Content="保存为模板" Click="SaveCourseTemplate_Click" Style="{StaticResource RoundButtonBase}" Background="#FF214E78" Foreground="White" Margin="0,0,8,0" />
-                            <Button Content="载入模板" Click="LoadCourseTemplate_Click" Style="{StaticResource RoundButtonBase}" Background="#FFF0F5FF" Foreground="#FF214E78" />
-                        </StackPanel>
-                        <Button Content="生成教师配置示例" Command="{Binding GenerateAssignmentsCommand}" Style="{StaticResource RoundButtonBase}" Background="#FF214E78" Foreground="White" HorizontalAlignment="Left" Margin="0,4,0,0" />
-                        <TextBlock Text="点击可基于当前课程和班级自动生成教师授课安排。" Foreground="#FF5A6877" TextWrapping="Wrap" Margin="0,6,0,0" FontSize="12" />
                     </StackPanel>
                 </ScrollViewer>
             </Border>
@@ -633,133 +637,52 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
 
-                    <!-- Grade view: Excel-like matrix -->
-                    <Grid Grid.Row="2" Visibility="{Binding IsGradeViewMode, Converter={StaticResource BoolToVisibility}}">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" />
-                        </Grid.RowDefinitions>
-
-                        <!-- Day tabs -->
-                        <ItemsControl ItemsSource="{Binding DayTabs}" Margin="0,0,0,6">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <StackPanel Orientation="Horizontal" />
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Button Content="{Binding Name}"
-                                            Command="{Binding DataContext.SelectDayCommand, ElementName=SchedulePageRoot}"
-                                            CommandParameter="{Binding Index}"
-                                            Height="32" MinWidth="60" Margin="0,0,6,0" Padding="8,2"
-                                            CornerRadius="4" FontSize="13"
-                                            BorderThickness="1" BorderBrush="#FFD9E1EC"
-                                            Background="#FFF0F5FF" Foreground="#FF214E78" />
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-
-                        <!-- Excel-like grid -->
-                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                </Grid.RowDefinitions>
-
-                                <!-- Header row -->
-                                <Border Background="#FFF0F5FF" BorderBrush="#FFD9E1EC" BorderThickness="1,1,1,0">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="60" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <Border BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,1" Padding="4">
-                                            <TextBlock Text="节次" FontSize="13" FontWeight="SemiBold" Foreground="#FF214E78"
-                                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                        </Border>
-                                        <ItemsControl Grid.Column="1" ItemsSource="{Binding AvailableClasses}">
-                                            <ItemsControl.ItemsPanel>
-                                                <ItemsPanelTemplate>
-                                                    <StackPanel Orientation="Horizontal" />
-                                                </ItemsPanelTemplate>
-                                            </ItemsControl.ItemsPanel>
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate>
-                                                    <Border Width="140" BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,1" Padding="4"
-                                                            Background="#FFF0F5FF">
-                                                        <TextBlock Text="{Binding DisplayName}" FontSize="13" FontWeight="SemiBold" Foreground="#FF214E78"
-                                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                                    </Border>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                    </Grid>
-                                </Border>
-
-                                <!-- Body rows -->
-                                <ItemsControl Grid.Row="1" ItemsSource="{Binding ScheduleMatrix}">
-                                    <ItemsControl.ItemsPanel>
-                                        <ItemsPanelTemplate>
-                                            <StackPanel />
-                                        </ItemsPanelTemplate>
-                                    </ItemsControl.ItemsPanel>
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <Border BorderBrush="#FFD9E1EC" BorderThickness="1,0,1,0"
-                                                    Background="#FFFAFBFC">
-                                                <Grid>
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="60" />
-                                                        <ColumnDefinition Width="Auto" />
-                                                    </Grid.ColumnDefinitions>
-                                                    <Border Background="#FFF0F5FF" BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,1" Padding="4">
-                                                        <TextBlock Text="{Binding PeriodLabel}" FontSize="12" Foreground="#FF214E78"
-                                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                                    </Border>
-                                                    <ItemsControl Grid.Column="1" ItemsSource="{Binding Cells}">
-                                                        <ItemsControl.ItemsPanel>
-                                                            <ItemsPanelTemplate>
-                                                                <StackPanel Orientation="Horizontal" />
-                                                            </ItemsPanelTemplate>
-                                                        </ItemsControl.ItemsPanel>
-                                                        <ItemsControl.ItemTemplate>
-                                                            <DataTemplate>
-                                                                <Border Width="140" BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,1" Padding="4">
-                                                                    <Grid>
-                                                                        <Border Background="#FFF5F5F5"
-                                                                                Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibility}}" />
-                                                                        <Border Background="White"
-                                                                                Visibility="{Binding IsEmpty, Converter={StaticResource InverseBoolToVisibility}}" />
-                                                                        <StackPanel VerticalAlignment="Center">
-                                                                            <TextBlock Text="{Binding Subject}" FontSize="12" Foreground="#FF214E78" />
-                                                                            <TextBlock Text="{Binding TeacherName}" FontSize="12" Foreground="Gray" />
-                                                                        </StackPanel>
-                                                                    </Grid>
-                                                                </Border>
-                                                            </DataTemplate>
-                                                        </ItemsControl.ItemTemplate>
-                                                    </ItemsControl>
-                                                </Grid>
-                                            </Border>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </Grid>
-                        </ScrollViewer>
-                    </Grid>
-
-                    <!-- Non-grade views: class/teacher timetable -->
-                    <ScrollViewer Grid.Row="2" Visibility="{Binding IsGradeViewMode, Converter={StaticResource InverseBoolToVisibility}}"
-                                  VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+                    <!-- ===== 年级总表（合并节次标签 + 班级行 + 天列） ===== -->
+                    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                                  Visibility="{Binding IsGradeViewMode, Converter={StaticResource BoolToVisibility}}">
                         <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="50" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <!-- 左侧节次标签 -->
-                            <ItemsControl Grid.Column="0" ItemsSource="{Binding TimetableDays[0].Cells}" Margin="0,0,2,0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <!-- 表头行 -->
+                            <Border Background="#FFF0F5FF" BorderBrush="#FFD9E1EC" BorderThickness="1,1,1,0">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="60" />
+                                        <ColumnDefinition Width="80" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,1" Padding="4">
+                                        <TextBlock Text="节次" FontSize="12" FontWeight="SemiBold"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Border>
+                                    <Border Grid.Column="1" BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,1" Padding="4">
+                                        <TextBlock Text="班级" FontSize="12" FontWeight="SemiBold"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Border>
+                                    <ItemsControl Grid.Column="2" ItemsSource="{Binding DayTabs}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <StackPanel Orientation="Horizontal" />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Width="Auto" MinWidth="100" BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,1" Padding="4"
+                                                    Background="#FFF0F5FF">
+                                                    <TextBlock Text="{Binding Name}" FontSize="12" FontWeight="SemiBold"
+                                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </Grid>
+                            </Border>
+
+                            <!-- 数据行：PeriodGroup 分组 -->
+                            <ItemsControl Grid.Row="1" ItemsSource="{Binding GradePeriodGroups}">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
                                         <StackPanel />
@@ -767,44 +690,252 @@
                                 </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border Height="58" Margin="0,0,0,4" Padding="2" Background="#FFF0F5FF" CornerRadius="4" VerticalAlignment="Stretch">
-                                            <TextBlock Text="{Binding PeriodLabel}" FontSize="10" Foreground="#FF214E78"
-                                                       HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap"
-                                                       TextAlignment="Center" />
+                                        <Border BorderBrush="#FFD9E1EC" BorderThickness="1,0,1,0">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="60" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <!-- 合并的节次标签，自动撑满全高 -->
+                                                <Border Background="#FFF0F5FF" BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,1" Padding="4">
+                                                    <TextBlock Text="{Binding PeriodLabel}" FontSize="12"
+                                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                </Border>
+                                                <!-- 班级子行 -->
+                                                <ItemsControl Grid.Column="1" ItemsSource="{Binding ClassRows}">
+                                                    <ItemsControl.ItemsPanel>
+                                                        <ItemsPanelTemplate>
+                                                            <StackPanel />
+                                                        </ItemsPanelTemplate>
+                                                    </ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Border BorderBrush="#FFD9E1EC" BorderThickness="0,0,0,1" Background="#FFFAFBFC">
+                                                                <Grid>
+                                                                    <Grid.ColumnDefinitions>
+                                                                        <ColumnDefinition Width="80" />
+                                                                        <ColumnDefinition Width="*" />
+                                                                    </Grid.ColumnDefinitions>
+                                                                    <!-- 班级名称 -->
+                                                                    <Border BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,0" Padding="4">
+                                                                        <TextBlock Text="{Binding ClassName}" FontSize="12"
+                                                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                                    </Border>
+                                                                    <!-- 天列 -->
+                                                                    <ItemsControl Grid.Column="1" ItemsSource="{Binding Cells}">
+                                                                        <ItemsControl.ItemsPanel>
+                                                                            <ItemsPanelTemplate>
+                                                                                <StackPanel Orientation="Horizontal" />
+                                                                            </ItemsPanelTemplate>
+                                                                        </ItemsControl.ItemsPanel>
+                                                                        <ItemsControl.ItemTemplate>
+                                                                            <DataTemplate>
+                                                                                <Border Width="Auto" MinWidth="100" MinHeight="36" BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,0" Padding="4"
+                                                                                CanDrag="True" AllowDrop="True"
+                                                                                DragStarting="GridCell_DragStarting"
+                                                                                DragOver="GridCell_DragOver"
+                                                                                Drop="GridCell_Drop">
+                                                                                    <Grid>
+                                                                                        <Border Background="#FFF5F5F5"
+                                                                                                Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibility}}" />
+                                                                                        <TextBlock VerticalAlignment="Center" FontSize="12" TextWrapping="NoWrap"
+                                                                                                   Visibility="{Binding IsEmpty, Converter={StaticResource InverseBoolToVisibility}}">
+                                                                                            <Run Text="{Binding Subject}" />
+                                                                                            <Run Text=" " />
+                                                                                            <Run Text="{Binding TeacherName}" Foreground="#FF556070" />
+                                                                                        </TextBlock>
+                                                                                    </Grid>
+                                                                                </Border>
+                                                                            </DataTemplate>
+                                                                        </ItemsControl.ItemTemplate>
+                                                                    </ItemsControl>
+                                                                </Grid>
+                                                            </Border>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </Grid>
                                         </Border>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
+                        </Grid>
+                    </ScrollViewer>
 
-                            <!-- 周几列 -->
-                            <ItemsControl Grid.Column="1" ItemsSource="{Binding TimetableDays}" AllowDrop="True">
+                    <!-- ===== 班级课表（扁平节次行 × 天列） ===== -->
+                    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                                  Visibility="{Binding IsClassViewMode, Converter={StaticResource BoolToVisibility}}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <Border Background="#FFF0F5FF" BorderBrush="#FFD9E1EC" BorderThickness="1,1,1,0">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="60" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,1" Padding="4">
+                                        <TextBlock Text="节次" FontSize="12" FontWeight="SemiBold"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Border>
+                                    <ItemsControl Grid.Column="1" ItemsSource="{Binding DayTabs}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <StackPanel Orientation="Horizontal" />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Width="Auto" MinWidth="100" BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,1" Padding="4"
+                                                    Background="#FFF0F5FF">
+                                                    <TextBlock Text="{Binding Name}" FontSize="12" FontWeight="SemiBold"
+                                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </Grid>
+                            </Border>
+
+                            <ItemsControl Grid.Row="1" ItemsSource="{Binding MatrixRows}">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
-                                        <StackPanel Orientation="Horizontal" />
+                                        <StackPanel />
                                     </ItemsPanelTemplate>
                                 </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border MinWidth="140" MaxWidth="220" Margin="0,0,4,0" Padding="6" Background="White" BorderBrush="#FFD9E1EC" BorderThickness="1" CornerRadius="6">
+                                        <Border BorderBrush="#FFD9E1EC" BorderThickness="1,0,1,1" Background="#FFFAFBFC">
                                             <Grid>
-                                                <Grid.RowDefinitions>
-                                                    <RowDefinition Height="Auto" />
-                                                    <RowDefinition Height="*" />
-                                                </Grid.RowDefinitions>
-                                                <Border Background="#FFF0F5FF" CornerRadius="4" Padding="6" Margin="0,0,0,4">
-                                                    <TextBlock Text="{Binding DayName}" FontSize="14" Foreground="#FF214E78" HorizontalAlignment="Center" />
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="60" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <Border Background="#FFF0F5FF" BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,0" Padding="4">
+                                                    <TextBlock Text="{Binding PeriodLabel}" FontSize="12"
+                                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
                                                 </Border>
-                                                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-                                                    <ItemsControl ItemsSource="{Binding Cells}">
-                                                        <ItemsControl.ItemTemplate>
-                                                            <DataTemplate>
-                                                                <Border Margin="0,0,0,4" Padding="4" Background="White" BorderBrush="#FFE8EEF5" BorderThickness="1" CornerRadius="4">
-                                                                    <ItemsControl ItemsSource="{Binding Entries}" ItemTemplate="{StaticResource ScheduleEntryTemplate}" />
-                                                                </Border>
-                                                            </DataTemplate>
-                                                        </ItemsControl.ItemTemplate>
-                                                    </ItemsControl>
-                                                </ScrollViewer>
+                                                <ItemsControl Grid.Column="1" ItemsSource="{Binding Cells}">
+                                                    <ItemsControl.ItemsPanel>
+                                                        <ItemsPanelTemplate>
+                                                            <StackPanel Orientation="Horizontal" />
+                                                        </ItemsPanelTemplate>
+                                                    </ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Border Width="Auto" MinWidth="100" MinHeight="36" BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,0" Padding="4"
+                                                            CanDrag="True" AllowDrop="True"
+                                                            DragStarting="GridCell_DragStarting"
+                                                            DragOver="GridCell_DragOver"
+                                                            Drop="GridCell_Drop">
+                                                                <Grid>
+                                                                    <Border Background="#FFF5F5F5"
+                                                                            Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibility}}" />
+                                                                    <TextBlock VerticalAlignment="Center" FontSize="12" TextWrapping="NoWrap"
+                                                                               Visibility="{Binding IsEmpty, Converter={StaticResource InverseBoolToVisibility}}">
+                                                                        <Run Text="{Binding Subject}" />
+                                                                        <Run Text=" " />
+                                                                        <Run Text="{Binding TeacherName}" Foreground="#FF556070" />
+                                                                    </TextBlock>
+                                                                </Grid>
+                                                            </Border>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Grid>
+                    </ScrollViewer>
+
+                    <!-- ===== 教师课表（扁平节次行 × 天列，单元格显示班级） ===== -->
+                    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                                  Visibility="{Binding IsTeacherViewMode, Converter={StaticResource BoolToVisibility}}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <Border Background="#FFF0F5FF" BorderBrush="#FFD9E1EC" BorderThickness="1,1,1,0">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="60" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,1" Padding="4">
+                                        <TextBlock Text="节次" FontSize="12" FontWeight="SemiBold"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Border>
+                                    <ItemsControl Grid.Column="1" ItemsSource="{Binding DayTabs}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <StackPanel Orientation="Horizontal" />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Width="Auto" MinWidth="100" BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,1" Padding="4"
+                                                    Background="#FFF0F5FF">
+                                                    <TextBlock Text="{Binding Name}" FontSize="12" FontWeight="SemiBold"
+                                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </Grid>
+                            </Border>
+
+                            <ItemsControl Grid.Row="1" ItemsSource="{Binding MatrixRows}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border BorderBrush="#FFD9E1EC" BorderThickness="1,0,1,1" Background="#FFFAFBFC">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="60" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <Border Background="#FFF0F5FF" BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,0" Padding="4">
+                                                    <TextBlock Text="{Binding PeriodLabel}" FontSize="12"
+                                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                </Border>
+                                                <ItemsControl Grid.Column="1" ItemsSource="{Binding Cells}">
+                                                    <ItemsControl.ItemsPanel>
+                                                        <ItemsPanelTemplate>
+                                                            <StackPanel Orientation="Horizontal" />
+                                                        </ItemsPanelTemplate>
+                                                    </ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Border Width="Auto" MinWidth="100" MinHeight="36" BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,0" Padding="4"
+                                                            CanDrag="True" AllowDrop="True"
+                                                            DragStarting="GridCell_DragStarting"
+                                                            DragOver="GridCell_DragOver"
+                                                            Drop="GridCell_Drop">
+                                                                <Grid>
+                                                                    <Border Background="#FFF5F5F5"
+                                                                            Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibility}}" />
+                                                                    <TextBlock VerticalAlignment="Center" FontSize="12" TextWrapping="NoWrap"
+                                                                               Visibility="{Binding IsEmpty, Converter={StaticResource InverseBoolToVisibility}}">
+                                                                        <Run Text="{Binding Subject}" />
+                                                                        <Run Text=" " />
+                                                                        <Run Text="{Binding ClassName}" Foreground="#FF556070" />
+                                                                    </TextBlock>
+                                                                </Grid>
+                                                            </Border>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
                                             </Grid>
                                         </Border>
                                     </DataTemplate>
