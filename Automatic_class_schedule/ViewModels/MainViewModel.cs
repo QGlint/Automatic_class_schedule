@@ -100,6 +100,9 @@ public sealed class MainViewModel : ObservableObject
 
         LoadCourseTemplates();
 
+        // 确保默认项目目录存在
+        Directory.CreateDirectory(Infrastructure.AppPaths.DefaultProjectDirectory);
+
         // Start with welcome overlay — no project loaded
         _projectFilePath = "";
         _hasActiveProject = false;
