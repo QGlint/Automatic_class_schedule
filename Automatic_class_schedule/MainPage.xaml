@@ -1038,7 +1038,7 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <TextBox Text="{Binding ProjectFilePath, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="默认: Documents\asc\项目名称.ascproj" Padding="8,6" IsReadOnly="True" />
+                            <TextBox Text="{Binding ProjectDirectory}" PlaceholderText="默认: Documents\asc\" Padding="8,6" IsReadOnly="True" />
                             <Button Grid.Column="1" Content="浏览..." x:Name="BrowseLocationButton" Click="BrowseLocation_Click" Margin="6,0,0,0" Style="{StaticResource RoundButtonBase}" Background="#FFF0F5FF" Foreground="#FF214E78" />
                         </Grid>
 

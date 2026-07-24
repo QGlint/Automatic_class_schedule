@@ -167,8 +167,7 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
         var folder = await picker.PickSingleFolderAsync();
         if (folder is not null)
         {
-            var name = string.IsNullOrEmpty(vm.ProjectName) ? "我的项目" : vm.ProjectName;
-            vm.ProjectFilePath = System.IO.Path.Combine(folder.Path, name + ".ascproj");
+            vm.ProjectFilePath = folder.Path;
         }
     }
 

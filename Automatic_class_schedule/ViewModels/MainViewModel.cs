@@ -493,25 +493,22 @@ public sealed class MainViewModel : ObservableObject
     public string ProjectFilePath
     {
         get => _projectFilePath;
-        set => SetProperty(ref _projectFilePath, value);
+        set
+        {
+            if (SetProperty(ref _projectFilePath, value))
+                OnPropertyChanged(nameof(ProjectDirectory));
+        }
     }
+
+    public string ProjectDirectory =>
+        string.IsNullOrEmpty(_projectFilePath)
+            ? Infrastructure.AppPaths.DefaultProjectDirectory
+            : Path.GetDirectoryName(_projectFilePath)!;
 
     public string ProjectName
     {
         get => _projectName;
-        set
-        {
-            if (SetProperty(ref _projectName, value))
-            {
-                if (!string.IsNullOrEmpty(value))
-                {
-                    var dir = string.IsNullOrEmpty(_projectFilePath)
-                        ? Infrastructure.AppPaths.DefaultProjectDirectory
-                        : Path.GetDirectoryName(_projectFilePath)!;
-                    ProjectFilePath = Path.Combine(dir, value + ".ascproj");
-                }
-            }
-        }
+        set => SetProperty(ref _projectName, value);
     }
 
     public string ProjectFileName =>
@@ -549,16 +546,13 @@ public sealed class MainViewModel : ObservableObject
             return;
         }
 
-        // 若未选路径，自动生成默认路径
-        if (string.IsNullOrEmpty(_projectFilePath))
-        {
-            var dir = Infrastructure.AppPaths.DefaultProjectDirectory;
-            if (!Directory.Exists(dir))
-                Directory.CreateDirectory(dir);
-            _projectFilePath = Path.Combine(dir, _projectName + ".ascproj");
-        }
-
-        var filePath = _projectFilePath;
+        // 从目录 + 项目名构建完整文件路径
+        var dir = string.IsNullOrEmpty(_projectFilePath)
+            ? Infrastructure.AppPaths.DefaultProjectDirectory
+            : Path.GetDirectoryName(_projectFilePath)!;
+        if (!Directory.Exists(dir))
+            Directory.CreateDirectory(dir);
+        var filePath = Path.Combine(dir, _projectName + ".ascproj");
 
         if (File.Exists(filePath))
         {
