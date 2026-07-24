@@ -74,6 +74,25 @@
             <Setter Property="Margin" Value="0,6,0,0" />
         </Style>
 
+        <DataTemplate x:Key="RecentProjectItemTemplate">
+            <Border Padding="12,10" Margin="0,0,0,4" Background="#FFFAFBFC"
+                    CornerRadius="6" BorderBrush="#FFE0E6EF" BorderThickness="1">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="{Binding Name}" FontSize="15" FontWeight="SemiBold"
+                               Foreground="#FF214E78" />
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,4,0,0">
+                        <TextBlock Text="{Binding LastOpen}" FontSize="11" Foreground="#FF8E9FB6" />
+                        <TextBlock Text="{Binding Path}" FontSize="11" Foreground="#FFB0BFD1"
+                                   Margin="8,0,0,0" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </DataTemplate>
+
         <DataTemplate x:Key="ScheduleEntryTemplate">
             <Border Margin="0,0,0,2" Padding="3,2"
                     Background="#FFF8FBFF" BorderBrush="#FFBFD7EE"
@@ -115,6 +134,7 @@
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <Button Content="新建项目" x:Name="NewProjectButton" Click="NewProject_Click" Style="{StaticResource TopButtonStyle}" />
                         <Button Content="打开项目" x:Name="OpenProjectButton" Click="OpenProject_Click" Style="{StaticResource TopButtonStyle}" />
+                        <Button Content="打开最近项目" Click="OpenRecentProject_Click" Style="{StaticResource TopButtonStyle}" />
                         <Button Content="保存项目" x:Name="SaveProjectButton" Click="SaveProject_Click" Style="{StaticResource TopButtonStyle}" />
                         <TextBlock Text="{Binding ProjectFileName}" FontSize="12" Foreground="#FF5A6877" VerticalAlignment="Center" Margin="8,0,0,0" />
                         <Button Content="加载示例" Command="{Binding SeedSampleDataCommand}" Style="{StaticResource TopButtonStyle}" Margin="12,0,0,0" />
@@ -1022,28 +1042,8 @@
                           SelectionMode="None" IsItemClickEnabled="True"
                           ItemClick="RecentProject_Click"
                           ScrollViewer.VerticalScrollBarVisibility="Auto"
-                          BorderBrush="#FFE0E6EF" BorderThickness="1" CornerRadius="8">
-                    <ListView.ItemTemplate>
-                        <DataTemplate>
-                            <Border Padding="12,10" Margin="0,0,0,4" Background="#FFFAFBFC"
-                                    CornerRadius="6" BorderBrush="#FFE0E6EF" BorderThickness="1">
-                                <Grid>
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="Auto" />
-                                    </Grid.RowDefinitions>
-                                    <TextBlock Text="{Binding Name}" FontSize="15" FontWeight="SemiBold"
-                                               Foreground="#FF214E78" />
-                                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,4,0,0">
-                                        <TextBlock Text="{Binding LastOpen}" FontSize="11" Foreground="#FF8E9FB6" />
-                                        <TextBlock Text="{Binding Path}" FontSize="11" Foreground="#FFB0BFD1"
-                                                   Margin="8,0,0,0" TextTrimming="CharacterEllipsis" />
-                                    </StackPanel>
-                                </Grid>
-                            </Border>
-                        </DataTemplate>
-                    </ListView.ItemTemplate>
-                </ListView>
+                          BorderBrush="#FFE0E6EF" BorderThickness="1" CornerRadius="8"
+                          ItemTemplate="{StaticResource RecentProjectItemTemplate}" />
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,16,0,0">
                     <Button Content="新建项目" Style="{StaticResource TopButtonStyle}" Click="NewProject_Click"
                             MinWidth="100" Height="36" />

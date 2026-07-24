@@ -161,17 +161,10 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
     private async void OpenProject_Click(object sender, RoutedEventArgs e)
     {
         var vm = (MainViewModel)DataContext;
-        if (vm.HasActiveProject)
-        {
-            App.PendingProjectPath = App.OpenIntent;
-            App.OpenNewWindow();
-            return;
-        }
-
-        await PickAndOpenProjectAsync();
+        await PickAndOpenProjectAsync(openInNewWindow: vm.HasActiveProject);
     }
 
-    private async Task PickAndOpenProjectAsync()
+    private async Task PickAndOpenProjectAsync(bool openInNewWindow = false)
     {
         var vm = (MainViewModel)DataContext;
         var filePicker = new Windows.Storage.Pickers.FileOpenPicker
@@ -188,7 +181,15 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
             var file = await filePicker.PickSingleFileAsync();
             if (file != null)
             {
-                vm.OpenProject(file.Path);
+                if (openInNewWindow)
+                {
+                    App.PendingProjectPath = file.Path;
+                    App.OpenNewWindow();
+                }
+                else
+                {
+                    vm.OpenProject(file.Path);
+                }
             }
         }
         catch
@@ -223,6 +224,39 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
             }
             catch { }
         }
+    }
+
+    private async void OpenRecentProject_Click(object sender, RoutedEventArgs e)
+    {
+        var vm = (MainViewModel)DataContext;
+        var list = new ListView
+        {
+            ItemsSource = vm.HomePageProjects,
+            SelectionMode = ListViewSelectionMode.None,
+            IsItemClickEnabled = true,
+            Height = 360,
+            MinWidth = 400
+        };
+        list.ItemTemplate = (Microsoft.UI.Xaml.DataTemplate)Resources["RecentProjectItemTemplate"];
+        list.ItemClick += (s, args) =>
+        {
+            if (args.ClickedItem is Services.ProjectInfo info && System.IO.File.Exists(info.Path))
+            {
+                App.PendingProjectPath = info.Path;
+                App.OpenNewWindow();
+            }
+        };
+
+        var dialog = new ContentDialog
+        {
+            Title = "打开最近项目",
+            CloseButtonText = "取消",
+            DefaultButton = ContentDialogButton.Close,
+            XamlRoot = XamlRoot,
+            Content = list
+        };
+
+        await dialog.ShowAsync();
     }
 
     private async Task ShowCreateProjectDialogAsync()
