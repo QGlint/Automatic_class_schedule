@@ -111,16 +111,28 @@ public sealed class ScheduleService
         var classList = classes.ToList();
         if (classList.Count == 0) return;
 
+        string[] mainSubjects = { "语文", "数学", "英语" };
+        string peSubject = "体育";
+
         foreach (IGrouping<string, SchoolClass> gradeGroup in classList.GroupBy(c => c.GradeName))
         {
             string gradeName = gradeGroup.Key;
+            string shortGrade = gradeName.Replace("年级", "");
             List<SchoolClass> gradeClasses = gradeGroup.ToList();
 
             foreach (SubjectDefinition subDef in subjects.Where(s => string.IsNullOrEmpty(s.GradeName) || s.GradeName == gradeName))
             {
                 int weeklyCount = subDef.DefaultWeeklyCount;
                 int classCount = gradeClasses.Count;
-                int perTeacher = Math.Max(1, (int)Math.Ceiling(classCount / 3.0));
+
+                // Per-teacher class count based on subject type
+                int perTeacher;
+                if (mainSubjects.Contains(subDef.Name))
+                    perTeacher = 2;
+                else if (subDef.Name == peSubject)
+                    perTeacher = 5;
+                else
+                    perTeacher = 3;
 
                 bool preferMorning = subDef.Name is "数学" or "英语" or "语文" or "物理" or "化学";
                 bool avoidLast = subDef.Name is "体育";
@@ -138,7 +150,7 @@ public sealed class ScheduleService
                     List<SchoolClass> teacherClasses = gradeClasses.Skip(currentOffset).Take(take).ToList();
                     currentOffset += take;
 
-                    string teacherName = $"{subDef.Name[..1]}老师{ti + 1}";
+                    string teacherName = $"{shortGrade}{subDef.Name[..1]}老师{ti + 1}";
                     var numbers = teacherClasses.Select(c => c.ClassNumber.ToString()).ToList();
 
                     assignments.Add(new TeacherAssignment
