@@ -145,59 +145,10 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
         }
     }
 
-    private async void BrowseLocation_Click(object sender, RoutedEventArgs e)
-    {
-        var vm = (MainViewModel)DataContext;
-        var dir = Infrastructure.AppPaths.DefaultProjectDirectory;
-        if (!Directory.Exists(dir))
-            Directory.CreateDirectory(dir);
-
-        var picker = new Windows.Storage.Pickers.FileSavePicker();
-        picker.SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary;
-        picker.FileTypeChoices.Add("排课项目", new List<string> { ".ascproj" });
-        picker.SuggestedFileName = string.IsNullOrEmpty(vm.ProjectName) ? "我的项目" : vm.ProjectName;
-        var mainWindow = App.CurrentWindow;
-        if (mainWindow is not null)
-        {
-            var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(mainWindow);
-            WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
-        }
-        var file = await picker.PickSaveFileAsync();
-        if (file is not null)
-        {
-            vm.ProjectFilePath = file.Path;
-        }
-    }
-
     private async void SaveProject_Click(object sender, RoutedEventArgs e)
     {
         var vm = (MainViewModel)DataContext;
-
-        if (!string.IsNullOrEmpty(vm.ProjectFilePath))
-        {
-            vm.SaveProject(vm.ProjectFilePath);
-            return;
-        }
-
-        var dir = Infrastructure.AppPaths.DefaultProjectDirectory;
-        if (!Directory.Exists(dir))
-            Directory.CreateDirectory(dir);
-
-        var picker = new Windows.Storage.Pickers.FileSavePicker();
-        picker.SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary;
-        picker.FileTypeChoices.Add("排课项目", new List<string> { ".ascproj" });
-        picker.SuggestedFileName = string.IsNullOrEmpty(vm.ProjectName) ? "我的项目" : vm.ProjectName;
-        var mainWindow = App.CurrentWindow;
-        if (mainWindow is not null)
-        {
-            var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(mainWindow);
-            WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
-        }
-        var file = await picker.PickSaveFileAsync();
-        if (file is not null)
-        {
-            vm.SaveProject(file.Path);
-        }
+        vm.SaveProject(vm.ProjectFilePath);
     }
 
     private void GridCell_DragStarting(UIElement sender, DragStartingEventArgs e)

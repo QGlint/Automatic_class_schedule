@@ -531,15 +531,21 @@ public sealed class MainViewModel : ObservableObject
 
     public void CreateProject()
     {
-        if (string.IsNullOrEmpty(_projectFilePath))
+        if (string.IsNullOrEmpty(_projectName))
         {
-            StatusMessage = "请先选择项目存储位置";
+            StatusMessage = "请输入项目名称";
             return;
         }
 
-        if (File.Exists(_projectFilePath))
+        var dir = Infrastructure.AppPaths.DefaultProjectDirectory;
+        if (!Directory.Exists(dir))
+            Directory.CreateDirectory(dir);
+
+        var filePath = Path.Combine(dir, _projectName + ".ascproj");
+
+        if (File.Exists(filePath))
         {
-            StatusMessage = "该位置已存在项目文件，请重新选择";
+            StatusMessage = $"项目 '{_projectName}' 已存在，请使用其他名称";
             return;
         }
 
@@ -556,7 +562,7 @@ public sealed class MainViewModel : ObservableObject
         _currentSubjectGradeName = GradeInputs.FirstOrDefault()?.GradeName ?? "";
         OnPropertyChanged(nameof(CurrentSubjectGradeName));
         OnPropertyChanged(nameof(FilteredSubjects));
-        SaveProject(_projectFilePath);
+        SaveProject(filePath);
         HasActiveProject = true;
         SelectedMainPage = "配置";
         SelectedConfigPage = "基础设置";

@@ -11,6 +11,5 @@ public static class AppPaths
 
     /// <summary>用户文档下的项目默认存储目录</summary>
     public static string DefaultProjectDirectory => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-        "Automatic_class_schedule", "项目");
+        Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "asc");
 }

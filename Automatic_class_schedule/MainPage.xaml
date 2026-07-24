@@ -1032,16 +1032,6 @@
                         <TextBlock Text="项目名称" FontWeight="SemiBold" />
                         <TextBox Text="{Binding ProjectName, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="例如: 2024年上学期" Padding="8,6" />
 
-                        <TextBlock Text="存储位置" FontWeight="SemiBold" />
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBox Text="{Binding ProjectFilePath, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="选择 .ascproj 文件保存位置" Padding="8,6" IsReadOnly="True" />
-                            <Button Grid.Column="1" Content="浏览..." x:Name="BrowseLocationButton" Click="BrowseLocation_Click" Margin="6,0,0,0" Style="{StaticResource RoundButtonBase}" Background="#FFF0F5FF" Foreground="#FF214E78" />
-                        </Grid>
-
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="10" Margin="0,8,0,0">
                             <Button Content="创建项目" Command="{Binding CreateProjectCommand}" Style="{StaticResource RoundButtonBase}" Background="#FF214E78" Foreground="White" MinWidth="120" FontSize="15" />
                             <Button Content="打开项目" x:Name="WelcomeOpenButton" Click="OpenProject_Click" Style="{StaticResource RoundButtonBase}" Background="#FFF0F5FF" Foreground="#FF214E78" MinWidth="120" FontSize="15" />
