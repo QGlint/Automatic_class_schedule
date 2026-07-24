@@ -51,7 +51,9 @@ public class RecentProjectsService
             if (System.IO.File.Exists(_filePath))
             {
                 var json = System.IO.File.ReadAllText(_filePath);
-                return JsonSerializer.Deserialize<List<ProjectInfo>>(json) ?? new();
+                var list = JsonSerializer.Deserialize<List<ProjectInfo>>(json) ?? new();
+                list.RemoveAll(p => string.IsNullOrEmpty(p.Path) || !System.IO.File.Exists(p.Path));
+                return list;
             }
         }
         catch { }
