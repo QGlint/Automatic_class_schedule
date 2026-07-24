@@ -12,7 +12,6 @@ public sealed class MainViewModel : ObservableObject
     private readonly ScheduleService _scheduleService;
     private readonly SchoolDataStore _store;
     private readonly ExcelScheduleService _excelService;
-    private string _schoolName = "中学";
     private int _daysPerWeek = 5;
     private int _periodsPerDay = 7;
     private int _morningPeriods = 4;
@@ -98,7 +97,7 @@ public sealed class MainViewModel : ObservableObject
         ToggleToolbarCommand = new RelayCommand(ToggleToolbar);
         SaveAsCommand = new RelayCommand<string?>(SaveProject);
         OpenProjectCommand = new RelayCommand<string?>(OpenProject);
-        CreateProjectCommand = new RelayCommand(CreateProject);
+        CreateProjectCommand = new RelayCommand(() => CreateProject());
 
         LoadCourseTemplates();
 
@@ -110,7 +109,7 @@ public sealed class MainViewModel : ObservableObject
         _hasActiveProject = false;
         OnPropertyChanged(nameof(HasActiveProject));
         OnPropertyChanged(nameof(ProjectFileName));
-        OnPropertyChanged(nameof(RecentProjects));
+        RefreshHomePageProjects();
         SelectedMainPage = "配置";
         SelectedConfigPage = "基础设置";
     }
@@ -208,12 +207,6 @@ public sealed class MainViewModel : ObservableObject
     {
         get => _selectedDayIndex;
         set => SetProperty(ref _selectedDayIndex, value);
-    }
-
-    public string SchoolName
-    {
-        get => _schoolName;
-        set => SetProperty(ref _schoolName, value);
     }
 
     public int DaysPerWeek
@@ -529,12 +522,44 @@ public sealed class MainViewModel : ObservableObject
             {
                 OnPropertyChanged(nameof(ProjectFileName));
                 OnPropertyChanged(nameof(ProjectName));
-                OnPropertyChanged(nameof(RecentProjects));
+                RefreshHomePageProjects();
             }
         }
     }
 
     public IReadOnlyList<ProjectInfo> RecentProjects => _recentProjects.Projects;
+
+    private List<ProjectInfo> _homePageProjects = new();
+    public IReadOnlyList<ProjectInfo> HomePageProjects => _homePageProjects;
+
+    private void RefreshHomePageProjects()
+    {
+        var merged = new List<ProjectInfo>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var p in _recentProjects.Projects)
+        {
+            merged.Add(p);
+            seen.Add(p.Path);
+        }
+        var dir = new DirectoryInfo(AppPaths.ProjectsPath);
+        if (dir.Exists)
+        {
+            foreach (var file in dir.GetFiles("*.acsproj"))
+            {
+                if (seen.Add(file.FullName))
+                {
+                    merged.Add(new ProjectInfo
+                    {
+                        Name = Path.GetFileNameWithoutExtension(file.Name),
+                        Path = file.FullName,
+                        LastOpen = file.LastWriteTime.ToString("yyyy-MM-dd")
+                    });
+                }
+            }
+        }
+        _homePageProjects = merged;
+        OnPropertyChanged(nameof(HomePageProjects));
+    }
 
     public bool IsToolbarExpanded
     {
@@ -547,7 +572,7 @@ public sealed class MainViewModel : ObservableObject
         IsToolbarExpanded = !IsToolbarExpanded;
     }
 
-    public void CreateProject()
+    public void CreateProject(string? filePath = null)
     {
         if (string.IsNullOrEmpty(_projectName))
         {
@@ -555,8 +580,8 @@ public sealed class MainViewModel : ObservableObject
             return;
         }
 
-        // 自动保存到 ACS\Projects\{名称}.acsproj
-        var filePath = Infrastructure.AppPaths.GetProjectFilePath(_projectName);
+        if (string.IsNullOrEmpty(filePath))
+            filePath = Infrastructure.AppPaths.GetProjectFilePath(_projectName);
 
         if (File.Exists(filePath))
         {
@@ -564,7 +589,7 @@ public sealed class MainViewModel : ObservableObject
             return;
         }
 
-        SchoolName = _projectName;
+
         DaysPerWeek = 5;
         PeriodsPerDay = 7;
         MorningPeriods = 4;
@@ -589,7 +614,7 @@ public sealed class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(ProjectFileName));
         HasActiveProject = true;
         _recentProjects.AddOrUpdate(_projectName, filePath);
-        OnPropertyChanged(nameof(RecentProjects));
+        RefreshHomePageProjects();
         SelectedMainPage = "配置";
         SelectedConfigPage = "基础设置";
         StatusMessage = $"已创建项目: {_projectName}";
@@ -656,7 +681,7 @@ public sealed class MainViewModel : ObservableObject
         _projectFilePath = filePath;
         HasActiveProject = true;
         _recentProjects.AddOrUpdate(Path.GetFileNameWithoutExtension(filePath), filePath);
-        OnPropertyChanged(nameof(RecentProjects));
+        RefreshHomePageProjects();
         SelectedMainPage = "配置";
         SelectedConfigPage = "基础设置";
         SelectedViewMode = "年级总表";
@@ -1085,7 +1110,6 @@ public sealed class MainViewModel : ObservableObject
         FixedLessons.Clear();
         ScheduleEntries.Clear();
         Conflicts.Clear();
-        SchoolName = "中学";
         DaysPerWeek = 5;
         PeriodsPerDay = 7;
         MorningPeriods = 4;
@@ -1670,7 +1694,6 @@ public sealed class MainViewModel : ObservableObject
 
     private void ApplySchoolData(SchoolData data)
     {
-        SchoolName = data.Settings.SchoolName;
         DaysPerWeek = data.Settings.DaysPerWeek;
         PeriodsPerDay = data.Settings.PeriodsPerDay;
         MorningPeriods = data.Settings.MorningPeriods;
@@ -1702,7 +1725,6 @@ public sealed class MainViewModel : ObservableObject
         {
             Settings = new ScheduleSettings
             {
-                SchoolName = SchoolName,
                 DaysPerWeek = DaysPerWeek,
                 PeriodsPerDay = PeriodsPerDay,
                 MorningPeriods = MorningPeriods,

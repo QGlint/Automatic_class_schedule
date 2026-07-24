@@ -10,7 +10,6 @@ public static class SampleDataFactory
         {
             Settings = new ScheduleSettings
             {
-                SchoolName = "自动排课示例",
                 DaysPerWeek = 5,
                 PeriodsPerDay = 8,
                 MorningPeriods = 4,

@@ -62,6 +62,7 @@ public static class SchoolDataSerializer
             int count;
             if (tag == SectionTag.Settings)
             {
+                reader.ReadInt32(); // skip -1 placeholder
                 data.Settings = ReadSettings(reader);
                 continue;
             }

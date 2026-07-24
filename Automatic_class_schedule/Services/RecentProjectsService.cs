@@ -52,7 +52,8 @@ public class RecentProjectsService
             {
                 var json = System.IO.File.ReadAllText(_filePath);
                 var list = JsonSerializer.Deserialize<List<ProjectInfo>>(json) ?? new();
-                list.RemoveAll(p => string.IsNullOrEmpty(p.Path) || !System.IO.File.Exists(p.Path));
+                var staleCount = list.RemoveAll(p => string.IsNullOrEmpty(p.Path) || !System.IO.File.Exists(p.Path));
+                if (staleCount > 0) Save(list);
                 return list;
             }
         }
@@ -60,13 +61,14 @@ public class RecentProjectsService
         return new();
     }
 
-    private void Save()
+    private void Save(List<ProjectInfo>? list = null)
     {
         try
         {
             var dir = System.IO.Path.GetDirectoryName(_filePath)!;
             System.IO.Directory.CreateDirectory(dir);
-            var json = JsonSerializer.Serialize(_projects, new JsonSerializerOptions { WriteIndented = true });
+            var data = list ?? _projects;
+            var json = JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true });
             System.IO.File.WriteAllText(_filePath, json);
         }
         catch { }

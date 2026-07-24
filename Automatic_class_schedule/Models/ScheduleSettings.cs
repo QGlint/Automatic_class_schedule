@@ -8,7 +8,7 @@ public sealed class ScheduleSettings : Infrastructure.ObservableObject
     private int _afternoonPeriods = 3;
     private bool _includeEveningSelfStudy;
     private int _eveningPeriods = 2;
-    private string _schoolName = "中学排课示例";
+    private string _schoolName = "";
 
     public int DaysPerWeek
     {

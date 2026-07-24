@@ -132,7 +132,6 @@
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="{Binding SchoolName}" FontSize="12" FontWeight="SemiBold" Foreground="#FF214E78" VerticalAlignment="Center" Margin="8,0,6,0" />
                             <TextBlock Text="|" Foreground="#FFD9E1EC" VerticalAlignment="Center" />
                             <TextBlock Text="{Binding StatusMessage}" Foreground="#FF5A6877" Margin="6,0" FontSize="12" VerticalAlignment="Center" />
                         </StackPanel>
@@ -190,9 +189,9 @@
         <Grid Grid.Row="2" Margin="0,8,0,0"
               Visibility="{Binding HasActiveProject, Converter={StaticResource BoolToVisibility}}">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="220" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="240" />
+                <ColumnDefinition Width="1.5*" />
+                <ColumnDefinition Width="5*" />
+                <ColumnDefinition Width="1.5*" />
             </Grid.ColumnDefinitions>
 
             <!-- *********************************************** -->
@@ -360,22 +359,19 @@
                                         <RowDefinition Height="Auto" />
                                         <RowDefinition Height="Auto" />
                                         <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="Auto" />
                                     </Grid.RowDefinitions>
-                                    <TextBlock Text="学校名称" VerticalAlignment="Center" />
-                                    <TextBox Grid.Column="1" Text="{Binding SchoolName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6" Padding="6,4" />
-                                    <TextBlock Grid.Row="1" Text="每周天数" VerticalAlignment="Center" />
-                                    <ComboBox Grid.Row="1" Grid.Column="1" SelectedValue="{Binding DaysPerWeek}" Margin="0,0,0,6" Width="100" HorizontalAlignment="Left">
+                                    <TextBlock Text="每周天数" VerticalAlignment="Center" />
+                                    <ComboBox Grid.Column="1" SelectedValue="{Binding DaysPerWeek}" Margin="0,0,0,6" Width="100" HorizontalAlignment="Left">
                                         <x:Int32>5</x:Int32>
                                         <x:Int32>6</x:Int32>
                                         <x:Int32>7</x:Int32>
                                     </ComboBox>
-                                    <TextBlock Grid.Row="2" Text="上午节数" VerticalAlignment="Center" />
-                                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding MorningPeriods, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6" Width="60" HorizontalAlignment="Left" />
-                                    <TextBlock Grid.Row="3" Text="下午节数" VerticalAlignment="Center" />
-                                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding AfternoonPeriods, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6" Width="60" HorizontalAlignment="Left" />
-                                    <TextBlock Grid.Row="4" Text="晚自习" VerticalAlignment="Center" />
-                                    <ToggleSwitch Grid.Row="4" Grid.Column="1" IsOn="{Binding IncludeEveningSelfStudy}" Margin="0,0,0,6" />
+                                    <TextBlock Grid.Row="1" Text="上午节数" VerticalAlignment="Center" />
+                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding MorningPeriods, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6" Width="60" HorizontalAlignment="Left" />
+                                    <TextBlock Grid.Row="2" Text="下午节数" VerticalAlignment="Center" />
+                                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding AfternoonPeriods, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6" Width="60" HorizontalAlignment="Left" />
+                                    <TextBlock Grid.Row="3" Text="晚自习" VerticalAlignment="Center" />
+                                    <ToggleSwitch Grid.Row="3" Grid.Column="1" IsOn="{Binding IncludeEveningSelfStudy}" Margin="0,0,0,6" />
                                     <TextBlock Grid.Row="5" Text="晚自习节数" VerticalAlignment="Center" />
                                     <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding EveningPeriods, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6" Width="60" HorizontalAlignment="Left"
                                              IsEnabled="{Binding IncludeEveningSelfStudy}" />
@@ -568,18 +564,15 @@
                                         <RowDefinition Height="Auto" />
                                         <RowDefinition Height="Auto" />
                                         <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="Auto" />
                                     </Grid.RowDefinitions>
-                                    <TextBlock Text="学校" Foreground="#FF5A6877" />
-                                    <TextBlock Grid.Column="1" Text="{Binding SchoolName}" Margin="10,0" />
-                                    <TextBlock Grid.Row="1" Text="班级数" Foreground="#FF5A6877" />
-                                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding TotalClasses}" Margin="10,0" />
-                                    <TextBlock Grid.Row="2" Text="课程数" Foreground="#FF5A6877" />
-                                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding TotalSubjects}" Margin="10,0" />
-                                    <TextBlock Grid.Row="3" Text="教师安排" Foreground="#FF5A6877" />
-                                    <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding TotalAssignments}" Margin="10,0" />
-                                    <TextBlock Grid.Row="4" Text="授课需求" Foreground="#FF5A6877" />
-                                    <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding TotalRequirements}" Margin="10,0" />
+                                    <TextBlock Text="班级数" Foreground="#FF5A6877" />
+                                    <TextBlock Grid.Column="1" Text="{Binding TotalClasses}" Margin="10,0" />
+                                    <TextBlock Grid.Row="1" Text="课程数" Foreground="#FF5A6877" />
+                                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding TotalSubjects}" Margin="10,0" />
+                                    <TextBlock Grid.Row="2" Text="教师安排" Foreground="#FF5A6877" />
+                                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding TotalAssignments}" Margin="10,0" />
+                                    <TextBlock Grid.Row="3" Text="授课需求" Foreground="#FF5A6877" />
+                                    <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding TotalRequirements}" Margin="10,0" />
                                 </Grid>
                             </StackPanel>
                         </Border>
@@ -628,7 +621,7 @@
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <StackPanel>
-                                <TextBlock Text="{Binding SchoolName}" FontSize="18" Foreground="#FF214E78" />
+                                <TextBlock Text="{Binding ProjectFileName}" FontSize="18" Foreground="#FF214E78" />
                                 <TextBlock Text="{Binding CurrentScopeSummary}" Foreground="#FF5A6877" FontSize="12" />
                             </StackPanel>
                             <TextBlock Grid.Column="1" Text="{Binding TotalScheduleEntries}" VerticalAlignment="Center" Foreground="#FF5A6877" />
@@ -1025,7 +1018,7 @@
                            HorizontalAlignment="Center" Margin="0,0,0,32" />
                 <TextBlock Text="最近工程" FontSize="14" Foreground="#FF5A6877" Margin="0,0,0,8"
                            HorizontalAlignment="Center" />
-                <ListView ItemsSource="{Binding RecentProjects}" Height="240"
+                <ListView ItemsSource="{Binding HomePageProjects}" Height="400"
                           SelectionMode="None" IsItemClickEnabled="True"
                           ItemClick="RecentProject_Click"
                           ScrollViewer.VerticalScrollBarVisibility="Auto"

@@ -9,7 +9,7 @@ public sealed class SampleDataFactoryTests
     {
         var data = SampleDataFactory.Create();
         Assert.NotNull(data);
-        Assert.Equal("自动排课示例", data.Settings.SchoolName);
+        Assert.Equal("", data.Settings.SchoolName);
         Assert.Equal(5, data.Settings.DaysPerWeek);
         Assert.Equal(8, data.Settings.PeriodsPerDay);
         Assert.Equal(4, data.Settings.MorningPeriods);

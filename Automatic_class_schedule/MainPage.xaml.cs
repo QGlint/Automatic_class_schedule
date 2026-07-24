@@ -147,7 +147,7 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
         }
     }
 
-    private void NewProject_Click(object sender, RoutedEventArgs e)
+    private async void NewProject_Click(object sender, RoutedEventArgs e)
     {
         var vm = (MainViewModel)DataContext;
         if (vm.HasActiveProject)
@@ -155,7 +155,7 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
             App.OpenNewWindow();
             return;
         }
-        var _ = ShowCreateProjectDialogAsync();
+        await ShowCreateProjectDialogAsync();
     }
 
     private async void OpenProject_Click(object sender, RoutedEventArgs e)
@@ -182,16 +182,17 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
 
         try
         {
+            nint hwnd = WinRT.Interop.WindowNative.GetWindowHandle(App.CurrentWindow);
+            WinRT.Interop.InitializeWithWindow.Initialize(filePicker, hwnd);
+
             var file = await filePicker.PickSingleFileAsync();
             if (file != null)
             {
                 vm.OpenProject(file.Path);
-                vm.ProjectFilePath = file.Path;
             }
         }
         catch
         {
-            // 文件选择器取消或出错时忽略
         }
     }
 
@@ -205,14 +206,22 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
     {
         if (e.ClickedItem is Services.ProjectInfo info)
         {
-            var vm = (MainViewModel)DataContext;
-            if (vm.HasActiveProject)
+            try
             {
-                App.PendingProjectPath = info.Path;
-                App.OpenNewWindow();
-                return;
+                var vm = (MainViewModel)DataContext;
+                if (!System.IO.File.Exists(info.Path))
+                {
+                    return;
+                }
+                if (vm.HasActiveProject)
+                {
+                    App.PendingProjectPath = info.Path;
+                    App.OpenNewWindow();
+                    return;
+                }
+                vm.OpenProject(info.Path);
             }
-            vm.OpenProject(info.Path);
+            catch { }
         }
     }
 
@@ -220,8 +229,51 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
     {
         var vm = (MainViewModel)DataContext;
         vm.ProjectName = string.Empty;
-        vm.ProjectFilePath = Infrastructure.AppPaths.ProjectsPath;
 
+        var saveFolder = Infrastructure.AppPaths.ProjectsPath;
+
+        // First ask about save location
+        var locDialog = new ContentDialog
+        {
+            Title = "选择保存位置",
+            PrimaryButtonText = "默认位置",
+            SecondaryButtonText = "自定义位置",
+            CloseButtonText = "取消",
+            DefaultButton = ContentDialogButton.Primary,
+            XamlRoot = XamlRoot,
+            Content = new TextBlock
+            {
+                Text = $"保存到默认目录:\n{Infrastructure.AppPaths.ProjectsPath}",
+                FontSize = 13,
+                Margin = new Thickness(0, 8, 0, 0)
+            }
+        };
+
+        var locResult = await locDialog.ShowAsync();
+        if (locResult == ContentDialogResult.Primary)
+        {
+            saveFolder = Infrastructure.AppPaths.ProjectsPath;
+        }
+        else if (locResult == ContentDialogResult.Secondary)
+        {
+            var folderPicker = new Windows.Storage.Pickers.FolderPicker
+            {
+                SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary
+            };
+            folderPicker.FileTypeFilter.Add(".acsproj");
+            nint hwnd = WinRT.Interop.WindowNative.GetWindowHandle(App.CurrentWindow);
+            WinRT.Interop.InitializeWithWindow.Initialize(folderPicker, hwnd);
+            var folder = await folderPicker.PickSingleFolderAsync();
+            if (folder == null)
+                return;
+            saveFolder = folder.Path;
+        }
+        else
+        {
+            return;
+        }
+
+        // Now show name input dialog
         var nameBox = new TextBox
         {
             PlaceholderText = "例如: 2024年上学期",
@@ -235,7 +287,7 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
             TextWrapping = TextWrapping.Wrap
         };
 
-        var dialog = new ContentDialog
+        var nameDialog = new ContentDialog
         {
             Title = "新建项目",
             PrimaryButtonText = "创建",
@@ -252,7 +304,7 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
                     nameBox,
                     new TextBlock
                     {
-                        Text = $"保存到: {Infrastructure.AppPaths.ProjectsPath}",
+                        Text = $"保存到: {saveFolder}",
                         FontSize = 11,
                         Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Gray)
                     },
@@ -261,33 +313,29 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
             }
         };
 
-        while (true)
+        nameDialog.PrimaryButtonClick += (s, e2) =>
         {
-            nameBox.Text = "";
-            statusText.Text = "";
-
-            var result = await dialog.ShowAsync();
-            if (result != ContentDialogResult.Primary)
-                break;
-
             vm.ProjectName = nameBox.Text.Trim();
 
             if (string.IsNullOrEmpty(vm.ProjectName))
             {
                 statusText.Text = "请输入项目名称";
-                continue;
+                e2.Cancel = true;
+                return;
             }
 
-            var fullPath = Infrastructure.AppPaths.GetProjectFilePath(vm.ProjectName);
+            var fullPath = System.IO.Path.Combine(saveFolder, vm.ProjectName + ".acsproj");
             if (System.IO.File.Exists(fullPath))
             {
                 statusText.Text = $"文件已存在: {vm.ProjectName}.acsproj";
-                continue;
+                e2.Cancel = true;
+                return;
             }
 
-            vm.CreateProject();
-            break;
-        }
+            vm.CreateProject(fullPath);
+        };
+
+        await nameDialog.ShowAsync();
     }
 
     private void GridCell_DragStarting(UIElement sender, DragStartingEventArgs e)
