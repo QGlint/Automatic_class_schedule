@@ -7,6 +7,8 @@ namespace Automatic_class_schedule;
 
 public sealed partial class MainWindow : Window
 {
+    private bool _isClosing;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -20,6 +22,8 @@ public sealed partial class MainWindow : Window
 
     private async void OnWindowClosing(Microsoft.UI.Windowing.AppWindow sender, Microsoft.UI.Windowing.AppWindowClosingEventArgs args)
     {
+        if (_isClosing) return;
+
         if (RootFrame.Content is not MainPage page || page.DataContext is not MainViewModel vm)
             return;
 
@@ -27,6 +31,7 @@ public sealed partial class MainWindow : Window
             return;
 
         args.Cancel = true;
+        _isClosing = true;
 
         var dialog = new ContentDialog
         {
@@ -43,6 +48,8 @@ public sealed partial class MainWindow : Window
             vm.SaveProject(vm.ProjectFilePath);
         if (result != ContentDialogResult.None)
             Close();
+
+        _isClosing = false;
     }
 
     private Microsoft.UI.Windowing.AppWindow GetAppWindow()

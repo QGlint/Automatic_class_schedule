@@ -29,6 +29,7 @@ public partial class App : Application
     {
         PendingProjectPath = projectPath;
         var window = new MainWindow();
+        CurrentWindow = window;
         window.Activate();
     }
 }

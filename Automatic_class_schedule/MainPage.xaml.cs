@@ -372,7 +372,7 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
                 {
                     SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary
                 };
-                folderPicker.FileTypeFilter.Add(".acsproj");
+                folderPicker.FileTypeFilter.Add("*");
                 nint hwnd = WinRT.Interop.WindowNative.GetWindowHandle(App.CurrentWindow);
                 WinRT.Interop.InitializeWithWindow.Initialize(folderPicker, hwnd);
                 var folder = await folderPicker.PickSingleFolderAsync();
