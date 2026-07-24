@@ -201,6 +201,21 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
         vm.SaveProject(vm.ProjectFilePath);
     }
 
+    private async void RecentProject_Click(object sender, ItemClickEventArgs e)
+    {
+        if (e.ClickedItem is Services.ProjectInfo info)
+        {
+            var vm = (MainViewModel)DataContext;
+            if (vm.HasActiveProject)
+            {
+                App.PendingProjectPath = info.Path;
+                App.OpenNewWindow();
+                return;
+            }
+            vm.OpenProject(info.Path);
+        }
+    }
+
     private async Task ShowCreateProjectDialogAsync()
     {
         var vm = (MainViewModel)DataContext;

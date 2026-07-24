@@ -145,7 +145,8 @@
         </Border>
 
         <!-- ========== 主导航栏（配置 / 课表 / 导出） ========== -->
-        <Border Grid.Row="1" Background="White" CornerRadius="10" BorderBrush="#FFD9E1EC" BorderThickness="1" Padding="0" Margin="0,6,0,0">
+        <Border Grid.Row="1" Background="White" CornerRadius="10" BorderBrush="#FFD9E1EC" BorderThickness="1" Padding="0" Margin="0,6,0,0"
+                Visibility="{Binding HasActiveProject, Converter={StaticResource BoolToVisibility}}">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -186,7 +187,8 @@
         </Border>
 
         <!-- ========== 主内容区域 ========== -->
-        <Grid Grid.Row="2" Margin="0,8,0,0">
+        <Grid Grid.Row="2" Margin="0,8,0,0"
+              Visibility="{Binding HasActiveProject, Converter={StaticResource BoolToVisibility}}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="220" />
                 <ColumnDefinition Width="*" />
@@ -1014,6 +1016,48 @@
                     </StackPanel>
                 </ScrollViewer>
             </Border>
+        </Grid>
+        <!-- ========== 首页（无工程时显示） ========== -->
+        <Grid Grid.Row="1" Grid.RowSpan="2" Margin="0,50,0,0"
+              Visibility="{Binding HasActiveProject, Converter={StaticResource InverseBoolToVisibility}}">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Width="420">
+                <TextBlock Text="ACS" FontSize="48" FontWeight="Light" Foreground="#FF214E78"
+                           HorizontalAlignment="Center" Margin="0,0,0,32" />
+                <TextBlock Text="最近工程" FontSize="14" Foreground="#FF5A6877" Margin="0,0,0,8"
+                           HorizontalAlignment="Center" />
+                <ListView ItemsSource="{Binding RecentProjects}" Height="240"
+                          SelectionMode="None" IsItemClickEnabled="True"
+                          ItemClick="RecentProject_Click"
+                          ScrollViewer.VerticalScrollBarVisibility="Auto"
+                          BorderBrush="#FFE0E6EF" BorderThickness="1" CornerRadius="8">
+                    <ListView.ItemTemplate>
+                        <DataTemplate>
+                            <Border Padding="12,10" Margin="0,0,0,4" Background="#FFFAFBFC"
+                                    CornerRadius="6" BorderBrush="#FFE0E6EF" BorderThickness="1">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Text="{Binding Name}" FontSize="15" FontWeight="SemiBold"
+                                               Foreground="#FF214E78" />
+                                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,4,0,0">
+                                        <TextBlock Text="{Binding LastOpen}" FontSize="11" Foreground="#FF8E9FB6" />
+                                        <TextBlock Text="{Binding Path}" FontSize="11" Foreground="#FFB0BFD1"
+                                                   Margin="8,0,0,0" TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,16,0,0">
+                    <Button Content="新建工程" Style="{StaticResource TopButtonStyle}" Click="NewProject_Click"
+                            MinWidth="100" Height="36" />
+                    <Button Content="打开工程" Style="{StaticResource TopButtonStyle}" Click="OpenProject_Click"
+                            MinWidth="100" Height="36" Margin="12,0,0,0" />
+                </StackPanel>
+            </StackPanel>
         </Grid>
     </Grid>
 </Page>
