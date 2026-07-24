@@ -96,6 +96,13 @@ public static class WindowManager
         return true;
     }
 
+    /// <summary>使用 Win32 API 将指定窗口激活并置于前台</summary>
+    public static void BringWindowToFront(nint hwnd)
+    {
+        if (hwnd == 0 || !IsWindowValid(hwnd)) return;
+        ActivateWindow(hwnd);
+    }
+
     // ========== 私有方法 ==========
 
     private static void RemoveByHwnd(nint hwnd)
