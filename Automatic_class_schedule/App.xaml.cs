@@ -25,11 +25,19 @@ public partial class App : Application
         Automatic_class_schedule.Infrastructure.AppPaths.EnsureDirectories();
     }
 
-    public static void OpenNewWindow(string? projectPath = null)
+    public static bool OpenNewWindow(string? projectPath = null)
     {
+        // 如果指定了项目路径，检查是否已有窗口打开了该项目
+        if (!string.IsNullOrEmpty(projectPath))
+        {
+            if (Infrastructure.WindowManager.TryBringToFront(projectPath))
+                return false; // 已激活现有窗口，不创建新窗口
+        }
+
         PendingProjectPath = projectPath;
         var window = new MainWindow();
         CurrentWindow = window;
         window.Activate();
+        return true;
     }
 }

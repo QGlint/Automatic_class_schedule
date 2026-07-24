@@ -26,6 +26,9 @@ public sealed class ProjectCreationTests : IDisposable
                 var path = AppPaths.GetProjectFilePath(name);
                 if (File.Exists(path))
                     File.Delete(path);
+                var dir = Path.GetDirectoryName(path)!;
+                if (Directory.Exists(dir))
+                    Directory.Delete(dir, recursive: true);
             }
         }
         catch { }
@@ -59,6 +62,7 @@ public sealed class ProjectCreationTests : IDisposable
     public void CreateProject_FileAlreadyExists_ShowsError()
     {
         var filePath = AppPaths.GetProjectFilePath("已存在");
+        Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
         File.WriteAllText(filePath, "");
         _vm.ProjectName = "已存在";
 
@@ -116,7 +120,7 @@ public sealed class ProjectCreationTests : IDisposable
                 var dir = new DirectoryInfo(AppPaths.ProjectsPath);
                 if (dir.Exists)
                 {
-                    var files = dir.GetFiles("*.acsproj").Select(f => f.FullName).ToHashSet();
+                    var files = dir.GetFiles("*.acsproj", SearchOption.AllDirectories).Select(f => f.FullName).ToHashSet();
                     Assert.DoesNotContain(p.Path, files);
                 }
             }
@@ -132,9 +136,8 @@ public sealed class ProjectCreationTests : IDisposable
         Assert.NotNull(path);
         Assert.True(File.Exists(path));
 
-        // Read the file back
-        using var stream = File.OpenRead(path);
-        var deserialized = Automatic_class_schedule.Infrastructure.SchoolDataSerializer.Deserialize(stream);
+        // 使用 v2/v3 格式读取
+        var deserialized = Automatic_class_schedule.Infrastructure.SchoolDataSerializer.DeserializeFromDirectory(path);
 
         Assert.NotNull(deserialized);
         Assert.NotEmpty(deserialized.GradeInputs);

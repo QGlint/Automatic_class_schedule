@@ -52,7 +52,7 @@ public class RecentProjectsService
             {
                 var json = System.IO.File.ReadAllText(_filePath);
                 var list = JsonSerializer.Deserialize<List<ProjectInfo>>(json) ?? new();
-                var staleCount = list.RemoveAll(p => string.IsNullOrEmpty(p.Path) || !System.IO.File.Exists(p.Path));
+                var staleCount = list.RemoveAll(p => string.IsNullOrEmpty(p.Path) || (!System.IO.File.Exists(p.Path) && !System.IO.Directory.Exists(p.Path)));
                 if (staleCount > 0) Save(list);
                 return list;
             }

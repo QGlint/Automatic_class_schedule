@@ -32,11 +32,12 @@ public static class SchoolDataSerializer
     //  Public API — directory-based project (v2)
     // ================================================================
 
-    /// <summary>将项目保存到目录格式（v2）。projectDir 为 .acsproj 目录。</summary>
-    public static void SerializeToDirectory(string projectDir, SchoolData data, string projectName)
+    /// <summary>将项目保存到 .acsproj 文件（v3）。acsprojFilePath 为 .acsproj 文件路径。</summary>
+    public static void SerializeToDirectory(string acsprojFilePath, SchoolData data, string projectName)
     {
-        string mainFile = AppPaths.GetProjectMainFile(projectDir);
-        string cacheDir = AppPaths.GetProjectCacheDir(projectDir);
+        string mainFile = acsprojFilePath;
+        string cacheDir = AppPaths.GetProjectCacheDir(acsprojFilePath);
+        Directory.CreateDirectory(Path.GetDirectoryName(mainFile)!);
         Directory.CreateDirectory(cacheDir);
 
         // 决定哪些大列表需要拆分到子缓存
@@ -92,16 +93,24 @@ public static class SchoolDataSerializer
         CleanupOrphanedCacheFiles(cacheDir, cacheRefs, splitEntries);
     }
 
-    /// <summary>从项目目录加载（自动检测 v1 旧格式 / v2 目录格式）。</summary>
+    /// <summary>从 .acsproj 文件加载（自动检测 v1 旧格式 / v2 目录格式 / v3 文件格式）。</summary>
     public static SchoolData DeserializeFromDirectory(string projectPath)
     {
-        // v2 目录格式
-        if (AppPaths.IsProjectDirectory(projectPath))
+        // v3 文件格式：.acsproj 是文件
+        if (File.Exists(projectPath) && projectPath.EndsWith(".acsproj", StringComparison.OrdinalIgnoreCase))
         {
-            string mainFile = AppPaths.GetProjectMainFile(projectPath);
+            string cacheDir = AppPaths.GetProjectCacheDir(projectPath);
+            using var stream = File.OpenRead(projectPath);
+            return DeserializeMainFile(stream, cacheDir);
+        }
+
+        // v2 旧目录格式：.acsproj 是目录，内含 project.acs
+        if (Directory.Exists(projectPath))
+        {
+            string mainFile = Path.Combine(projectPath, "project.acs");
             if (File.Exists(mainFile))
             {
-                string cacheDir = AppPaths.GetProjectCacheDir(projectPath);
+                string cacheDir = Path.Combine(projectPath, "cache");
                 using var stream = File.OpenRead(mainFile);
                 return DeserializeMainFile(stream, cacheDir);
             }
@@ -117,53 +126,62 @@ public static class SchoolDataSerializer
         throw new FileNotFoundException("项目文件不存在", projectPath);
     }
 
-    /// <summary>获取项目名称（从目录格式快速读取，不加载全部数据）。</summary>
+    /// <summary>获取项目名称（从 .acsproj 文件快速读取，不加载全部数据）。</summary>
     public static string? ReadProjectName(string projectPath)
     {
-        if (AppPaths.IsProjectDirectory(projectPath))
+        string? mainFile = null;
+
+        // v3: .acsproj 文件
+        if (File.Exists(projectPath) && projectPath.EndsWith(".acsproj", StringComparison.OrdinalIgnoreCase))
+            mainFile = projectPath;
+        // v2: 目录格式
+        else if (Directory.Exists(projectPath))
         {
-            string mainFile = AppPaths.GetProjectMainFile(projectPath);
-            if (!File.Exists(mainFile)) return null;
+            var f = Path.Combine(projectPath, "project.acs");
+            if (File.Exists(f)) mainFile = f;
+        }
 
-            using var stream = File.OpenRead(mainFile);
-            using var reader = new BinaryReader(stream, System.Text.Encoding.UTF8, leaveOpen: false);
-            var magic = reader.ReadBytes(4);
-            if (magic[0] != 'A' || magic[1] != 'S' || magic[2] != 'C' || magic[3] != 'P')
-                return null;
-            int version = reader.ReadInt32();
-            if (version < 2) return null;
+        if (mainFile == null) return null;
 
-            while (true)
+        using var stream = File.OpenRead(mainFile);
+        using var reader = new BinaryReader(stream, System.Text.Encoding.UTF8, leaveOpen: false);
+        var magic = reader.ReadBytes(4);
+        if (magic[0] != 'A' || magic[1] != 'S' || magic[2] != 'C' || magic[3] != 'P')
+            return null;
+        int version = reader.ReadInt32();
+        if (version < 2) return null;
+
+        while (true)
+        {
+            var tag = (SectionTag)reader.ReadByte();
+            if (tag == SectionTag.End) break;
+
+            if (tag == SectionTag.ProjectName)
             {
-                var tag = (SectionTag)reader.ReadByte();
-                if (tag == SectionTag.End) break;
+                reader.ReadInt32(); // skip -1 placeholder
+                return reader.ReadString();
+            }
 
-                if (tag == SectionTag.ProjectName)
-                {
-                    reader.ReadInt32(); // skip -1 placeholder
-                    return reader.ReadString();
-                }
-
-                // Skip other sections
-                if (tag == SectionTag.Settings)
-                {
-                    reader.ReadInt32(); // skip -1
-                    SkipSettings(reader);
-                }
-                else if (tag == SectionTag.CacheRef)
-                {
-                    reader.ReadInt32(); // skip -1
-                    reader.ReadString(); // section name
-                    reader.ReadString(); // file name
-                    reader.ReadInt32();  // count
-                }
-                else
-                {
-                    int count = reader.ReadInt32();
-                    SkipListSection(reader, tag, count);
-                }
+            // Skip other sections
+            if (tag == SectionTag.Settings)
+            {
+                reader.ReadInt32(); // skip -1
+                SkipSettings(reader);
+            }
+            else if (tag == SectionTag.CacheRef)
+            {
+                reader.ReadInt32(); // skip -1
+                reader.ReadString(); // section name
+                reader.ReadString(); // file name
+                reader.ReadInt32();  // count
+            }
+            else
+            {
+                int count = reader.ReadInt32();
+                SkipListSection(reader, tag, count);
             }
         }
+
         return null;
     }
 

@@ -548,21 +548,8 @@ public sealed class MainViewModel : ObservableObject
         var dir = new DirectoryInfo(AppPaths.ProjectsPath);
         if (dir.Exists)
         {
-            // 扫描项目目录（v2 目录格式）
-            foreach (var projDir in dir.GetDirectories("*.acsproj"))
-            {
-                if (seen.Add(projDir.FullName))
-                {
-                    merged.Add(new ProjectInfo
-                    {
-                        Name = Path.GetFileNameWithoutExtension(projDir.Name),
-                        Path = projDir.FullName,
-                        LastOpen = projDir.LastWriteTime.ToString("yyyy-MM-dd")
-                    });
-                }
-            }
-            // 兼容旧版单文件格式
-            foreach (var file in dir.GetFiles("*.acsproj"))
+            // 扫描项目文件（v3：子目录内的 .acsproj 文件）
+            foreach (var file in dir.GetFiles("*.acsproj", SearchOption.AllDirectories))
             {
                 if (seen.Add(file.FullName))
                 {
@@ -571,6 +558,20 @@ public sealed class MainViewModel : ObservableObject
                         Name = Path.GetFileNameWithoutExtension(file.Name),
                         Path = file.FullName,
                         LastOpen = file.LastWriteTime.ToString("yyyy-MM-dd")
+                    });
+                }
+            }
+            // 兼容旧版 v2 目录格式（.acsproj 为目录名，内含 project.acs）
+            foreach (var projDir in dir.GetDirectories("*.acsproj"))
+            {
+                string mainFile = Path.Combine(projDir.FullName, "project.acs");
+                if (File.Exists(mainFile) && seen.Add(projDir.FullName))
+                {
+                    merged.Add(new ProjectInfo
+                    {
+                        Name = Path.GetFileNameWithoutExtension(projDir.Name),
+                        Path = projDir.FullName,
+                        LastOpen = projDir.LastWriteTime.ToString("yyyy-MM-dd")
                     });
                 }
             }
@@ -601,7 +602,7 @@ public sealed class MainViewModel : ObservableObject
         if (string.IsNullOrEmpty(filePath))
             filePath = Infrastructure.AppPaths.GetProjectFilePath(_projectName);
 
-        if (Directory.Exists(filePath))
+        if (File.Exists(filePath))
         {
             StatusMessage = $"项目已存在: {_projectName}.acsproj";
             return;
@@ -621,7 +622,7 @@ public sealed class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(CurrentSubjectGradeName));
         OnPropertyChanged(nameof(FilteredSubjects));
 
-        Directory.CreateDirectory(filePath);
+        Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
         SchoolDataSerializer.SerializeToDirectory(filePath, BuildSchoolData(), _projectName);
         _projectFilePath = filePath;
         OnPropertyChanged(nameof(ProjectFileName));
@@ -654,9 +655,8 @@ public sealed class MainViewModel : ObservableObject
             }
         }
 
-        // 确保是目录格式
-        if (!Directory.Exists(filePath))
-            Directory.CreateDirectory(filePath);
+        // 确保项目目录存在
+        Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
 
         // 如果项目名称为空，从文件名推导
         if (string.IsNullOrEmpty(_projectName))
@@ -682,8 +682,8 @@ public sealed class MainViewModel : ObservableObject
             string tempDir = Path.Combine(Path.GetTempPath(), "acs_diff_" + Guid.NewGuid().ToString("N"));
             try
             {
-                Directory.CreateDirectory(tempDir);
-                SchoolDataSerializer.SerializeToDirectory(tempDir, BuildSchoolData(), _projectName);
+                string tempFile = Path.Combine(tempDir, "snapshot.acsproj");
+                SchoolDataSerializer.SerializeToDirectory(tempFile, BuildSchoolData(), _projectName);
                 // 将目录内容打包为字节数组进行比较
                 var current = SerializeDirectoryToBytes(tempDir);
                 return !current.AsSpan().SequenceEqual(_savedSnapshot.AsSpan());
@@ -700,8 +700,8 @@ public sealed class MainViewModel : ObservableObject
         string tempDir = Path.Combine(Path.GetTempPath(), "acs_snap_" + Guid.NewGuid().ToString("N"));
         try
         {
-            Directory.CreateDirectory(tempDir);
-            SchoolDataSerializer.SerializeToDirectory(tempDir, BuildSchoolData(), _projectName);
+            string tempFile = Path.Combine(tempDir, "snapshot.acsproj");
+            SchoolDataSerializer.SerializeToDirectory(tempFile, BuildSchoolData(), _projectName);
             _savedSnapshot = SerializeDirectoryToBytes(tempDir);
         }
         finally

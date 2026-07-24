@@ -29,6 +29,8 @@ public sealed class ProjectManagementTests : IDisposable
             {
                 var path = AppPaths.GetProjectFilePath(name);
                 if (File.Exists(path)) File.Delete(path);
+                var dir = Path.GetDirectoryName(path)!;
+                if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
             }
             if (Directory.Exists(_testDir))
                 Directory.Delete(_testDir, recursive: true);
@@ -211,8 +213,7 @@ public sealed class ProjectManagementTests : IDisposable
         _vm.CreateProject();
         var path = _vm.ProjectFilePath;
 
-        using var stream = File.OpenRead(path);
-        var deserialized = SchoolDataSerializer.Deserialize(stream);
+        var deserialized = SchoolDataSerializer.DeserializeFromDirectory(path);
 
         Assert.NotNull(deserialized);
         Assert.NotEmpty(deserialized.GradeInputs);
@@ -283,6 +284,7 @@ public sealed class ProjectManagementTests : IDisposable
     public void CreateProject_FileAlreadyExists_ShowsError()
     {
         var filePath = AppPaths.GetProjectFilePath("已存在");
+        Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
         File.WriteAllText(filePath, "");
         _vm.ProjectName = "已存在";
         _vm.CreateProject();

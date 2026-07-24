@@ -22,21 +22,11 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
 
     private void InitWindowHandle()
     {
-        DependencyObject current = this;
-        while (current != null)
-        {
-            if (current is Window window)
-            {
-                _windowHandle = WinRT.Interop.WindowNative.GetWindowHandle(window);
-                if (DataContext is MainViewModel vm)
-                    vm.WindowHandle = _windowHandle;
-                return;
-            }
-            current = VisualTreeHelper.GetParent(current);
-        }
+        // WinUI 3 中 Window 不继承 DependencyObject，无法通过 VisualTree 获取
+        // 使用 App.CurrentWindow（Loaded 事件在窗口创建后同步触发，此时 CurrentWindow 正确）
         _windowHandle = WinRT.Interop.WindowNative.GetWindowHandle(App.CurrentWindow!);
-        if (DataContext is MainViewModel vm2)
-            vm2.WindowHandle = _windowHandle;
+        if (DataContext is MainViewModel vm)
+            vm.WindowHandle = _windowHandle;
     }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
@@ -53,9 +43,17 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
                     return;
                 }
                 vm.OpenProject(param);
+                UpdateWindowRegistration(param);
                 return;
             }
         }
+    }
+
+    /// <summary>通知父窗口更新项目注册</summary>
+    private void UpdateWindowRegistration(string? projectPath)
+    {
+        if (MainWindow.GetByHwnd(_windowHandle) is MainWindow mainWindow)
+            mainWindow.UpdateProjectRegistration(projectPath);
     }
 
     public Infrastructure.RuntimeSnapshot GetRuntimeSnapshot()
@@ -186,39 +184,29 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
     {
         var vm = (MainViewModel)DataContext;
 
-        // 先尝试文件夹选择器（v2 目录格式项目）
-        var folderPicker = new Windows.Storage.Pickers.FolderPicker
+        // 使用文件选择器打开 .acsproj 项目文件
+        var filePicker = new Windows.Storage.Pickers.FileOpenPicker
         {
             SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary
         };
-        folderPicker.FileTypeFilter.Add("*");
+        filePicker.FileTypeFilter.Add(".acsproj");
 
         try
         {
-            WinRT.Interop.InitializeWithWindow.Initialize(folderPicker, _windowHandle);
-            var folder = await folderPicker.PickSingleFolderAsync();
-            if (folder != null)
+            WinRT.Interop.InitializeWithWindow.Initialize(filePicker, _windowHandle);
+            var file = await filePicker.PickSingleFileAsync();
+            if (file != null)
             {
-                string path = folder.Path;
-                // 检查是否为有效项目目录（包含 project.acs）
-                string mainFile = Infrastructure.AppPaths.GetProjectMainFile(path);
-                if (System.IO.File.Exists(mainFile))
-                {
-                    // v2 目录格式
-                    if (openInNewWindow)
-                        App.OpenNewWindow(path);
-                    else
-                        vm.OpenProject(path);
-                    return;
-                }
-                // 可能是旧版单文件 .acsproj
-                if (path.EndsWith(".acsproj", StringComparison.OrdinalIgnoreCase) && System.IO.File.Exists(path))
+                string path = file.Path;
+                if (System.IO.File.Exists(path))
                 {
                     if (openInNewWindow)
                         App.OpenNewWindow(path);
                     else
+                    {
                         vm.OpenProject(path);
-                    return;
+                        UpdateWindowRegistration(path);
+                    }
                 }
             }
         }
@@ -255,6 +243,7 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
                 vm.SaveProject(vm.ProjectFilePath);
         }
         vm.CloseProject();
+        UpdateWindowRegistration(null);
     }
 
     private async void RecentProject_Click(object sender, ItemClickEventArgs e)
@@ -274,6 +263,7 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
                     return;
                 }
                 vm.OpenProject(info.Path);
+                UpdateWindowRegistration(info.Path);
             }
             catch { }
         }
@@ -423,10 +413,10 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
                 continue;
             }
 
-            var fullPath = System.IO.Path.Combine(saveFolder, nameText + ".acsproj");
-            if (System.IO.Directory.Exists(fullPath))
+            var fullPath = System.IO.Path.Combine(saveFolder, nameText, nameText + ".acsproj");
+            if (System.IO.File.Exists(fullPath))
             {
-                errorText = $"项目已存在: {nameText}.acsproj";
+                errorText = $"项目已存在: {nameText}";
                 continue;
             }
 
@@ -444,14 +434,12 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
         }
     }
 
-    private static void CreateDefaultProjectFile(string path)
+    private static void CreateDefaultProjectFile(string acsprojFilePath)
     {
-        // path 是 .acsproj 目录路径
-        System.IO.Directory.CreateDirectory(path);
-        string cacheDir = Infrastructure.AppPaths.GetProjectCacheDir(path);
-        System.IO.Directory.CreateDirectory(cacheDir);
+        // acsprojFilePath 是 .acsproj 文件路径，如 C:/.../MyProject/MyProject.acsproj
+        System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(acsprojFilePath)!);
 
-        string projectName = System.IO.Path.GetFileNameWithoutExtension(path);
+        string projectName = System.IO.Path.GetFileNameWithoutExtension(acsprojFilePath);
 
         var grades = new System.Collections.Generic.List<Models.GradeInput>
         {
@@ -507,7 +495,7 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
                 });
         }
 
-        Infrastructure.SchoolDataSerializer.SerializeToDirectory(path, data, projectName);
+        Infrastructure.SchoolDataSerializer.SerializeToDirectory(acsprojFilePath, data, projectName);
     }
 
     private void GridCell_DragStarting(UIElement sender, DragStartingEventArgs e)

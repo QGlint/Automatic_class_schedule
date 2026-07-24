@@ -51,28 +51,29 @@ public static class AppPaths
 
     public static string GetProjectFilePath(string projectName)
     {
-        return Path.Combine(ProjectsPath, projectName + ".acsproj");
+        return Path.Combine(ProjectsPath, projectName, projectName + ".acsproj");
     }
 
-    // ========== 项目目录格式（v2） ==========
+    // ========== 项目目录格式（v3：文件夹 + 内部 .acsproj 文件） ==========
 
-    /// <summary>获取项目目录内的主数据文件路径</summary>
-    public static string GetProjectMainFile(string projectDir)
-        => Path.Combine(projectDir, "project.acs");
+    /// <summary>根据 .acsproj 文件路径获取项目主文件路径（即自身）</summary>
+    public static string GetProjectMainFile(string acsprojFilePath)
+        => acsprojFilePath;
 
-    /// <summary>获取项目目录内的缓存子目录路径</summary>
-    public static string GetProjectCacheDir(string projectDir)
-        => Path.Combine(projectDir, "cache");
+    /// <summary>获取项目目录内的缓存子目录路径（与 .acsproj 文件同级）</summary>
+    public static string GetProjectCacheDir(string acsprojFilePath)
+        => Path.Combine(Path.GetDirectoryName(acsprojFilePath)!, "cache");
 
     /// <summary>获取指定缓存子文件的完整路径</summary>
-    public static string GetCacheFilePath(string projectDir, string cacheFileName)
-        => Path.Combine(GetProjectCacheDir(projectDir), cacheFileName);
+    public static string GetCacheFilePath(string acsprojFilePath, string cacheFileName)
+        => Path.Combine(GetProjectCacheDir(acsprojFilePath), cacheFileName);
 
-    /// <summary>判断路径是否为目录格式项目（v2）</summary>
-    public static bool IsProjectDirectory(string path)
-        => !string.IsNullOrEmpty(path) && Directory.Exists(path);
-
-    /// <summary>判断路径是否为旧版单文件格式项目（v1）</summary>
-    public static bool IsLegacyProjectFile(string path)
+    /// <summary>判断路径是否为 .acsproj 项目文件</summary>
+    public static bool IsProjectFile(string path)
         => !string.IsNullOrEmpty(path) && File.Exists(path) && path.EndsWith(".acsproj", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>判断路径是否为旧版目录格式项目（v2：.acsproj 为目录名）</summary>
+    public static bool IsLegacyProjectDirectory(string path)
+        => !string.IsNullOrEmpty(path) && Directory.Exists(path)
+           && File.Exists(Path.Combine(path, "project.acs"));
 }
