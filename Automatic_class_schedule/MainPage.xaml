@@ -1030,7 +1030,7 @@
                         <Rectangle Height="1" Fill="#FFD9E1EC" Margin="0,4" />
 
                         <TextBlock Text="项目名称" FontWeight="SemiBold" />
-                        <TextBox Text="{Binding ProjectName, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="例如: 2024年上学期" Padding="8,6" />
+                        <TextBox x:Name="ProjectNameTextBox" Text="{Binding ProjectName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="例如: 2024年上学期" Padding="8,6" />
 
                         <TextBlock Text="存储位置" FontWeight="SemiBold" />
                         <Grid>
@@ -1043,7 +1043,7 @@
                         </Grid>
 
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="10" Margin="0,8,0,0">
-                            <Button Content="创建项目" Command="{Binding CreateProjectCommand}" Style="{StaticResource RoundButtonBase}" Background="#FF214E78" Foreground="White" MinWidth="120" FontSize="15" />
+                            <Button Content="创建项目" x:Name="WelcomeCreateButton" Click="CreateProject_Click" Style="{StaticResource RoundButtonBase}" Background="#FF214E78" Foreground="White" MinWidth="120" FontSize="15" />
                             <Button Content="打开项目" x:Name="WelcomeOpenButton" Click="OpenProject_Click" Style="{StaticResource RoundButtonBase}" Background="#FFF0F5FF" Foreground="#FF214E78" MinWidth="120" FontSize="15" />
                         </StackPanel>
                         <TextBlock Text="{Binding StatusMessage}" Foreground="#FFD32F2F" FontSize="13" HorizontalAlignment="Center" TextWrapping="Wrap" />

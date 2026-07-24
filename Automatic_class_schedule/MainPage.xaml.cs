@@ -145,6 +145,13 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
         }
     }
 
+    private void CreateProject_Click(object sender, RoutedEventArgs e)
+    {
+        var vm = (MainViewModel)DataContext;
+        vm.ProjectName = ProjectNameTextBox.Text;
+        vm.CreateProject();
+    }
+
     private async void BrowseLocation_Click(object sender, RoutedEventArgs e)
     {
         var vm = (MainViewModel)DataContext;
