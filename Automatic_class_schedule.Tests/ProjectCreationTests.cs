@@ -24,7 +24,7 @@ public sealed class ProjectCreationTests : IDisposable
     [Fact]
     public void CreateProject_WithValidNameAndPath_CreatesFileAndActivates()
     {
-        var filePath = Path.Combine(_tempDir, "测试.ascproj");
+        var filePath = Path.Combine(_tempDir, "测试.acsproj");
         _vm.ProjectName = "测试";
         _vm.ProjectFilePath = filePath;
 
@@ -39,7 +39,7 @@ public sealed class ProjectCreationTests : IDisposable
     public void CreateProject_EmptyName_ShowsError()
     {
         _vm.ProjectName = "";
-        _vm.ProjectFilePath = Path.Combine(_tempDir, "test.ascproj");
+        _vm.ProjectFilePath = Path.Combine(_tempDir, "test.acsproj");
 
         _vm.CreateProject();
 
@@ -50,7 +50,7 @@ public sealed class ProjectCreationTests : IDisposable
     [Fact]
     public void CreateProject_FileAlreadyExists_ShowsError()
     {
-        var filePath = Path.Combine(_tempDir, "已存在.ascproj");
+        var filePath = Path.Combine(_tempDir, "已存在.acsproj");
         File.WriteAllText(filePath, "");
         _vm.ProjectName = "已存在";
         _vm.ProjectFilePath = filePath;
@@ -65,7 +65,7 @@ public sealed class ProjectCreationTests : IDisposable
     public void NewProject_ResetsNameAndFilePath()
     {
         _vm.ProjectName = "旧项目";
-        _vm.ProjectFilePath = Path.Combine(_tempDir, "旧项目.ascproj");
+        _vm.ProjectFilePath = Path.Combine(_tempDir, "旧项目.acsproj");
 
         _vm.NewProjectCommand.Execute(null);
 

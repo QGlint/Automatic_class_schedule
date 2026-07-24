@@ -113,7 +113,7 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <Button Content="新建项目" Command="{Binding NewProjectCommand}" Style="{StaticResource TopButtonStyle}" />
+                        <Button Content="新建项目" x:Name="NewProjectButton" Click="NewProject_Click" Style="{StaticResource TopButtonStyle}" />
                         <Button Content="打开项目" x:Name="OpenProjectButton" Click="OpenProject_Click" Style="{StaticResource TopButtonStyle}" />
                         <Button Content="保存项目" x:Name="SaveProjectButton" Click="SaveProject_Click" Style="{StaticResource TopButtonStyle}" />
                         <TextBlock Text="{Binding ProjectFileName}" FontSize="12" Foreground="#FF5A6877" VerticalAlignment="Center" Margin="8,0,0,0" />
@@ -145,8 +145,7 @@
         </Border>
 
         <!-- ========== 主导航栏（配置 / 课表 / 导出） ========== -->
-        <Border Grid.Row="1" Background="White" CornerRadius="10" BorderBrush="#FFD9E1EC" BorderThickness="1" Padding="0" Margin="0,6,0,0"
-                Visibility="{Binding HasActiveProject, Converter={StaticResource BoolToVisibility}}">
+        <Border Grid.Row="1" Background="White" CornerRadius="10" BorderBrush="#FFD9E1EC" BorderThickness="1" Padding="0" Margin="0,6,0,0">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -187,8 +186,7 @@
         </Border>
 
         <!-- ========== 主内容区域 ========== -->
-        <Grid Grid.Row="2" Margin="0,8,0,0"
-              Visibility="{Binding HasActiveProject, Converter={StaticResource BoolToVisibility}}">
+        <Grid Grid.Row="2" Margin="0,8,0,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="220" />
                 <ColumnDefinition Width="*" />
@@ -1017,39 +1015,5 @@
                 </ScrollViewer>
             </Border>
         </Grid>
-
-        <!-- ========== 欢迎 / 新建项目 覆盖层 ========== -->
-        <Border Grid.RowSpan="3" Background="#FFF3F5F9"
-                Visibility="{Binding HasActiveProject, Converter={StaticResource InverseBoolToVisibility}}">
-            <Grid HorizontalAlignment="Center" VerticalAlignment="Center" Width="420">
-                <Border Background="White" CornerRadius="12" BorderBrush="#FFD9E1EC" BorderThickness="1" Padding="24">
-                    <StackPanel Spacing="12">
-                        <TextBlock Text="自动排课系统" FontSize="22" FontWeight="Bold" Foreground="#FF214E78" HorizontalAlignment="Center" />
-                        <TextBlock Text="欢迎使用自动排课系统，请创建或打开一个项目。" Foreground="#FF5A6877" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" />
-
-                        <Rectangle Height="1" Fill="#FFD9E1EC" Margin="0,4" />
-
-                        <TextBlock Text="项目名称" FontWeight="SemiBold" />
-                        <TextBox x:Name="ProjectNameTextBox" Text="{Binding ProjectName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="例如: 2024年上学期" Padding="8,6" />
-
-                        <TextBlock Text="存储位置" FontWeight="SemiBold" />
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBox Text="{Binding ProjectDirectory}" PlaceholderText="默认: Documents\asc\" Padding="8,6" IsReadOnly="True" />
-                            <Button Grid.Column="1" Content="浏览..." x:Name="BrowseLocationButton" Click="BrowseLocation_Click" Margin="6,0,0,0" Style="{StaticResource RoundButtonBase}" Background="#FFF0F5FF" Foreground="#FF214E78" />
-                        </Grid>
-
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="10" Margin="0,8,0,0">
-                            <Button Content="创建项目" x:Name="WelcomeCreateButton" Click="CreateProject_Click" Style="{StaticResource RoundButtonBase}" Background="#FF214E78" Foreground="White" MinWidth="120" FontSize="15" />
-                            <Button Content="打开项目" x:Name="WelcomeOpenButton" Click="OpenProject_Click" Style="{StaticResource RoundButtonBase}" Background="#FFF0F5FF" Foreground="#FF214E78" MinWidth="120" FontSize="15" />
-                        </StackPanel>
-                        <TextBlock Text="{Binding StatusMessage}" Foreground="#FFD32F2F" FontSize="13" HorizontalAlignment="Center" TextWrapping="Wrap" />
-                    </StackPanel>
-                </Border>
-            </Grid>
-        </Border>
     </Grid>
 </Page>

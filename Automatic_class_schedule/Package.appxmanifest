@@ -43,10 +43,10 @@
       </uap:VisualElements>
       <Extensions>
         <uap:Extension Category="windows.fileTypeAssociation">
-          <uap:FileTypeAssociation Name="ascproj">
+          <uap:FileTypeAssociation Name="acsproj">
             <uap:DisplayName>自动排课项目文件</uap:DisplayName>
             <uap:SupportedFileTypes>
-              <uap:FileType ContentType="application/octet-stream">.ascproj</uap:FileType>
+              <uap:FileType ContentType="application/octet-stream">.acsproj</uap:FileType>
             </uap:SupportedFileTypes>
           </uap:FileTypeAssociation>
         </uap:Extension>

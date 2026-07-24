@@ -1,6 +1,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Navigation;
 using Windows.ApplicationModel.DataTransfer;
 using Automatic_class_schedule.Models;
 using Automatic_class_schedule.ViewModels;
@@ -13,6 +14,29 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
     {
         InitializeComponent();
         DataContext = new MainViewModel();
+    }
+
+    protected override void OnNavigatedTo(NavigationEventArgs e)
+    {
+        base.OnNavigatedTo(e);
+        var vm = (MainViewModel)DataContext;
+        if (e.Parameter is string param)
+        {
+            if (!string.IsNullOrEmpty(param))
+            {
+                if (param == App.OpenIntent)
+                {
+                    _ = PickAndOpenProjectAsync();
+                    return;
+                }
+                vm.OpenProject(param);
+                return;
+            }
+        }
+        if (!vm.HasActiveProject)
+        {
+            _ = ShowCreateProjectDialogAsync();
+        }
     }
 
     public Infrastructure.RuntimeSnapshot GetRuntimeSnapshot()
@@ -127,47 +151,48 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
         }
     }
 
+    private void NewProject_Click(object sender, RoutedEventArgs e)
+    {
+        var vm = (MainViewModel)DataContext;
+        if (vm.HasActiveProject)
+        {
+            App.OpenNewWindow();
+            return;
+        }
+        var _ = ShowCreateProjectDialogAsync();
+    }
+
     private async void OpenProject_Click(object sender, RoutedEventArgs e)
     {
-        var picker = new Windows.Storage.Pickers.FileOpenPicker();
-        picker.SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary;
-        picker.FileTypeFilter.Add(".ascproj");
-        var mainWindow = App.CurrentWindow;
-        if (mainWindow is not null)
+        var vm = (MainViewModel)DataContext;
+        if (vm.HasActiveProject)
         {
-            var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(mainWindow);
-            WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
+            App.PendingProjectPath = App.OpenIntent;
+            App.OpenNewWindow();
+            return;
         }
-        var file = await picker.PickSingleFileAsync();
-        if (file is not null)
-        {
-            ((MainViewModel)DataContext).OpenProject(file.Path);
-        }
+
+        await PickAndOpenProjectAsync();
     }
 
-    private void CreateProject_Click(object sender, RoutedEventArgs e)
+    private async Task PickAndOpenProjectAsync()
     {
         var vm = (MainViewModel)DataContext;
-        vm.ProjectName = ProjectNameTextBox.Text;
-        vm.CreateProject();
-    }
+        var filePicker = new Windows.Storage.Pickers.FileOpenPicker
+        {
+            SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary
+        };
+        filePicker.FileTypeFilter.Add(".acsproj");
 
-    private async void BrowseLocation_Click(object sender, RoutedEventArgs e)
-    {
-        var vm = (MainViewModel)DataContext;
-        var picker = new Windows.Storage.Pickers.FolderPicker();
-        picker.SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary;
-        picker.FileTypeFilter.Add("*");
-        var mainWindow = App.CurrentWindow;
-        if (mainWindow is not null)
+        try
         {
-            var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(mainWindow);
-            WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
+            var file = await filePicker.PickSingleFileAsync();
+            if (file != null)
+                vm.OpenProject(file.Path);
         }
-        var folder = await picker.PickSingleFolderAsync();
-        if (folder is not null)
+        catch
         {
-            vm.ProjectFilePath = folder.Path;
+            // 文件选择器取消或出错时忽略
         }
     }
 
@@ -175,6 +200,116 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
     {
         var vm = (MainViewModel)DataContext;
         vm.SaveProject(vm.ProjectFilePath);
+    }
+
+    private async Task ShowCreateProjectDialogAsync()
+    {
+        var vm = (MainViewModel)DataContext;
+        vm.ProjectName = string.Empty;
+        vm.ProjectFilePath = Infrastructure.AppPaths.DefaultProjectDirectory;
+
+        Windows.Storage.Pickers.FolderPicker folderPicker = new()
+        {
+            SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary
+        };
+        folderPicker.FileTypeFilter.Add("*");
+
+        // Build dialog content
+        var nameBox = new TextBox
+        {
+            PlaceholderText = "例如: 2024年上学期",
+            Margin = new Thickness(0, 4, 0, 0)
+        };
+        var dirText = new TextBox
+        {
+            Text = vm.ProjectDirectory,
+            IsReadOnly = true,
+            Padding = new Thickness(8, 6, 8, 6)
+        };
+        var browseButton = new Button
+        {
+            Content = "浏览...",
+            Margin = new Thickness(6, 0, 0, 0),
+            MinHeight = 32,
+            CornerRadius = new CornerRadius(6)
+        };
+        var statusText = new TextBlock
+        {
+            Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.DarkRed),
+            FontSize = 13,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            TextWrapping = TextWrapping.Wrap
+        };
+
+        browseButton.Click += async (s, args) =>
+        {
+            var folder = await folderPicker.PickSingleFolderAsync();
+            if (folder != null)
+            {
+                vm.ProjectFilePath = folder.Path;
+                dirText.Text = folder.Path;
+            }
+        };
+
+        var dirGrid = new Grid();
+        dirGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        dirGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        Grid.SetColumn(dirText, 0);
+        Grid.SetColumn(browseButton, 1);
+        dirGrid.Children.Add(dirText);
+        dirGrid.Children.Add(browseButton);
+
+        var dialog = new ContentDialog
+        {
+            Title = "新建项目",
+            PrimaryButtonText = "创建",
+            CloseButtonText = "取消",
+            DefaultButton = ContentDialogButton.Primary,
+            XamlRoot = XamlRoot,
+            Content = new StackPanel
+            {
+                Spacing = 8,
+                MinWidth = 360,
+                Children =
+                {
+                    new TextBlock { Text = "项目名称", FontWeight = Microsoft.UI.Text.FontWeights.SemiBold },
+                    nameBox,
+                    new TextBlock { Text = "存储位置", FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Margin = new Thickness(0, 4, 0, 0) },
+                    dirGrid,
+                    statusText
+                }
+            }
+        };
+
+        while (true)
+        {
+            nameBox.Text = vm.ProjectName ?? "";
+            dirText.Text = vm.ProjectDirectory;
+
+            var result = await dialog.ShowAsync();
+            if (result != ContentDialogResult.Primary)
+                break;
+
+            vm.ProjectName = nameBox.Text.Trim();
+
+            if (string.IsNullOrEmpty(vm.ProjectName))
+            {
+                statusText.Text = "请输入项目名称";
+                continue;
+            }
+
+            vm.ProjectFilePath = dirText.Text.Trim();
+
+            var fullPath = System.IO.Path.Combine(vm.ProjectDirectory, vm.ProjectName + ".acsproj");
+            if (System.IO.File.Exists(fullPath))
+            {
+                statusText.Text = $"文件已存在: {fullPath}";
+                continue;
+            }
+
+            vm.CreateProject();
+            break;
+        }
     }
 
     private void GridCell_DragStarting(UIElement sender, DragStartingEventArgs e)

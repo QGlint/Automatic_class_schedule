@@ -555,7 +555,7 @@ public sealed class MainViewModel : ObservableObject
             : Path.GetDirectoryName(_projectFilePath)!;
         if (!Directory.Exists(dir))
             Directory.CreateDirectory(dir);
-        var filePath = Path.Combine(dir, _projectName + ".ascproj");
+        var filePath = Path.Combine(dir, _projectName + ".acsproj");
 
         if (File.Exists(filePath))
         {
