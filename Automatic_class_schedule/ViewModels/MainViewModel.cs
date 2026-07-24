@@ -503,9 +503,11 @@ public sealed class MainViewModel : ObservableObject
         {
             if (SetProperty(ref _projectName, value))
             {
-                if (!string.IsNullOrEmpty(value) && string.IsNullOrEmpty(_projectFilePath))
+                if (!string.IsNullOrEmpty(value))
                 {
-                    var dir = Infrastructure.AppPaths.DefaultProjectDirectory;
+                    var dir = string.IsNullOrEmpty(_projectFilePath)
+                        ? Infrastructure.AppPaths.DefaultProjectDirectory
+                        : Path.GetDirectoryName(_projectFilePath)!;
                     ProjectFilePath = Path.Combine(dir, value + ".ascproj");
                 }
             }
