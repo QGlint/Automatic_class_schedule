@@ -1,32 +1,40 @@
 using System.IO;
 using Automatic_class_schedule.ViewModels;
+using Automatic_class_schedule.Infrastructure;
 
 namespace Automatic_class_schedule.Tests;
 
 public sealed class ProjectCreationTests : IDisposable
 {
-    private readonly string _tempDir;
     private readonly MainViewModel _vm;
 
     public ProjectCreationTests()
     {
-        _tempDir = Path.Combine(Path.GetTempPath(), "asc_test_" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(_tempDir);
+        AppPaths.EnsureDirectories();
         _vm = new MainViewModel();
     }
 
     public void Dispose()
     {
-        if (Directory.Exists(_tempDir))
-            Directory.Delete(_tempDir, recursive: true);
+        // 清理测试产生的工程文件
+        try
+        {
+            var testFiles = new[] { "测试", "已存在", "旧项目" };
+            foreach (var name in testFiles)
+            {
+                var path = AppPaths.GetProjectFilePath(name);
+                if (File.Exists(path))
+                    File.Delete(path);
+            }
+        }
+        catch { }
     }
 
     [Fact]
-    public void CreateProject_WithValidNameAndPath_CreatesFileAndActivates()
+    public void CreateProject_WithValidName_CreatesFileAndActivates()
     {
-        var filePath = Path.Combine(_tempDir, "测试.acsproj");
+        var filePath = AppPaths.GetProjectFilePath("测试");
         _vm.ProjectName = "测试";
-        _vm.ProjectFilePath = filePath;
 
         _vm.CreateProject();
 
@@ -39,7 +47,6 @@ public sealed class ProjectCreationTests : IDisposable
     public void CreateProject_EmptyName_ShowsError()
     {
         _vm.ProjectName = "";
-        _vm.ProjectFilePath = Path.Combine(_tempDir, "test.acsproj");
 
         _vm.CreateProject();
 
@@ -50,10 +57,9 @@ public sealed class ProjectCreationTests : IDisposable
     [Fact]
     public void CreateProject_FileAlreadyExists_ShowsError()
     {
-        var filePath = Path.Combine(_tempDir, "已存在.acsproj");
+        var filePath = AppPaths.GetProjectFilePath("已存在");
         File.WriteAllText(filePath, "");
         _vm.ProjectName = "已存在";
-        _vm.ProjectFilePath = filePath;
 
         _vm.CreateProject();
 
@@ -65,7 +71,6 @@ public sealed class ProjectCreationTests : IDisposable
     public void NewProject_ResetsNameAndFilePath()
     {
         _vm.ProjectName = "旧项目";
-        _vm.ProjectFilePath = Path.Combine(_tempDir, "旧项目.acsproj");
 
         _vm.NewProjectCommand.Execute(null);
 

@@ -22,7 +22,7 @@ public partial class App : Application
     {
         CurrentWindow = new MainWindow();
         CurrentWindow.Activate();
-        System.IO.Directory.CreateDirectory(Infrastructure.AppPaths.DefaultProjectDirectory);
+        Automatic_class_schedule.Infrastructure.AppPaths.EnsureDirectories();
     }
 
     public static void OpenNewWindow(string? projectPath = null)

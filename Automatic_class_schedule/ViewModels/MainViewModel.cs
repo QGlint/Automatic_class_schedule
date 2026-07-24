@@ -43,9 +43,11 @@ public sealed class MainViewModel : ObservableObject
     private string _selectedCourseTemplate = string.Empty;
     private bool _isToolbarExpanded = true;
     private bool _hasActiveProject;
+    private readonly RecentProjectsService _recentProjects;
 
     public MainViewModel()
     {
+        _recentProjects = new RecentProjectsService();
         _scheduleService = new ScheduleService(new GreedyScheduleSolver(), new ConflictService());
         _store = new SchoolDataStore();
         _excelService = new ExcelScheduleService();
@@ -100,14 +102,15 @@ public sealed class MainViewModel : ObservableObject
 
         LoadCourseTemplates();
 
-        // 确保默认项目目录存在
-        Directory.CreateDirectory(Infrastructure.AppPaths.DefaultProjectDirectory);
+        // 确保 ACS 工作空间目录存在
+        AppPaths.EnsureDirectories();
 
-        // Start with welcome overlay — no project loaded
+        // Start with no project loaded
         _projectFilePath = "";
         _hasActiveProject = false;
         OnPropertyChanged(nameof(HasActiveProject));
         OnPropertyChanged(nameof(ProjectFileName));
+        OnPropertyChanged(nameof(RecentProjects));
         SelectedMainPage = "配置";
         SelectedConfigPage = "基础设置";
     }
@@ -505,7 +508,7 @@ public sealed class MainViewModel : ObservableObject
 
     public string ProjectDirectory =>
         string.IsNullOrEmpty(_projectFilePath)
-            ? Infrastructure.AppPaths.DefaultProjectDirectory
+            ? Infrastructure.AppPaths.ProjectsPath
             : Path.GetDirectoryName(_projectFilePath)!;
 
     public string ProjectName
@@ -526,9 +529,12 @@ public sealed class MainViewModel : ObservableObject
             {
                 OnPropertyChanged(nameof(ProjectFileName));
                 OnPropertyChanged(nameof(ProjectName));
+                OnPropertyChanged(nameof(RecentProjects));
             }
         }
     }
+
+    public IReadOnlyList<ProjectInfo> RecentProjects => _recentProjects.Projects;
 
     public bool IsToolbarExpanded
     {
@@ -549,17 +555,12 @@ public sealed class MainViewModel : ObservableObject
             return;
         }
 
-        // 从目录 + 项目名构建完整文件路径
-        var dir = string.IsNullOrEmpty(_projectFilePath)
-            ? Infrastructure.AppPaths.DefaultProjectDirectory
-            : Path.GetDirectoryName(_projectFilePath)!;
-        if (!Directory.Exists(dir))
-            Directory.CreateDirectory(dir);
-        var filePath = Path.Combine(dir, _projectName + ".acsproj");
+        // 自动保存到 ACS\Projects\{名称}.acsproj
+        var filePath = Infrastructure.AppPaths.GetProjectFilePath(_projectName);
 
         if (File.Exists(filePath))
         {
-            StatusMessage = $"项目文件已存在，请使用其他名称或路径";
+            StatusMessage = $"项目文件已存在: {_projectName}.acsproj";
             return;
         }
 
@@ -577,7 +578,6 @@ public sealed class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(CurrentSubjectGradeName));
         OnPropertyChanged(nameof(FilteredSubjects));
 
-        // 直接写入（绕过 SaveProject 的 HasActiveProject 检查）
         var outDir = Path.GetDirectoryName(filePath)!;
         if (!Directory.Exists(outDir))
             Directory.CreateDirectory(outDir);
@@ -588,6 +588,8 @@ public sealed class MainViewModel : ObservableObject
         _projectFilePath = filePath;
         OnPropertyChanged(nameof(ProjectFileName));
         HasActiveProject = true;
+        _recentProjects.AddOrUpdate(_projectName, filePath);
+        OnPropertyChanged(nameof(RecentProjects));
         SelectedMainPage = "配置";
         SelectedConfigPage = "基础设置";
         StatusMessage = $"已创建项目: {_projectName}";
@@ -653,6 +655,8 @@ public sealed class MainViewModel : ObservableObject
         ApplySchoolData(data);
         _projectFilePath = filePath;
         HasActiveProject = true;
+        _recentProjects.AddOrUpdate(Path.GetFileNameWithoutExtension(filePath), filePath);
+        OnPropertyChanged(nameof(RecentProjects));
         SelectedMainPage = "配置";
         SelectedConfigPage = "基础设置";
         SelectedViewMode = "年级总表";
@@ -1728,8 +1732,11 @@ public sealed class MainViewModel : ObservableObject
 
     private string EnsureExportFolder()
     {
-        Directory.CreateDirectory(AppPaths.ExportFolder);
-        return AppPaths.ExportFolder;
+        string dir = string.IsNullOrEmpty(_projectName)
+            ? AppPaths.OutputPath
+            : AppPaths.GetProjectOutputDir(_projectName);
+        Directory.CreateDirectory(dir);
+        return dir;
     }
 
     private void Log(string message)

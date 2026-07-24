@@ -33,10 +33,6 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
                 return;
             }
         }
-        if (!vm.HasActiveProject)
-        {
-            _ = ShowCreateProjectDialogAsync();
-        }
     }
 
     public Infrastructure.RuntimeSnapshot GetRuntimeSnapshot()
@@ -188,7 +184,10 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
         {
             var file = await filePicker.PickSingleFileAsync();
             if (file != null)
+            {
                 vm.OpenProject(file.Path);
+                vm.ProjectFilePath = file.Path;
+            }
         }
         catch
         {
@@ -206,32 +205,12 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
     {
         var vm = (MainViewModel)DataContext;
         vm.ProjectName = string.Empty;
-        vm.ProjectFilePath = Infrastructure.AppPaths.DefaultProjectDirectory;
+        vm.ProjectFilePath = Infrastructure.AppPaths.ProjectsPath;
 
-        Windows.Storage.Pickers.FolderPicker folderPicker = new()
-        {
-            SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary
-        };
-        folderPicker.FileTypeFilter.Add("*");
-
-        // Build dialog content
         var nameBox = new TextBox
         {
             PlaceholderText = "例如: 2024年上学期",
             Margin = new Thickness(0, 4, 0, 0)
-        };
-        var dirText = new TextBox
-        {
-            Text = vm.ProjectDirectory,
-            IsReadOnly = true,
-            Padding = new Thickness(8, 6, 8, 6)
-        };
-        var browseButton = new Button
-        {
-            Content = "浏览...",
-            Margin = new Thickness(6, 0, 0, 0),
-            MinHeight = 32,
-            CornerRadius = new CornerRadius(6)
         };
         var statusText = new TextBlock
         {
@@ -240,24 +219,6 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
             HorizontalAlignment = HorizontalAlignment.Center,
             TextWrapping = TextWrapping.Wrap
         };
-
-        browseButton.Click += async (s, args) =>
-        {
-            var folder = await folderPicker.PickSingleFolderAsync();
-            if (folder != null)
-            {
-                vm.ProjectFilePath = folder.Path;
-                dirText.Text = folder.Path;
-            }
-        };
-
-        var dirGrid = new Grid();
-        dirGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        dirGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        Grid.SetColumn(dirText, 0);
-        Grid.SetColumn(browseButton, 1);
-        dirGrid.Children.Add(dirText);
-        dirGrid.Children.Add(browseButton);
 
         var dialog = new ContentDialog
         {
@@ -274,8 +235,12 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
                 {
                     new TextBlock { Text = "项目名称", FontWeight = Microsoft.UI.Text.FontWeights.SemiBold },
                     nameBox,
-                    new TextBlock { Text = "存储位置", FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Margin = new Thickness(0, 4, 0, 0) },
-                    dirGrid,
+                    new TextBlock
+                    {
+                        Text = $"保存到: {Infrastructure.AppPaths.ProjectsPath}",
+                        FontSize = 11,
+                        Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Gray)
+                    },
                     statusText
                 }
             }
@@ -283,8 +248,8 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
 
         while (true)
         {
-            nameBox.Text = vm.ProjectName ?? "";
-            dirText.Text = vm.ProjectDirectory;
+            nameBox.Text = "";
+            statusText.Text = "";
 
             var result = await dialog.ShowAsync();
             if (result != ContentDialogResult.Primary)
@@ -298,12 +263,10 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
                 continue;
             }
 
-            vm.ProjectFilePath = dirText.Text.Trim();
-
-            var fullPath = System.IO.Path.Combine(vm.ProjectDirectory, vm.ProjectName + ".acsproj");
+            var fullPath = Infrastructure.AppPaths.GetProjectFilePath(vm.ProjectName);
             if (System.IO.File.Exists(fullPath))
             {
-                statusText.Text = $"文件已存在: {fullPath}";
+                statusText.Text = $"文件已存在: {vm.ProjectName}.acsproj";
                 continue;
             }
 
