@@ -6,7 +6,11 @@ namespace Automatic_class_schedule.Infrastructure;
 public static class SchoolDataSerializer
 {
     private const string Magic = "ASCP";
-    private const int CurrentVersion = 1;
+    private const int LegacyVersion = 1;
+    private const int DirectoryVersion = 2;
+
+    /// <summary>超过此阈值的列表将拆分到子缓存文件</summary>
+    private const int CacheSplitThreshold = 100;
 
     private enum SectionTag : byte
     {
@@ -19,15 +23,160 @@ public static class SchoolDataSerializer
         Requirements = 0x07,
         FixedLessons = 0x08,
         ScheduleEntries = 0x09,
+        ProjectName = 0x0A,
+        CacheRef = 0x0B,
         End = 0xFF
     }
 
+    // ================================================================
+    //  Public API — directory-based project (v2)
+    // ================================================================
+
+    /// <summary>将项目保存到目录格式（v2）。projectDir 为 .acsproj 目录。</summary>
+    public static void SerializeToDirectory(string projectDir, SchoolData data, string projectName)
+    {
+        string mainFile = AppPaths.GetProjectMainFile(projectDir);
+        string cacheDir = AppPaths.GetProjectCacheDir(projectDir);
+        Directory.CreateDirectory(cacheDir);
+
+        // 决定哪些大列表需要拆分到子缓存
+        var cacheRefs = new List<(string fileName, string sectionName, int count)>();
+        bool splitEntries = data.ScheduleEntries.Count > CacheSplitThreshold;
+
+        using (var stream = File.Create(mainFile))
+        {
+            using var writer = new BinaryWriter(stream, System.Text.Encoding.UTF8, leaveOpen: false);
+            writer.Write(System.Text.Encoding.ASCII.GetBytes(Magic));
+            writer.Write(DirectoryVersion);
+
+            // ProjectName
+            WriteSection(writer, SectionTag.ProjectName, w => w.Write(projectName));
+
+            // Settings
+            WriteSection(writer, SectionTag.Settings, w => WriteSettings(w, data.Settings));
+            WriteListSection(writer, SectionTag.GradeInputs, data.GradeInputs, WriteGradeInput);
+            WriteListSection(writer, SectionTag.Classes, data.Classes, WriteSchoolClass);
+            WriteListSection(writer, SectionTag.Teachers, data.Teachers, WriteTeacher);
+            WriteListSection(writer, SectionTag.Subjects, data.Subjects, WriteSubjectDefinition);
+            WriteListSection(writer, SectionTag.TeacherAssignments, data.TeacherAssignments, WriteTeacherAssignment);
+            WriteListSection(writer, SectionTag.Requirements, data.Requirements, WriteLessonRequirement);
+            WriteListSection(writer, SectionTag.FixedLessons, data.FixedLessons, WriteFixedLesson);
+
+            // ScheduleEntries — 大列表拆分到子缓存
+            if (splitEntries)
+            {
+                string cacheFile = "entries.bin";
+                string cachePath = Path.Combine(cacheDir, cacheFile);
+                using var cacheStream = File.Create(cachePath);
+                using var cacheWriter = new BinaryWriter(cacheStream, System.Text.Encoding.UTF8);
+                cacheWriter.Write(data.ScheduleEntries.Count);
+                foreach (var entry in data.ScheduleEntries)
+                    WriteScheduleEntry(cacheWriter, entry);
+
+                WriteSection(writer, SectionTag.CacheRef, w =>
+                {
+                    w.Write("ScheduleEntries");
+                    w.Write(cacheFile);
+                    w.Write(data.ScheduleEntries.Count);
+                });
+            }
+            else
+            {
+                WriteListSection(writer, SectionTag.ScheduleEntries, data.ScheduleEntries, WriteScheduleEntry);
+            }
+
+            writer.Write((byte)SectionTag.End);
+        }
+
+        // 清理不再使用的旧缓存文件
+        CleanupOrphanedCacheFiles(cacheDir, cacheRefs, splitEntries);
+    }
+
+    /// <summary>从项目目录加载（自动检测 v1 旧格式 / v2 目录格式）。</summary>
+    public static SchoolData DeserializeFromDirectory(string projectPath)
+    {
+        // v2 目录格式
+        if (AppPaths.IsProjectDirectory(projectPath))
+        {
+            string mainFile = AppPaths.GetProjectMainFile(projectPath);
+            if (File.Exists(mainFile))
+            {
+                string cacheDir = AppPaths.GetProjectCacheDir(projectPath);
+                using var stream = File.OpenRead(mainFile);
+                return DeserializeMainFile(stream, cacheDir);
+            }
+        }
+
+        // v1 旧单文件格式
+        if (File.Exists(projectPath))
+        {
+            using var stream = File.OpenRead(projectPath);
+            return DeserializeLegacy(stream);
+        }
+
+        throw new FileNotFoundException("项目文件不存在", projectPath);
+    }
+
+    /// <summary>获取项目名称（从目录格式快速读取，不加载全部数据）。</summary>
+    public static string? ReadProjectName(string projectPath)
+    {
+        if (AppPaths.IsProjectDirectory(projectPath))
+        {
+            string mainFile = AppPaths.GetProjectMainFile(projectPath);
+            if (!File.Exists(mainFile)) return null;
+
+            using var stream = File.OpenRead(mainFile);
+            using var reader = new BinaryReader(stream, System.Text.Encoding.UTF8, leaveOpen: false);
+            var magic = reader.ReadBytes(4);
+            if (magic[0] != 'A' || magic[1] != 'S' || magic[2] != 'C' || magic[3] != 'P')
+                return null;
+            int version = reader.ReadInt32();
+            if (version < 2) return null;
+
+            while (true)
+            {
+                var tag = (SectionTag)reader.ReadByte();
+                if (tag == SectionTag.End) break;
+
+                if (tag == SectionTag.ProjectName)
+                {
+                    reader.ReadInt32(); // skip -1 placeholder
+                    return reader.ReadString();
+                }
+
+                // Skip other sections
+                if (tag == SectionTag.Settings)
+                {
+                    reader.ReadInt32(); // skip -1
+                    SkipSettings(reader);
+                }
+                else if (tag == SectionTag.CacheRef)
+                {
+                    reader.ReadInt32(); // skip -1
+                    reader.ReadString(); // section name
+                    reader.ReadString(); // file name
+                    reader.ReadInt32();  // count
+                }
+                else
+                {
+                    int count = reader.ReadInt32();
+                    SkipListSection(reader, tag, count);
+                }
+            }
+        }
+        return null;
+    }
+
+    // ================================================================
+    //  Legacy single-file API (v1) — kept for backward compatibility
+    // ================================================================
+
+    /// <summary>旧版单文件序列化（保留用于兼容旧项目文件）</summary>
     public static void Serialize(Stream stream, SchoolData data)
     {
         using var writer = new BinaryWriter(stream, System.Text.Encoding.UTF8, leaveOpen: false);
-
         writer.Write(System.Text.Encoding.ASCII.GetBytes(Magic));
-        writer.Write(CurrentVersion);
+        writer.Write(LegacyVersion);
 
         WriteSection(writer, SectionTag.Settings, w => WriteSettings(w, data.Settings));
         WriteListSection(writer, SectionTag.GradeInputs, data.GradeInputs, WriteGradeInput);
@@ -42,7 +191,130 @@ public static class SchoolDataSerializer
         writer.Write((byte)SectionTag.End);
     }
 
+    /// <summary>旧版单文件反序列化</summary>
     public static SchoolData Deserialize(Stream stream)
+        => DeserializeLegacy(stream);
+
+    // ================================================================
+    //  Internal — v2 main file deserialization
+    // ================================================================
+
+    private static SchoolData DeserializeMainFile(Stream stream, string cacheDir)
+    {
+        using var reader = new BinaryReader(stream, System.Text.Encoding.UTF8, leaveOpen: false);
+
+        var magic = reader.ReadBytes(4);
+        if (magic[0] != 'A' || magic[1] != 'S' || magic[2] != 'C' || magic[3] != 'P')
+            throw new InvalidDataException("Not a valid ACS project file.");
+
+        int version = reader.ReadInt32();
+        if (version < 2)
+            throw new InvalidDataException($"Unsupported project version: {version}");
+
+        var data = new SchoolData();
+
+        while (true)
+        {
+            var tag = (SectionTag)reader.ReadByte();
+            if (tag == SectionTag.End) break;
+
+            switch (tag)
+            {
+                case SectionTag.ProjectName:
+                    reader.ReadInt32(); // skip -1
+                    data.ProjectName = reader.ReadString();
+                    break;
+
+                case SectionTag.Settings:
+                    reader.ReadInt32(); // skip -1
+                    data.Settings = ReadSettings(reader);
+                    break;
+
+                case SectionTag.CacheRef:
+                    reader.ReadInt32(); // skip -1
+                    string sectionName = reader.ReadString();
+                    string cacheFileName = reader.ReadString();
+                    int cacheCount = reader.ReadInt32();
+                    LoadCacheSection(data, sectionName, cacheDir, cacheFileName, cacheCount);
+                    break;
+
+                case SectionTag.GradeInputs:
+                    ReadList(reader.ReadInt32(), reader, data.GradeInputs, ReadGradeInput);
+                    break;
+                case SectionTag.Classes:
+                    ReadList(reader.ReadInt32(), reader, data.Classes, ReadSchoolClass);
+                    break;
+                case SectionTag.Teachers:
+                    ReadList(reader.ReadInt32(), reader, data.Teachers, ReadTeacher);
+                    break;
+                case SectionTag.Subjects:
+                    ReadList(reader.ReadInt32(), reader, data.Subjects, ReadSubjectDefinition);
+                    break;
+                case SectionTag.TeacherAssignments:
+                    ReadList(reader.ReadInt32(), reader, data.TeacherAssignments, ReadTeacherAssignment);
+                    break;
+                case SectionTag.Requirements:
+                    ReadList(reader.ReadInt32(), reader, data.Requirements, ReadLessonRequirement);
+                    break;
+                case SectionTag.FixedLessons:
+                    ReadList(reader.ReadInt32(), reader, data.FixedLessons, ReadFixedLesson);
+                    break;
+                case SectionTag.ScheduleEntries:
+                    ReadList(reader.ReadInt32(), reader, data.ScheduleEntries, ReadScheduleEntry);
+                    break;
+
+                default:
+                    // Unknown section — try to skip
+                    int count = reader.ReadInt32();
+                    if (count == -1)
+                        SkipSettings(reader);
+                    else
+                        SkipListSection(reader, tag, count);
+                    break;
+            }
+        }
+
+        return data;
+    }
+
+    private static void LoadCacheSection(SchoolData data, string sectionName, string cacheDir, string cacheFileName, int count)
+    {
+        string cachePath = Path.Combine(cacheDir, cacheFileName);
+        if (!File.Exists(cachePath)) return;
+
+        using var cacheStream = File.OpenRead(cachePath);
+        using var cacheReader = new BinaryReader(cacheStream, System.Text.Encoding.UTF8);
+        int fileCount = cacheReader.ReadInt32();
+
+        switch (sectionName)
+        {
+            case "ScheduleEntries":
+                data.ScheduleEntries.Capacity = fileCount;
+                for (int i = 0; i < fileCount; i++)
+                    data.ScheduleEntries.Add(ReadScheduleEntry(cacheReader));
+                break;
+        }
+    }
+
+    private static void CleanupOrphanedCacheFiles(string cacheDir, List<(string, string, int)> activeRefs, bool splitEntries)
+    {
+        if (!Directory.Exists(cacheDir)) return;
+        var activeFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (splitEntries) activeFiles.Add("entries.bin");
+        foreach (var f in Directory.GetFiles(cacheDir))
+        {
+            if (!activeFiles.Contains(Path.GetFileName(f)))
+            {
+                try { File.Delete(f); } catch { }
+            }
+        }
+    }
+
+    // ================================================================
+    //  Internal — v1 legacy deserialization
+    // ================================================================
+
+    private static SchoolData DeserializeLegacy(Stream stream)
     {
         using var reader = new BinaryReader(stream, System.Text.Encoding.UTF8, leaveOpen: false);
 
@@ -51,7 +323,6 @@ public static class SchoolDataSerializer
             throw new InvalidDataException("Not a valid ASCP project file.");
 
         var version = reader.ReadInt32();
-
         var data = new SchoolData();
 
         while (true)
@@ -101,6 +372,10 @@ public static class SchoolDataSerializer
         return data;
     }
 
+    // ================================================================
+    //  Section helpers
+    // ================================================================
+
     private static void WriteSection(BinaryWriter w, SectionTag tag, Action<BinaryWriter> writeContent)
     {
         w.Write((byte)tag);
@@ -122,6 +397,66 @@ public static class SchoolDataSerializer
         for (int i = 0; i < count; i++)
             target.Add(readItem(r));
     }
+
+    // ================================================================
+    //  Skip helpers (for unknown sections)
+    // ================================================================
+
+    private static void SkipSettings(BinaryReader r)
+    {
+        r.ReadInt32(); // DaysPerWeek
+        r.ReadInt32(); // PeriodsPerDay
+        r.ReadInt32(); // MorningPeriods
+        r.ReadInt32(); // AfternoonPeriods
+        r.ReadBoolean(); // IncludeEveningSelfStudy
+        r.ReadInt32(); // EveningPeriods
+        r.ReadString(); // SchoolName
+    }
+
+    private static void SkipListSection(BinaryReader r, SectionTag tag, int count)
+    {
+        for (int i = 0; i < count; i++)
+        {
+            switch (tag)
+            {
+                case SectionTag.GradeInputs:
+                    r.ReadString(); r.ReadInt32();
+                    break;
+                case SectionTag.Classes:
+                    r.ReadBytes(16); r.ReadString(); r.ReadInt32(); r.ReadString();
+                    break;
+                case SectionTag.Teachers:
+                    r.ReadBytes(16); r.ReadString(); r.ReadString(); r.ReadString();
+                    break;
+                case SectionTag.Subjects:
+                    r.ReadBytes(16); r.ReadString(); r.ReadString(); r.ReadInt32(); r.ReadString(); r.ReadString();
+                    break;
+                case SectionTag.TeacherAssignments:
+                    r.ReadBytes(16); r.ReadString(); r.ReadString(); r.ReadInt32(); r.ReadString();
+                    r.ReadString(); r.ReadString(); r.ReadString(); r.ReadBoolean(); r.ReadBoolean();
+                    break;
+                case SectionTag.Requirements:
+                    r.ReadBytes(16); r.ReadBytes(16); r.ReadBytes(16); r.ReadString(); r.ReadString();
+                    r.ReadString(); r.ReadInt32(); r.ReadString(); r.ReadBoolean(); r.ReadBoolean();
+                    break;
+                case SectionTag.FixedLessons:
+                    r.ReadBytes(16); r.ReadInt32(); r.ReadString(); r.ReadInt32(); r.ReadInt32();
+                    r.ReadString(); r.ReadString(); r.ReadString(); r.ReadString();
+                    break;
+                case SectionTag.ScheduleEntries:
+                    r.ReadBytes(16); r.ReadBytes(16); r.ReadBytes(16); r.ReadBytes(16);
+                    r.ReadString(); r.ReadString(); r.ReadString(); r.ReadInt32(); r.ReadInt32();
+                    r.ReadBoolean(); r.ReadBoolean(); r.ReadString();
+                    break;
+                default:
+                    return; // Can't skip unknown section
+            }
+        }
+    }
+
+    // ================================================================
+    //  Model read/write methods
+    // ================================================================
 
     // ---- ScheduleSettings ----
     private static void WriteSettings(BinaryWriter w, ScheduleSettings s)

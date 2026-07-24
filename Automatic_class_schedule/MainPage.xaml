@@ -364,12 +364,11 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel>
                         <TextBlock Text="基础设置" FontSize="18" Foreground="#FF214E78" />
-                        <TextBlock Text="配置学校基本信息和每天节次。" Foreground="#FF5A6877" Margin="0,0,0,12" />
+                        <TextBlock Text="配置每周天数和每天节次设置。" Foreground="#FF5A6877" Margin="0,0,0,12" />
 
                         <Border Style="{StaticResource SectionBorderStyle}">
                             <StackPanel>
-                                <TextBlock Text="学校信息" FontWeight="SemiBold" />
-                                <Grid Margin="0,8,0,0">
+                                <Grid Margin="0,0,0,0">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="120" />
                                         <ColumnDefinition Width="*" />

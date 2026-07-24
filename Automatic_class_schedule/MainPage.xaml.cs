@@ -1,6 +1,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
 using Windows.ApplicationModel.DataTransfer;
 using Automatic_class_schedule.Models;
@@ -10,10 +11,32 @@ namespace Automatic_class_schedule;
 
 public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
 {
+    private nint _windowHandle;
+
     public MainPage()
     {
         InitializeComponent();
         DataContext = new MainViewModel();
+        Loaded += (_, _) => InitWindowHandle();
+    }
+
+    private void InitWindowHandle()
+    {
+        DependencyObject current = this;
+        while (current != null)
+        {
+            if (current is Window window)
+            {
+                _windowHandle = WinRT.Interop.WindowNative.GetWindowHandle(window);
+                if (DataContext is MainViewModel vm)
+                    vm.WindowHandle = _windowHandle;
+                return;
+            }
+            current = VisualTreeHelper.GetParent(current);
+        }
+        _windowHandle = WinRT.Interop.WindowNative.GetWindowHandle(App.CurrentWindow!);
+        if (DataContext is MainViewModel vm2)
+            vm2.WindowHandle = _windowHandle;
     }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
@@ -150,12 +173,7 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
     private async void NewProject_Click(object sender, RoutedEventArgs e)
     {
         var vm = (MainViewModel)DataContext;
-        if (vm.HasActiveProject)
-        {
-            App.OpenNewWindow();
-            return;
-        }
-        await ShowCreateProjectDialogAsync();
+        await ShowCreateProjectDialogAsync(openInNewWindow: vm.HasActiveProject);
     }
 
     private async void OpenProject_Click(object sender, RoutedEventArgs e)
@@ -167,28 +185,40 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
     private async Task PickAndOpenProjectAsync(bool openInNewWindow = false)
     {
         var vm = (MainViewModel)DataContext;
-        var filePicker = new Windows.Storage.Pickers.FileOpenPicker
+
+        // 先尝试文件夹选择器（v2 目录格式项目）
+        var folderPicker = new Windows.Storage.Pickers.FolderPicker
         {
             SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary
         };
-        filePicker.FileTypeFilter.Add(".acsproj");
+        folderPicker.FileTypeFilter.Add("*");
 
         try
         {
-            nint hwnd = WinRT.Interop.WindowNative.GetWindowHandle(App.CurrentWindow);
-            WinRT.Interop.InitializeWithWindow.Initialize(filePicker, hwnd);
-
-            var file = await filePicker.PickSingleFileAsync();
-            if (file != null)
+            WinRT.Interop.InitializeWithWindow.Initialize(folderPicker, _windowHandle);
+            var folder = await folderPicker.PickSingleFolderAsync();
+            if (folder != null)
             {
-                if (openInNewWindow)
+                string path = folder.Path;
+                // 检查是否为有效项目目录（包含 project.acs）
+                string mainFile = Infrastructure.AppPaths.GetProjectMainFile(path);
+                if (System.IO.File.Exists(mainFile))
                 {
-                    App.PendingProjectPath = file.Path;
-                    App.OpenNewWindow();
+                    // v2 目录格式
+                    if (openInNewWindow)
+                        App.OpenNewWindow(path);
+                    else
+                        vm.OpenProject(path);
+                    return;
                 }
-                else
+                // 可能是旧版单文件 .acsproj
+                if (path.EndsWith(".acsproj", StringComparison.OrdinalIgnoreCase) && System.IO.File.Exists(path))
                 {
-                    vm.OpenProject(file.Path);
+                    if (openInNewWindow)
+                        App.OpenNewWindow(path);
+                    else
+                        vm.OpenProject(path);
+                    return;
                 }
             }
         }
@@ -234,14 +264,13 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
             try
             {
                 var vm = (MainViewModel)DataContext;
-                if (!System.IO.File.Exists(info.Path))
+                if (!System.IO.File.Exists(info.Path) && !System.IO.Directory.Exists(info.Path))
                 {
                     return;
                 }
                 if (vm.HasActiveProject)
                 {
-                    App.PendingProjectPath = info.Path;
-                    App.OpenNewWindow();
+                    App.OpenNewWindow(info.Path);
                     return;
                 }
                 vm.OpenProject(info.Path);
@@ -266,7 +295,7 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
         ContentDialog? dialog = null;
         list.ItemClick += (s, args) =>
         {
-            if (args.ClickedItem is Services.ProjectInfo info && System.IO.File.Exists(info.Path))
+            if (args.ClickedItem is Services.ProjectInfo info && (System.IO.File.Exists(info.Path) || System.IO.Directory.Exists(info.Path)))
             {
                 App.OpenNewWindow(info.Path);
                 dialog?.Hide();
@@ -285,7 +314,7 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
         await dialog.ShowAsync();
     }
 
-    private async Task ShowCreateProjectDialogAsync()
+    private async Task ShowCreateProjectDialogAsync(bool openInNewWindow = false)
     {
         var vm = (MainViewModel)DataContext;
         vm.ProjectName = string.Empty;
@@ -373,8 +402,7 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
                     SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary
                 };
                 folderPicker.FileTypeFilter.Add("*");
-                nint hwnd = WinRT.Interop.WindowNative.GetWindowHandle(App.CurrentWindow);
-                WinRT.Interop.InitializeWithWindow.Initialize(folderPicker, hwnd);
+                WinRT.Interop.InitializeWithWindow.Initialize(folderPicker, _windowHandle);
                 var folder = await folderPicker.PickSingleFolderAsync();
                 if (folder != null)
                 {
@@ -396,16 +424,90 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
             }
 
             var fullPath = System.IO.Path.Combine(saveFolder, nameText + ".acsproj");
-            if (System.IO.File.Exists(fullPath))
+            if (System.IO.Directory.Exists(fullPath))
             {
-                errorText = $"文件已存在: {nameText}.acsproj";
+                errorText = $"项目已存在: {nameText}.acsproj";
                 continue;
             }
 
-            vm.ProjectName = nameText;
-            vm.CreateProject(fullPath);
+            if (openInNewWindow)
+            {
+                CreateDefaultProjectFile(fullPath);
+                App.OpenNewWindow(fullPath);
+            }
+            else
+            {
+                vm.ProjectName = nameText;
+                vm.CreateProject(fullPath);
+            }
             break;
         }
+    }
+
+    private static void CreateDefaultProjectFile(string path)
+    {
+        // path 是 .acsproj 目录路径
+        System.IO.Directory.CreateDirectory(path);
+        string cacheDir = Infrastructure.AppPaths.GetProjectCacheDir(path);
+        System.IO.Directory.CreateDirectory(cacheDir);
+
+        string projectName = System.IO.Path.GetFileNameWithoutExtension(path);
+
+        var grades = new System.Collections.Generic.List<Models.GradeInput>
+        {
+            new() { GradeName = "七年级", ClassCount = 8 },
+            new() { GradeName = "八年级", ClassCount = 8 },
+            new() { GradeName = "九年级", ClassCount = 6 }
+        };
+
+        var data = new Models.SchoolData
+        {
+            ProjectName = projectName,
+            Settings = new Models.ScheduleSettings
+            {
+                DaysPerWeek = 5,
+                PeriodsPerDay = 7,
+                MorningPeriods = 4,
+                AfternoonPeriods = 3,
+                IncludeEveningSelfStudy = false,
+                EveningPeriods = 2
+            },
+            GradeInputs = grades
+        };
+
+        foreach (var g in grades)
+        {
+            string grade = g.GradeName;
+            data.Subjects.Add(new Models.SubjectDefinition { Name = "语文", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次", GradeName = grade });
+            data.Subjects.Add(new Models.SubjectDefinition { Name = "数学", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次", GradeName = grade });
+            data.Subjects.Add(new Models.SubjectDefinition { Name = "英语", Category = "主科", DefaultWeeklyCount = 5, DistributionRule = "每天一次", GradeName = grade });
+            if (grade != "七年级")
+                data.Subjects.Add(new Models.SubjectDefinition { Name = "物理", Category = "理科", DefaultWeeklyCount = 3, DistributionRule = "均衡分布", GradeName = grade });
+            if (grade != "七年级" && grade != "八年级")
+                data.Subjects.Add(new Models.SubjectDefinition { Name = "化学", Category = "理科", DefaultWeeklyCount = 3, DistributionRule = "均衡分布", GradeName = grade });
+            if (grade != "九年级")
+            {
+                data.Subjects.Add(new Models.SubjectDefinition { Name = "生物", Category = "理科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = grade });
+                data.Subjects.Add(new Models.SubjectDefinition { Name = "地理", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = grade });
+            }
+            data.Subjects.Add(new Models.SubjectDefinition { Name = "历史", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = grade });
+            data.Subjects.Add(new Models.SubjectDefinition { Name = "政治", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = grade });
+            data.Subjects.Add(new Models.SubjectDefinition { Name = "体育", Category = "副科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = grade });
+        }
+
+        foreach (var g in grades)
+        {
+            for (int i = 1; i <= g.ClassCount; i++)
+                data.Classes.Add(new Models.SchoolClass
+                {
+                    Id = Guid.NewGuid(),
+                    GradeName = g.GradeName,
+                    ClassNumber = i,
+                    Name = $"{g.GradeName.Replace("年级", "")}{i}班"
+                });
+        }
+
+        Infrastructure.SchoolDataSerializer.SerializeToDirectory(path, data, projectName);
     }
 
     private void GridCell_DragStarting(UIElement sender, DragStartingEventArgs e)

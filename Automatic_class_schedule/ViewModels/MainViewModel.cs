@@ -530,6 +530,9 @@ public sealed class MainViewModel : ObservableObject
 
     public IReadOnlyList<ProjectInfo> RecentProjects => _recentProjects.Projects;
 
+    /// <summary>当前窗口句柄，由 MainPage 在加载后设置。</summary>
+    internal nint WindowHandle { get; set; }
+
     private List<ProjectInfo> _homePageProjects = new();
     public IReadOnlyList<ProjectInfo> HomePageProjects => _homePageProjects;
 
@@ -545,6 +548,20 @@ public sealed class MainViewModel : ObservableObject
         var dir = new DirectoryInfo(AppPaths.ProjectsPath);
         if (dir.Exists)
         {
+            // 扫描项目目录（v2 目录格式）
+            foreach (var projDir in dir.GetDirectories("*.acsproj"))
+            {
+                if (seen.Add(projDir.FullName))
+                {
+                    merged.Add(new ProjectInfo
+                    {
+                        Name = Path.GetFileNameWithoutExtension(projDir.Name),
+                        Path = projDir.FullName,
+                        LastOpen = projDir.LastWriteTime.ToString("yyyy-MM-dd")
+                    });
+                }
+            }
+            // 兼容旧版单文件格式
             foreach (var file in dir.GetFiles("*.acsproj"))
             {
                 if (seen.Add(file.FullName))
@@ -584,9 +601,9 @@ public sealed class MainViewModel : ObservableObject
         if (string.IsNullOrEmpty(filePath))
             filePath = Infrastructure.AppPaths.GetProjectFilePath(_projectName);
 
-        if (File.Exists(filePath))
+        if (Directory.Exists(filePath))
         {
-            StatusMessage = $"项目文件已存在: {_projectName}.acsproj";
+            StatusMessage = $"项目已存在: {_projectName}.acsproj";
             return;
         }
 
@@ -604,15 +621,11 @@ public sealed class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(CurrentSubjectGradeName));
         OnPropertyChanged(nameof(FilteredSubjects));
 
-        var outDir = Path.GetDirectoryName(filePath)!;
-        if (!Directory.Exists(outDir))
-            Directory.CreateDirectory(outDir);
-        using (var stream = File.Create(filePath))
-        {
-            SchoolDataSerializer.Serialize(stream, BuildSchoolData());
-        }
+        Directory.CreateDirectory(filePath);
+        SchoolDataSerializer.SerializeToDirectory(filePath, BuildSchoolData(), _projectName);
         _projectFilePath = filePath;
         OnPropertyChanged(nameof(ProjectFileName));
+        OnPropertyChanged(nameof(ProjectDirectory));
         HasActiveProject = true;
         CaptureSnapshot();
         _recentProjects.AddOrUpdate(_projectName, filePath);
@@ -641,16 +654,21 @@ public sealed class MainViewModel : ObservableObject
             }
         }
 
-        string dir = Path.GetDirectoryName(filePath)!;
-        if (!Directory.Exists(dir))
-            Directory.CreateDirectory(dir);
+        // 确保是目录格式
+        if (!Directory.Exists(filePath))
+            Directory.CreateDirectory(filePath);
 
-        using (var stream = File.Create(filePath))
+        // 如果项目名称为空，从文件名推导
+        if (string.IsNullOrEmpty(_projectName))
         {
-            SchoolDataSerializer.Serialize(stream, BuildSchoolData());
+            _projectName = Path.GetFileNameWithoutExtension(filePath);
+            OnPropertyChanged(nameof(ProjectName));
         }
+
+        SchoolDataSerializer.SerializeToDirectory(filePath, BuildSchoolData(), _projectName);
         _projectFilePath = filePath;
         OnPropertyChanged(nameof(ProjectFileName));
+        OnPropertyChanged(nameof(ProjectDirectory));
         StatusMessage = $"已保存: {ProjectFileName}";
         CaptureSnapshot();
     }
@@ -660,18 +678,52 @@ public sealed class MainViewModel : ObservableObject
         get
         {
             if (!HasActiveProject || _savedSnapshot == null) return false;
-            using var ms = new MemoryStream();
-            SchoolDataSerializer.Serialize(ms, BuildSchoolData());
-            var current = ms.ToArray();
-            return !current.AsSpan().SequenceEqual(_savedSnapshot.AsSpan());
+            // 序列化到临时目录进行对比
+            string tempDir = Path.Combine(Path.GetTempPath(), "acs_diff_" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                Directory.CreateDirectory(tempDir);
+                SchoolDataSerializer.SerializeToDirectory(tempDir, BuildSchoolData(), _projectName);
+                // 将目录内容打包为字节数组进行比较
+                var current = SerializeDirectoryToBytes(tempDir);
+                return !current.AsSpan().SequenceEqual(_savedSnapshot.AsSpan());
+            }
+            finally
+            {
+                try { if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true); } catch { }
+            }
         }
     }
 
     private void CaptureSnapshot()
     {
+        string tempDir = Path.Combine(Path.GetTempPath(), "acs_snap_" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            Directory.CreateDirectory(tempDir);
+            SchoolDataSerializer.SerializeToDirectory(tempDir, BuildSchoolData(), _projectName);
+            _savedSnapshot = SerializeDirectoryToBytes(tempDir);
+        }
+        finally
+        {
+            try { if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true); } catch { }
+        }
+    }
+
+    private static byte[] SerializeDirectoryToBytes(string dir)
+    {
         using var ms = new MemoryStream();
-        SchoolDataSerializer.Serialize(ms, BuildSchoolData());
-        _savedSnapshot = ms.ToArray();
+        using var archiveWriter = new BinaryWriter(ms);
+        // 写入所有文件内容作为快照
+        foreach (var file in Directory.GetFiles(dir, "*", SearchOption.AllDirectories))
+        {
+            string rel = Path.GetRelativePath(dir, file);
+            byte[] content = File.ReadAllBytes(file);
+            archiveWriter.Write(rel);
+            archiveWriter.Write(content.Length);
+            archiveWriter.Write(content);
+        }
+        return ms.ToArray();
     }
 
     public void CloseProject()
@@ -685,6 +737,7 @@ public sealed class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(ProjectName));
         OnPropertyChanged(nameof(ProjectFilePath));
         OnPropertyChanged(nameof(ProjectFileName));
+        OnPropertyChanged(nameof(ProjectDirectory));
         StatusMessage = "";
         RefreshHomePageProjects();
     }
@@ -694,7 +747,7 @@ public sealed class MainViewModel : ObservableObject
         if (string.IsNullOrEmpty(filePath))
             return;
 
-        if (!File.Exists(filePath))
+        if (!File.Exists(filePath) && !Directory.Exists(filePath))
         {
             StatusMessage = "文件不存在";
             return;
@@ -704,10 +757,16 @@ public sealed class MainViewModel : ObservableObject
         ClearAllData();
 
         Models.SchoolData? data;
-        using (var stream = File.OpenRead(filePath))
+        try
         {
-            data = SchoolDataSerializer.Deserialize(stream);
+            data = SchoolDataSerializer.DeserializeFromDirectory(filePath);
         }
+        catch
+        {
+            StatusMessage = "项目文件读取失败";
+            return;
+        }
+
         if (data == null || data.GradeInputs.Count == 0)
         {
             StatusMessage = "项目文件无效";
@@ -716,9 +775,22 @@ public sealed class MainViewModel : ObservableObject
 
         ApplySchoolData(data);
         _projectFilePath = filePath;
+
+        // 恢复项目名称
+        if (!string.IsNullOrEmpty(data.ProjectName))
+        {
+            _projectName = data.ProjectName;
+            OnPropertyChanged(nameof(ProjectName));
+        }
+        else
+        {
+            _projectName = Path.GetFileNameWithoutExtension(filePath);
+            OnPropertyChanged(nameof(ProjectName));
+        }
+
         HasActiveProject = true;
         CaptureSnapshot();
-        _recentProjects.AddOrUpdate(Path.GetFileNameWithoutExtension(filePath), filePath);
+        _recentProjects.AddOrUpdate(_projectName, filePath);
         RefreshHomePageProjects();
         SelectedMainPage = "配置";
         SelectedConfigPage = "基础设置";
@@ -1131,6 +1203,7 @@ public sealed class MainViewModel : ObservableObject
         _projectName = "";
         OnPropertyChanged(nameof(ProjectName));
         OnPropertyChanged(nameof(ProjectFilePath));
+        OnPropertyChanged(nameof(ProjectDirectory));
         HasActiveProject = false;
         StatusMessage = "";
         ClearAllData();
@@ -1359,7 +1432,7 @@ public sealed class MainViewModel : ObservableObject
             ViewMode = Windows.Storage.Pickers.PickerViewMode.List
         };
 
-        nint hwnd = WinRT.Interop.WindowNative.GetWindowHandle(App.CurrentWindow);
+        var hwnd = WindowHandle != 0 ? WindowHandle : WinRT.Interop.WindowNative.GetWindowHandle(App.CurrentWindow!);
         WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
 
         var file = await picker.PickSingleFileAsync();
@@ -1761,6 +1834,7 @@ public sealed class MainViewModel : ObservableObject
     {
         return new SchoolData
         {
+            ProjectName = _projectName,
             Settings = new ScheduleSettings
             {
                 DaysPerWeek = DaysPerWeek,

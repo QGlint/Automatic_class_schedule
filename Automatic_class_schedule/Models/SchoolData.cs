@@ -2,6 +2,7 @@ namespace Automatic_class_schedule.Models;
 
 public sealed class SchoolData
 {
+    public string ProjectName { get; set; } = "";
     public ScheduleSettings Settings { get; set; } = new();
     public List<GradeInput> GradeInputs { get; set; } = new();
     public List<SchoolClass> Classes { get; set; } = new();

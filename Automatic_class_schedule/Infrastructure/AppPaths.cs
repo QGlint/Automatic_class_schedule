@@ -53,4 +53,26 @@ public static class AppPaths
     {
         return Path.Combine(ProjectsPath, projectName + ".acsproj");
     }
+
+    // ========== 项目目录格式（v2） ==========
+
+    /// <summary>获取项目目录内的主数据文件路径</summary>
+    public static string GetProjectMainFile(string projectDir)
+        => Path.Combine(projectDir, "project.acs");
+
+    /// <summary>获取项目目录内的缓存子目录路径</summary>
+    public static string GetProjectCacheDir(string projectDir)
+        => Path.Combine(projectDir, "cache");
+
+    /// <summary>获取指定缓存子文件的完整路径</summary>
+    public static string GetCacheFilePath(string projectDir, string cacheFileName)
+        => Path.Combine(GetProjectCacheDir(projectDir), cacheFileName);
+
+    /// <summary>判断路径是否为目录格式项目（v2）</summary>
+    public static bool IsProjectDirectory(string path)
+        => !string.IsNullOrEmpty(path) && Directory.Exists(path);
+
+    /// <summary>判断路径是否为旧版单文件格式项目（v1）</summary>
+    public static bool IsLegacyProjectFile(string path)
+        => !string.IsNullOrEmpty(path) && File.Exists(path) && path.EndsWith(".acsproj", StringComparison.OrdinalIgnoreCase);
 }
