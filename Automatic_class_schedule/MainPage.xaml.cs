@@ -127,6 +127,53 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
         }
     }
 
+    private async void OpenProject_Click(object sender, RoutedEventArgs e)
+    {
+        var picker = new Windows.Storage.Pickers.FileOpenPicker();
+        picker.SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary;
+        picker.FileTypeFilter.Add(".ascproj");
+        // WinUI requires window handle initialization
+        var mainWindow = App.CurrentWindow;
+        if (mainWindow is not null)
+        {
+            var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(mainWindow);
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
+        }
+        var file = await picker.PickSingleFileAsync();
+        if (file is not null)
+        {
+            ((MainViewModel)DataContext).OpenProject(file.Path);
+        }
+    }
+
+    private async void SaveProject_Click(object sender, RoutedEventArgs e)
+    {
+        var vm = (MainViewModel)DataContext;
+
+        // If project already has a file path, save directly
+        if (!string.IsNullOrEmpty(vm.ProjectFilePath))
+        {
+            vm.SaveProject(vm.ProjectFilePath);
+            return;
+        }
+
+        var picker = new Windows.Storage.Pickers.FileSavePicker();
+        picker.SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary;
+        picker.FileTypeChoices.Add("排课项目", new List<string> { ".ascproj" });
+        picker.SuggestedFileName = "我的项目";
+        var mainWindow = App.CurrentWindow;
+        if (mainWindow is not null)
+        {
+            var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(mainWindow);
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
+        }
+        var file = await picker.PickSaveFileAsync();
+        if (file is not null)
+        {
+            vm.SaveProject(file.Path);
+        }
+    }
+
     private void GridCell_DragStarting(UIElement sender, DragStartingEventArgs e)
     {
         if (sender is FrameworkElement element && element.DataContext is ScheduleGridCell cell && cell.Entry != null)

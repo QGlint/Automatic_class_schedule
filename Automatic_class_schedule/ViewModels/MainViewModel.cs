@@ -40,6 +40,8 @@ public sealed class MainViewModel : ObservableObject
     private string _currentSubjectGradeName = string.Empty;
     private CancellationTokenSource? _cts;
     private string _selectedCourseTemplate = string.Empty;
+    private bool _isToolbarExpanded = true;
+    private bool _hasActiveProject;
 
     public MainViewModel()
     {
@@ -90,29 +92,18 @@ public sealed class MainViewModel : ObservableObject
         SaveCourseTemplateCommand = new RelayCommand(SaveCourseTemplate);
         LoadCourseTemplateCommand = new RelayCommand(LoadCourseTemplate);
         DeleteCourseTemplateCommand = new RelayCommand(DeleteCourseTemplate, () => !string.IsNullOrEmpty(_selectedCourseTemplate));
+        ToggleToolbarCommand = new RelayCommand(ToggleToolbar);
+        SaveAsCommand = new RelayCommand<string?>(SaveProject);
+        OpenProjectCommand = new RelayCommand<string?>(OpenProject);
+        CreateProjectCommand = new RelayCommand(CreateProject);
 
-        LoadData();
         LoadCourseTemplates();
-        if (GradeInputs.Count == 0)
-        {
-            InitDefaultGrades();
-            InitDefaultSubjects();
-        }
 
-        if (Classes.Count == 0 && GradeInputs.Count > 0)
-        {
-            GenerateClasses();
-        }
-        else
-        {
-            RefreshViews();
-        }
-
-        // Default course config to first grade
-        _currentSubjectGradeName = GradeInputs.FirstOrDefault()?.GradeName ?? "";
-        OnPropertyChanged(nameof(CurrentSubjectGradeName));
-        OnPropertyChanged(nameof(FilteredSubjects));
-
+        // Start with welcome overlay — no project loaded
+        _projectFilePath = "";
+        _hasActiveProject = false;
+        OnPropertyChanged(nameof(HasActiveProject));
+        OnPropertyChanged(nameof(ProjectFileName));
         SelectedMainPage = "配置";
         SelectedConfigPage = "基础设置";
     }
@@ -499,6 +490,119 @@ public sealed class MainViewModel : ObservableObject
     public string DataFilePath => AppPaths.DataFile;
     public string ProjectFilePath => _projectFilePath;
 
+    public string ProjectFileName =>
+        string.IsNullOrEmpty(_projectFilePath) ? "未保存的项目" : Path.GetFileName(_projectFilePath);
+
+    public bool HasActiveProject
+    {
+        get => _hasActiveProject;
+        set
+        {
+            if (SetProperty(ref _hasActiveProject, value))
+            {
+                OnPropertyChanged(nameof(ProjectFileName));
+            }
+        }
+    }
+
+    public bool IsToolbarExpanded
+    {
+        get => _isToolbarExpanded;
+        set => SetProperty(ref _isToolbarExpanded, value);
+    }
+
+    public void ToggleToolbar()
+    {
+        IsToolbarExpanded = !IsToolbarExpanded;
+    }
+
+    public void CreateProject()
+    {
+        SchoolName = "中学";
+        DaysPerWeek = 5;
+        PeriodsPerDay = 7;
+        MorningPeriods = 4;
+        AfternoonPeriods = 3;
+        IncludeEveningSelfStudy = false;
+        EveningPeriods = 2;
+        InitDefaultGrades();
+        InitDefaultSubjects();
+        GenerateClasses();
+        _currentSubjectGradeName = GradeInputs.FirstOrDefault()?.GradeName ?? "";
+        OnPropertyChanged(nameof(CurrentSubjectGradeName));
+        OnPropertyChanged(nameof(FilteredSubjects));
+        _projectFilePath = "";
+        HasActiveProject = true;
+        SelectedMainPage = "配置";
+        SelectedConfigPage = "基础设置";
+        StatusMessage = "新项目已创建";
+        RefreshViews();
+    }
+
+    public void SaveProject(string? filePath = null)
+    {
+        if (!HasActiveProject) return;
+
+        if (string.IsNullOrEmpty(filePath))
+        {
+            if (!string.IsNullOrEmpty(_projectFilePath))
+            {
+                filePath = _projectFilePath;
+            }
+            else
+            {
+                // Need to use file picker from UI — return early for UI to handle
+                SaveAsCommand.Execute(null);
+                return;
+            }
+        }
+
+        string dir = Path.GetDirectoryName(filePath)!;
+        if (!Directory.Exists(dir))
+            Directory.CreateDirectory(dir);
+
+        var json = System.Text.Json.JsonSerializer.Serialize(BuildSchoolData(), new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+        File.WriteAllText(filePath, json);
+        _projectFilePath = filePath;
+        OnPropertyChanged(nameof(ProjectFileName));
+        StatusMessage = $"已保存: {ProjectFileName}";
+    }
+
+    public void OpenProject(string? filePath = null)
+    {
+        if (string.IsNullOrEmpty(filePath))
+            return;
+
+        if (!File.Exists(filePath))
+        {
+            StatusMessage = "文件不存在";
+            return;
+        }
+
+        var json = File.ReadAllText(filePath);
+        var data = System.Text.Json.JsonSerializer.Deserialize<Models.SchoolData>(json);
+        if (data == null || data.GradeInputs.Count == 0)
+        {
+            StatusMessage = "项目文件无效";
+            return;
+        }
+
+        ApplySchoolData(data);
+        _projectFilePath = filePath;
+        HasActiveProject = true;
+        SelectedMainPage = "配置";
+        SelectedConfigPage = "基础设置";
+        SelectedViewMode = "年级总表";
+        SelectedGradeInput = GradeInputs.FirstOrDefault();
+        _currentSubjectGradeName = GradeInputs.FirstOrDefault()?.GradeName ?? "";
+        OnPropertyChanged(nameof(CurrentSubjectGradeName));
+        OnPropertyChanged(nameof(FilteredSubjects));
+        SelectedClass = Classes.FirstOrDefault();
+        SelectedTeacher = Teachers.FirstOrDefault();
+        StatusMessage = $"已打开: {ProjectFileName}";
+        RefreshViews();
+    }
+
     public Microsoft.UI.Xaml.Visibility ConfigPageVisibility =>
         SelectedMainPage == "配置" ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
     public Microsoft.UI.Xaml.Visibility SchedulePageVisibility =>
@@ -594,6 +698,10 @@ public sealed class MainViewModel : ObservableObject
     public RelayCommand SaveCourseTemplateCommand { get; }
     public RelayCommand LoadCourseTemplateCommand { get; }
     public RelayCommand DeleteCourseTemplateCommand { get; }
+    public RelayCommand ToggleToolbarCommand { get; }
+    public RelayCommand<string?> SaveAsCommand { get; }
+    public RelayCommand<string?> OpenProjectCommand { get; }
+    public RelayCommand CreateProjectCommand { get; }
     public RelayCommand FilterGradeCommand { get; }
 
     public string SerializeSubjects()
@@ -889,6 +997,15 @@ public sealed class MainViewModel : ObservableObject
 
     private void NewProject()
     {
+        _projectFilePath = "";
+        HasActiveProject = false;
+        StatusMessage = "新建项目";
+        ClearAllData();
+        OnPropertyChanged(nameof(ProjectFileName));
+    }
+
+    private void ClearAllData()
+    {
         GradeInputs.Clear();
         Classes.Clear();
         Teachers.Clear();
@@ -905,7 +1022,6 @@ public sealed class MainViewModel : ObservableObject
         AfternoonPeriods = 3;
         IncludeEveningSelfStudy = false;
         EveningPeriods = 2;
-        StatusMessage = "已创建新项目";
         SelectedConfigPage = "基础设置";
         RefreshViews();
     }
