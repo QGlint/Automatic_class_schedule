@@ -23,6 +23,7 @@ public sealed class MainViewModel : ObservableObject
     private string _selectedConfigPage = "基础设置";
     private string _selectedViewMode = "年级总表";
     private string _projectFilePath = string.Empty;
+    private string _projectName = string.Empty;
     private GradeInput? _selectedGradeInput;
     private SchoolClass? _selectedClass;
     private Teacher? _selectedTeacher;
@@ -488,7 +489,18 @@ public sealed class MainViewModel : ObservableObject
 
     public string ExportFolderPath => AppPaths.ExportFolder;
     public string DataFilePath => AppPaths.DataFile;
-    public string ProjectFilePath => _projectFilePath;
+
+    public string ProjectFilePath
+    {
+        get => _projectFilePath;
+        set => SetProperty(ref _projectFilePath, value);
+    }
+
+    public string ProjectName
+    {
+        get => _projectName;
+        set => SetProperty(ref _projectName, value);
+    }
 
     public string ProjectFileName =>
         string.IsNullOrEmpty(_projectFilePath) ? "未保存的项目" : Path.GetFileName(_projectFilePath);
@@ -501,6 +513,7 @@ public sealed class MainViewModel : ObservableObject
             if (SetProperty(ref _hasActiveProject, value))
             {
                 OnPropertyChanged(nameof(ProjectFileName));
+                OnPropertyChanged(nameof(ProjectName));
             }
         }
     }
@@ -518,7 +531,19 @@ public sealed class MainViewModel : ObservableObject
 
     public void CreateProject()
     {
-        SchoolName = "中学";
+        if (string.IsNullOrEmpty(_projectFilePath))
+        {
+            StatusMessage = "请先选择项目存储位置";
+            return;
+        }
+
+        if (File.Exists(_projectFilePath))
+        {
+            StatusMessage = "该位置已存在项目文件，请重新选择";
+            return;
+        }
+
+        SchoolName = _projectName;
         DaysPerWeek = 5;
         PeriodsPerDay = 7;
         MorningPeriods = 4;
@@ -531,11 +556,11 @@ public sealed class MainViewModel : ObservableObject
         _currentSubjectGradeName = GradeInputs.FirstOrDefault()?.GradeName ?? "";
         OnPropertyChanged(nameof(CurrentSubjectGradeName));
         OnPropertyChanged(nameof(FilteredSubjects));
-        _projectFilePath = "";
+        SaveProject(_projectFilePath);
         HasActiveProject = true;
         SelectedMainPage = "配置";
         SelectedConfigPage = "基础设置";
-        StatusMessage = "新项目已创建";
+        StatusMessage = $"已创建项目: {_projectName}";
         RefreshViews();
     }
 

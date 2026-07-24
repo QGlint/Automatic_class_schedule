@@ -1029,41 +1029,17 @@
 
                         <Rectangle Height="1" Fill="#FFD9E1EC" Margin="0,4" />
 
-                        <TextBlock Text="学校名称" FontWeight="SemiBold" />
-                        <TextBox Text="{Binding SchoolName, UpdateSourceTrigger=PropertyChanged}" Padding="8,6" />
+                        <TextBlock Text="项目名称" FontWeight="SemiBold" />
+                        <TextBox Text="{Binding ProjectName, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="例如: 2024年上学期" Padding="8,6" />
 
+                        <TextBlock Text="存储位置" FontWeight="SemiBold" />
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <StackPanel>
-                                <TextBlock Text="每周天数" FontWeight="SemiBold" />
-                                <ComboBox SelectedValue="{Binding DaysPerWeek}" Width="100" HorizontalAlignment="Left">
-                                    <x:Int32>5</x:Int32>
-                                    <x:Int32>6</x:Int32>
-                                    <x:Int32>7</x:Int32>
-                                </ComboBox>
-                            </StackPanel>
-                            <StackPanel Grid.Column="1">
-                                <TextBlock Text="每天节数" FontWeight="SemiBold" />
-                                <TextBox Text="{Binding PeriodsPerDay, UpdateSourceTrigger=PropertyChanged}" Width="60" HorizontalAlignment="Left" />
-                            </StackPanel>
-                        </Grid>
-
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel>
-                                <TextBlock Text="上午节数" FontWeight="SemiBold" />
-                                <TextBox Text="{Binding MorningPeriods, UpdateSourceTrigger=PropertyChanged}" Width="60" HorizontalAlignment="Left" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="1">
-                                <TextBlock Text="下午节数" FontWeight="SemiBold" />
-                                <TextBox Text="{Binding AfternoonPeriods, UpdateSourceTrigger=PropertyChanged}" Width="60" HorizontalAlignment="Left" />
-                            </StackPanel>
+                            <TextBox Text="{Binding ProjectFilePath, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="选择 .ascproj 文件保存位置" Padding="8,6" IsReadOnly="True" />
+                            <Button Grid.Column="1" Content="浏览..." x:Name="BrowseLocationButton" Click="BrowseLocation_Click" Margin="6,0,0,0" Style="{StaticResource RoundButtonBase}" Background="#FFF0F5FF" Foreground="#FF214E78" />
                         </Grid>
 
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="10" Margin="0,8,0,0">
