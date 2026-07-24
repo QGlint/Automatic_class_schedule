@@ -577,7 +577,17 @@ public sealed class MainViewModel : ObservableObject
         _currentSubjectGradeName = GradeInputs.FirstOrDefault()?.GradeName ?? "";
         OnPropertyChanged(nameof(CurrentSubjectGradeName));
         OnPropertyChanged(nameof(FilteredSubjects));
-        SaveProject(filePath);
+
+        // 直接写入（绕过 SaveProject 的 HasActiveProject 检查）
+        var outDir = Path.GetDirectoryName(filePath)!;
+        if (!Directory.Exists(outDir))
+            Directory.CreateDirectory(outDir);
+        using (var stream = File.Create(filePath))
+        {
+            SchoolDataSerializer.Serialize(stream, BuildSchoolData());
+        }
+        _projectFilePath = filePath;
+        OnPropertyChanged(nameof(ProjectFileName));
         HasActiveProject = true;
         SelectedMainPage = "配置";
         SelectedConfigPage = "基础设置";
