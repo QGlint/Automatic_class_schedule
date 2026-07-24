@@ -131,7 +131,7 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
     {
         var picker = new Windows.Storage.Pickers.FileOpenPicker();
         picker.SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary;
-        picker.FileTypeFilter.Add(".xml");
+        picker.FileTypeFilter.Add(".ascproj");
         var mainWindow = App.CurrentWindow;
         if (mainWindow is not null)
         {
@@ -154,7 +154,7 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
 
         var picker = new Windows.Storage.Pickers.FileSavePicker();
         picker.SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary;
-        picker.FileTypeChoices.Add("排课项目", new List<string> { ".xml" });
+        picker.FileTypeChoices.Add("排课项目", new List<string> { ".ascproj" });
         picker.SuggestedFileName = string.IsNullOrEmpty(vm.ProjectName) ? "我的项目" : vm.ProjectName;
         var mainWindow = App.CurrentWindow;
         if (mainWindow is not null)
@@ -185,7 +185,7 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
 
         var picker = new Windows.Storage.Pickers.FileSavePicker();
         picker.SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary;
-        picker.FileTypeChoices.Add("排课项目", new List<string> { ".xml" });
+        picker.FileTypeChoices.Add("排课项目", new List<string> { ".ascproj" });
         picker.SuggestedFileName = string.IsNullOrEmpty(vm.ProjectName) ? "我的项目" : vm.ProjectName;
         var mainWindow = App.CurrentWindow;
         if (mainWindow is not null)

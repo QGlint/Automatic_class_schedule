@@ -1,6 +1,5 @@
 using System.Collections.ObjectModel;
 using System.IO;
-using System.Xml.Serialization;
 using Automatic_class_schedule.Infrastructure;
 using Automatic_class_schedule.Models;
 using Automatic_class_schedule.Services;
@@ -587,10 +586,9 @@ public sealed class MainViewModel : ObservableObject
         if (!Directory.Exists(dir))
             Directory.CreateDirectory(dir);
 
-        var serializer = new XmlSerializer(typeof(Models.SchoolData));
-        using (var writer = new StreamWriter(filePath))
+        using (var stream = File.Create(filePath))
         {
-            serializer.Serialize(writer, BuildSchoolData());
+            SchoolDataSerializer.Serialize(stream, BuildSchoolData());
         }
         _projectFilePath = filePath;
         OnPropertyChanged(nameof(ProjectFileName));
@@ -611,11 +609,10 @@ public sealed class MainViewModel : ObservableObject
         // 先释放旧项目数据
         ClearAllData();
 
-        var serializer = new XmlSerializer(typeof(Models.SchoolData));
         Models.SchoolData? data;
-        using (var reader = new StreamReader(filePath))
+        using (var stream = File.OpenRead(filePath))
         {
-            data = serializer.Deserialize(reader) as Models.SchoolData;
+            data = SchoolDataSerializer.Deserialize(stream);
         }
         if (data == null || data.GradeInputs.Count == 0)
         {
