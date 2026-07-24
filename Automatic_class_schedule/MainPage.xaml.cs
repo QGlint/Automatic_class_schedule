@@ -203,6 +203,30 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
         vm.SaveProject(vm.ProjectFilePath);
     }
 
+    private async void CloseProject_Click(object sender, RoutedEventArgs e)
+    {
+        var vm = (MainViewModel)DataContext;
+        if (vm.HasUnsavedChanges)
+        {
+            var dialog = new ContentDialog
+            {
+                Title = "关闭项目",
+                Content = "项目已修改，是否保存？",
+                PrimaryButtonText = "保存",
+                SecondaryButtonText = "不保存",
+                CloseButtonText = "取消",
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = XamlRoot
+            };
+            var result = await dialog.ShowAsync();
+            if (result == ContentDialogResult.None)
+                return;
+            if (result == ContentDialogResult.Primary)
+                vm.SaveProject(vm.ProjectFilePath);
+        }
+        vm.CloseProject();
+    }
+
     private async void RecentProject_Click(object sender, ItemClickEventArgs e)
     {
         if (e.ClickedItem is Services.ProjectInfo info)

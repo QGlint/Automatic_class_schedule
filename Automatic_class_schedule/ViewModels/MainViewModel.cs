@@ -42,6 +42,7 @@ public sealed class MainViewModel : ObservableObject
     private string _selectedCourseTemplate = string.Empty;
     private bool _isToolbarExpanded = true;
     private bool _hasActiveProject;
+    private byte[]? _savedSnapshot;
     private readonly RecentProjectsService _recentProjects;
 
     public MainViewModel()
@@ -613,6 +614,7 @@ public sealed class MainViewModel : ObservableObject
         _projectFilePath = filePath;
         OnPropertyChanged(nameof(ProjectFileName));
         HasActiveProject = true;
+        CaptureSnapshot();
         _recentProjects.AddOrUpdate(_projectName, filePath);
         RefreshHomePageProjects();
         SelectedMainPage = "配置";
@@ -650,6 +652,41 @@ public sealed class MainViewModel : ObservableObject
         _projectFilePath = filePath;
         OnPropertyChanged(nameof(ProjectFileName));
         StatusMessage = $"已保存: {ProjectFileName}";
+        CaptureSnapshot();
+    }
+
+    public bool HasUnsavedChanges
+    {
+        get
+        {
+            if (!HasActiveProject || _savedSnapshot == null) return false;
+            using var ms = new MemoryStream();
+            SchoolDataSerializer.Serialize(ms, BuildSchoolData());
+            var current = ms.ToArray();
+            return !current.AsSpan().SequenceEqual(_savedSnapshot.AsSpan());
+        }
+    }
+
+    private void CaptureSnapshot()
+    {
+        using var ms = new MemoryStream();
+        SchoolDataSerializer.Serialize(ms, BuildSchoolData());
+        _savedSnapshot = ms.ToArray();
+    }
+
+    public void CloseProject()
+    {
+        if (!HasActiveProject) return;
+        HasActiveProject = false;
+        ClearAllData();
+        _projectFilePath = "";
+        _projectName = "";
+        _savedSnapshot = null;
+        OnPropertyChanged(nameof(ProjectName));
+        OnPropertyChanged(nameof(ProjectFilePath));
+        OnPropertyChanged(nameof(ProjectFileName));
+        StatusMessage = "";
+        RefreshHomePageProjects();
     }
 
     public void OpenProject(string? filePath = null)
@@ -680,6 +717,7 @@ public sealed class MainViewModel : ObservableObject
         ApplySchoolData(data);
         _projectFilePath = filePath;
         HasActiveProject = true;
+        CaptureSnapshot();
         _recentProjects.AddOrUpdate(Path.GetFileNameWithoutExtension(filePath), filePath);
         RefreshHomePageProjects();
         SelectedMainPage = "配置";
