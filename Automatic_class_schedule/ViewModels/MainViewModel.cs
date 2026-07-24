@@ -1062,8 +1062,11 @@ public sealed class MainViewModel : ObservableObject
     private void NewProject()
     {
         _projectFilePath = "";
+        _projectName = "";
+        OnPropertyChanged(nameof(ProjectName));
+        OnPropertyChanged(nameof(ProjectFilePath));
         HasActiveProject = false;
-        StatusMessage = "新建项目";
+        StatusMessage = "";
         ClearAllData();
         OnPropertyChanged(nameof(ProjectFileName));
     }
