@@ -229,113 +229,123 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
     {
         var vm = (MainViewModel)DataContext;
         vm.ProjectName = string.Empty;
-
         var saveFolder = Infrastructure.AppPaths.ProjectsPath;
+        var nameText = "";
+        var errorText = "";
 
-        // First ask about save location
-        var locDialog = new ContentDialog
+        while (true)
         {
-            Title = "选择保存位置",
-            PrimaryButtonText = "默认位置",
-            SecondaryButtonText = "自定义位置",
-            CloseButtonText = "取消",
-            DefaultButton = ContentDialogButton.Primary,
-            XamlRoot = XamlRoot,
-            Content = new TextBlock
+            var nameBox = new TextBox
             {
-                Text = $"保存到默认目录:\n{Infrastructure.AppPaths.ProjectsPath}",
-                FontSize = 13,
-                Margin = new Thickness(0, 8, 0, 0)
-            }
-        };
-
-        var locResult = await locDialog.ShowAsync();
-        if (locResult == ContentDialogResult.Primary)
-        {
-            saveFolder = Infrastructure.AppPaths.ProjectsPath;
-        }
-        else if (locResult == ContentDialogResult.Secondary)
-        {
-            var folderPicker = new Windows.Storage.Pickers.FolderPicker
-            {
-                SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary
+                PlaceholderText = "例如: 2024年上学期",
+                Margin = new Thickness(0, 4, 0, 0),
+                Text = nameText
             };
-            folderPicker.FileTypeFilter.Add(".acsproj");
-            nint hwnd = WinRT.Interop.WindowNative.GetWindowHandle(App.CurrentWindow);
-            WinRT.Interop.InitializeWithWindow.Initialize(folderPicker, hwnd);
-            var folder = await folderPicker.PickSingleFolderAsync();
-            if (folder == null)
-                return;
-            saveFolder = folder.Path;
-        }
-        else
-        {
-            return;
-        }
-
-        // Now show name input dialog
-        var nameBox = new TextBox
-        {
-            PlaceholderText = "例如: 2024年上学期",
-            Margin = new Thickness(0, 4, 0, 0)
-        };
-        var statusText = new TextBlock
-        {
-            Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.DarkRed),
-            FontSize = 13,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            TextWrapping = TextWrapping.Wrap
-        };
-
-        var nameDialog = new ContentDialog
-        {
-            Title = "新建项目",
-            PrimaryButtonText = "创建",
-            CloseButtonText = "取消",
-            DefaultButton = ContentDialogButton.Primary,
-            XamlRoot = XamlRoot,
-            Content = new StackPanel
+            var statusText = new TextBlock
             {
-                Spacing = 8,
-                MinWidth = 360,
-                Children =
+                Text = errorText,
+                Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.DarkRed),
+                FontSize = 13,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                TextWrapping = TextWrapping.Wrap
+            };
+            var pathText = new TextBlock
+            {
+                Text = saveFolder,
+                FontSize = 11,
+                Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Gray),
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            var browseBtn = new Button
+            {
+                Content = "选择位置",
+                FontSize = 11,
+                Padding = new Thickness(8, 2, 8, 2)
+            };
+
+            var browseClicked = false;
+            ContentDialog? dialog = null;
+            browseBtn.Click += (_, _) =>
+            {
+                browseClicked = true;
+                nameText = nameBox.Text;
+                dialog?.Hide();
+            };
+
+            dialog = new ContentDialog
+            {
+                Title = "新建项目",
+                PrimaryButtonText = "创建",
+                CloseButtonText = "取消",
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = XamlRoot,
+                Content = new StackPanel
                 {
-                    new TextBlock { Text = "项目名称", FontWeight = Microsoft.UI.Text.FontWeights.SemiBold },
-                    nameBox,
-                    new TextBlock
+                    Spacing = 8,
+                    MinWidth = 360,
+                    Children =
                     {
-                        Text = $"保存到: {saveFolder}",
-                        FontSize = 11,
-                        Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Gray)
-                    },
-                    statusText
+                        new TextBlock { Text = "项目名称", FontWeight = Microsoft.UI.Text.FontWeights.SemiBold },
+                        nameBox,
+                        new StackPanel
+                        {
+                            Orientation = Orientation.Horizontal,
+                            Spacing = 6,
+                            Children =
+                            {
+                                new TextBlock { Text = "保存到:", FontSize = 11, VerticalAlignment = VerticalAlignment.Center, Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Gray) },
+                                pathText,
+                                browseBtn
+                            }
+                        },
+                        statusText
+                    }
                 }
-            }
-        };
+            };
 
-        nameDialog.PrimaryButtonClick += (s, e2) =>
-        {
-            vm.ProjectName = nameBox.Text.Trim();
+            var result = await dialog.ShowAsync();
 
-            if (string.IsNullOrEmpty(vm.ProjectName))
+            if (browseClicked)
             {
-                statusText.Text = "请输入项目名称";
-                e2.Cancel = true;
-                return;
+                var folderPicker = new Windows.Storage.Pickers.FolderPicker
+                {
+                    SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary
+                };
+                folderPicker.FileTypeFilter.Add(".acsproj");
+                nint hwnd = WinRT.Interop.WindowNative.GetWindowHandle(App.CurrentWindow);
+                WinRT.Interop.InitializeWithWindow.Initialize(folderPicker, hwnd);
+                var folder = await folderPicker.PickSingleFolderAsync();
+                if (folder != null)
+                {
+                    saveFolder = folder.Path;
+                    nameText = nameBox.Text;
+                }
+                errorText = "";
+                continue;
             }
 
-            var fullPath = System.IO.Path.Combine(saveFolder, vm.ProjectName + ".acsproj");
+            if (result != ContentDialogResult.Primary)
+                break;
+
+            nameText = nameBox.Text.Trim();
+            if (string.IsNullOrEmpty(nameText))
+            {
+                errorText = "请输入项目名称";
+                continue;
+            }
+
+            var fullPath = System.IO.Path.Combine(saveFolder, nameText + ".acsproj");
             if (System.IO.File.Exists(fullPath))
             {
-                statusText.Text = $"文件已存在: {vm.ProjectName}.acsproj";
-                e2.Cancel = true;
-                return;
+                errorText = $"文件已存在: {nameText}.acsproj";
+                continue;
             }
 
+            vm.ProjectName = nameText;
             vm.CreateProject(fullPath);
-        };
-
-        await nameDialog.ShowAsync();
+            break;
+        }
     }
 
     private void GridCell_DragStarting(UIElement sender, DragStartingEventArgs e)

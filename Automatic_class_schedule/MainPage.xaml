@@ -1010,13 +1010,13 @@
                 </ScrollViewer>
             </Border>
         </Grid>
-        <!-- ========== 首页（无工程时显示） ========== -->
+        <!-- ========== 首页（无项目时显示） ========== -->
         <Grid Grid.Row="1" Grid.RowSpan="2" Margin="0,50,0,0"
               Visibility="{Binding HasActiveProject, Converter={StaticResource InverseBoolToVisibility}}">
             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Width="420">
                 <TextBlock Text="ACS" FontSize="48" FontWeight="Light" Foreground="#FF214E78"
                            HorizontalAlignment="Center" Margin="0,0,0,32" />
-                <TextBlock Text="最近工程" FontSize="14" Foreground="#FF5A6877" Margin="0,0,0,8"
+                <TextBlock Text="最近项目" FontSize="14" Foreground="#FF5A6877" Margin="0,0,0,8"
                            HorizontalAlignment="Center" />
                 <ListView ItemsSource="{Binding HomePageProjects}" Height="400"
                           SelectionMode="None" IsItemClickEnabled="True"
@@ -1045,9 +1045,9 @@
                     </ListView.ItemTemplate>
                 </ListView>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,16,0,0">
-                    <Button Content="新建工程" Style="{StaticResource TopButtonStyle}" Click="NewProject_Click"
+                    <Button Content="新建项目" Style="{StaticResource TopButtonStyle}" Click="NewProject_Click"
                             MinWidth="100" Height="36" />
-                    <Button Content="打开工程" Style="{StaticResource TopButtonStyle}" Click="OpenProject_Click"
+                    <Button Content="打开项目" Style="{StaticResource TopButtonStyle}" Click="OpenProject_Click"
                             MinWidth="100" Height="36" Margin="12,0,0,0" />
                 </StackPanel>
             </StackPanel>
