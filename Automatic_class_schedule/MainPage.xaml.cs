@@ -262,16 +262,18 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
             MinWidth = 400
         };
         list.ItemTemplate = (Microsoft.UI.Xaml.DataTemplate)Resources["RecentProjectItemTemplate"];
+
+        ContentDialog? dialog = null;
         list.ItemClick += (s, args) =>
         {
             if (args.ClickedItem is Services.ProjectInfo info && System.IO.File.Exists(info.Path))
             {
-                App.PendingProjectPath = info.Path;
-                App.OpenNewWindow();
+                App.OpenNewWindow(info.Path);
+                dialog?.Hide();
             }
         };
 
-        var dialog = new ContentDialog
+        dialog = new ContentDialog
         {
             Title = "打开最近项目",
             CloseButtonText = "取消",
