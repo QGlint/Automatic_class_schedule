@@ -1,4 +1,5 @@
 <Page x:Class="Automatic_class_schedule.MainPage"
+      x:Name="SchedulePageRoot"
       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -74,13 +75,15 @@
         </Style>
 
         <DataTemplate x:Key="ScheduleEntryTemplate">
-            <Border Margin="0,0,0,3" Padding="4,3"
+            <Border Margin="0,0,0,2" Padding="3,2"
                     Background="#FFF8FBFF" BorderBrush="#FFBFD7EE"
-                    BorderThickness="1" CornerRadius="4"
+                    BorderThickness="1" CornerRadius="3"
                     CanDrag="True" AllowDrop="True"
                     DragStarting="Entry_DragStarting"
                     DragOver="Entry_DragOver" Drop="Entry_Drop">
-                <TextBlock FontSize="12" TextWrapping="NoWrap">
+                <TextBlock FontSize="11" TextWrapping="NoWrap">
+                    <Run Text="{Binding ClassName}" Foreground="#FF7A8BA8" />
+                    <Run Text=" " />
                     <Run Text="{Binding Subject}" />
                     <Run Text=" " />
                     <Run Text="{Binding TeacherName}" Foreground="#FF556070" />
@@ -165,9 +168,9 @@
 
         <Grid Grid.Row="2" Margin="0,8,0,0">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="240" />
+                <ColumnDefinition Width="220" />
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="280" />
+                <ColumnDefinition Width="240" />
             </Grid.ColumnDefinitions>
 
             <!-- *********************************************** -->
@@ -630,14 +633,133 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
 
-                    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+                    <!-- Grade view: Excel-like matrix -->
+                    <Grid Grid.Row="2" Visibility="{Binding IsGradeViewMode, Converter={StaticResource BoolToVisibility}}">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <!-- Day tabs -->
+                        <ItemsControl ItemsSource="{Binding DayTabs}" Margin="0,0,0,6">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Content="{Binding Name}"
+                                            Command="{Binding DataContext.SelectDayCommand, ElementName=SchedulePageRoot}"
+                                            CommandParameter="{Binding Index}"
+                                            Height="32" MinWidth="60" Margin="0,0,6,0" Padding="8,2"
+                                            CornerRadius="4" FontSize="13"
+                                            BorderThickness="1" BorderBrush="#FFD9E1EC"
+                                            Background="#FFF0F5FF" Foreground="#FF214E78" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- Excel-like grid -->
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <!-- Header row -->
+                                <Border Background="#FFF0F5FF" BorderBrush="#FFD9E1EC" BorderThickness="1,1,1,0">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="60" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <Border BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,1" Padding="4">
+                                            <TextBlock Text="节次" FontSize="13" FontWeight="SemiBold" Foreground="#FF214E78"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        </Border>
+                                        <ItemsControl Grid.Column="1" ItemsSource="{Binding AvailableClasses}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <StackPanel Orientation="Horizontal" />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Width="140" BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,1" Padding="4"
+                                                            Background="#FFF0F5FF">
+                                                        <TextBlock Text="{Binding DisplayName}" FontSize="13" FontWeight="SemiBold" Foreground="#FF214E78"
+                                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Body rows -->
+                                <ItemsControl Grid.Row="1" ItemsSource="{Binding ScheduleMatrix}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border BorderBrush="#FFD9E1EC" BorderThickness="1,0,1,0"
+                                                    Background="#FFFAFBFC">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="60" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <Border Background="#FFF0F5FF" BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,1" Padding="4">
+                                                        <TextBlock Text="{Binding PeriodLabel}" FontSize="12" Foreground="#FF214E78"
+                                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                    </Border>
+                                                    <ItemsControl Grid.Column="1" ItemsSource="{Binding Cells}">
+                                                        <ItemsControl.ItemsPanel>
+                                                            <ItemsPanelTemplate>
+                                                                <StackPanel Orientation="Horizontal" />
+                                                            </ItemsPanelTemplate>
+                                                        </ItemsControl.ItemsPanel>
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Border Width="140" BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,1" Padding="4">
+                                                                    <Grid>
+                                                                        <Border Background="#FFF5F5F5"
+                                                                                Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibility}}" />
+                                                                        <Border Background="White"
+                                                                                Visibility="{Binding IsEmpty, Converter={StaticResource InverseBoolToVisibility}}" />
+                                                                        <StackPanel VerticalAlignment="Center">
+                                                                            <TextBlock Text="{Binding Subject}" FontSize="12" Foreground="#FF214E78" />
+                                                                            <TextBlock Text="{Binding TeacherName}" FontSize="12" Foreground="Gray" />
+                                                                        </StackPanel>
+                                                                    </Grid>
+                                                                </Border>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Grid>
+                        </ScrollViewer>
+                    </Grid>
+
+                    <!-- Non-grade views: class/teacher timetable -->
+                    <ScrollViewer Grid.Row="2" Visibility="{Binding IsGradeViewMode, Converter={StaticResource InverseBoolToVisibility}}"
+                                  VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
                         <Grid>
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="60" />
+                                <ColumnDefinition Width="50" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <!-- 左侧节次标签 -->
-                            <ItemsControl Grid.Column="0" ItemsSource="{Binding TimetableDays[0].Cells}" Margin="0,0,4,0">
+                            <ItemsControl Grid.Column="0" ItemsSource="{Binding TimetableDays[0].Cells}" Margin="0,0,2,0">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
                                         <StackPanel />
@@ -645,8 +767,8 @@
                                 </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border Height="72" Margin="0,0,0,8" Padding="4" Background="#FFF0F5FF" CornerRadius="6" VerticalAlignment="Stretch">
-                                            <TextBlock Text="{Binding PeriodLabel}" FontSize="11" Foreground="#FF214E78"
+                                        <Border Height="58" Margin="0,0,0,4" Padding="2" Background="#FFF0F5FF" CornerRadius="4" VerticalAlignment="Stretch">
+                                            <TextBlock Text="{Binding PeriodLabel}" FontSize="10" Foreground="#FF214E78"
                                                        HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap"
                                                        TextAlignment="Center" />
                                         </Border>
@@ -663,20 +785,20 @@
                                 </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border MinWidth="200" Margin="0,0,8,0" Padding="10" Background="White" BorderBrush="#FFD9E1EC" BorderThickness="1" CornerRadius="8">
+                                        <Border MinWidth="140" MaxWidth="220" Margin="0,0,4,0" Padding="6" Background="White" BorderBrush="#FFD9E1EC" BorderThickness="1" CornerRadius="6">
                                             <Grid>
                                                 <Grid.RowDefinitions>
                                                     <RowDefinition Height="Auto" />
                                                     <RowDefinition Height="*" />
                                                 </Grid.RowDefinitions>
-                                                <Border Background="#FFF0F5FF" CornerRadius="6" Padding="8" Margin="0,0,0,6">
-                                                    <TextBlock Text="{Binding DayName}" FontSize="16" Foreground="#FF214E78" HorizontalAlignment="Center" />
+                                                <Border Background="#FFF0F5FF" CornerRadius="4" Padding="6" Margin="0,0,0,4">
+                                                    <TextBlock Text="{Binding DayName}" FontSize="14" Foreground="#FF214E78" HorizontalAlignment="Center" />
                                                 </Border>
                                                 <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                                                     <ItemsControl ItemsSource="{Binding Cells}">
                                                         <ItemsControl.ItemTemplate>
                                                             <DataTemplate>
-                                                                <Border Margin="0,0,0,6" Padding="6" Background="White" BorderBrush="#FFD8E3F0" BorderThickness="1" CornerRadius="6">
+                                                                <Border Margin="0,0,0,4" Padding="4" Background="White" BorderBrush="#FFE8EEF5" BorderThickness="1" CornerRadius="4">
                                                                     <ItemsControl ItemsSource="{Binding Entries}" ItemTemplate="{StaticResource ScheduleEntryTemplate}" />
                                                                 </Border>
                                                             </DataTemplate>

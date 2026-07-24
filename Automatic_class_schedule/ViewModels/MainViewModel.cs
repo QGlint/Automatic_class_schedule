@@ -81,6 +81,7 @@ public sealed class MainViewModel : ObservableObject
         SelectGradeCommand = new RelayCommand<GradeInput>(SelectGrade);
         SelectClassCommand = new RelayCommand<SchoolClass>(SelectClass);
         SelectTeacherCommand = new RelayCommand<Teacher>(SelectTeacher);
+        SelectDayCommand = new RelayCommand<int>(SelectDay);
         SearchTeacherCommand = new RelayCommand(RefreshViews);
         FilterGradeCommand = new RelayCommand(RefreshViews);
         AddSubjectCommand = new RelayCommand(AddSubject);
@@ -181,6 +182,17 @@ public sealed class MainViewModel : ObservableObject
     public ObservableCollection<string> ActivityLog { get; }
     public ObservableCollection<ScheduleDayViewModel> TimetableDays { get; private set; }
     public ObservableCollection<SchedulePeriodRowViewModel> TimetableRows { get; private set; }
+    public ObservableCollection<ScheduleMatrixRow> ScheduleMatrix { get; private set; } = new();
+    public ObservableCollection<SchoolClass> AvailableClasses { get; private set; } = new();
+    public ObservableCollection<DayTabItem> DayTabs { get; private set; } = new();
+    public string[] DayNames => Enumerable.Range(0, DaysPerWeek).Select(i => GetDayName(i)).ToArray();
+
+    private int _selectedDayIndex;
+    public int SelectedDayIndex
+    {
+        get => _selectedDayIndex;
+        set => SetProperty(ref _selectedDayIndex, value);
+    }
 
     public string SchoolName
     {
@@ -549,6 +561,7 @@ public sealed class MainViewModel : ObservableObject
     public RelayCommand<GradeInput> SelectGradeCommand { get; }
     public RelayCommand<SchoolClass> SelectClassCommand { get; }
     public RelayCommand<Teacher> SelectTeacherCommand { get; }
+    public RelayCommand<int> SelectDayCommand { get; }
     public RelayCommand SearchTeacherCommand { get; }
     public RelayCommand AddSubjectCommand { get; }
     public RelayCommand DeleteSubjectCommand { get; }
@@ -884,6 +897,13 @@ public sealed class MainViewModel : ObservableObject
         RefreshViews();
     }
 
+    private void SelectDay(int dayIndex)
+    {
+        if (dayIndex < 0 || dayIndex >= DaysPerWeek) return;
+        SelectedDayIndex = dayIndex;
+        RefreshViews();
+    }
+
     private void SelectGrade(GradeInput? grade)
     {
         if (grade is null) return;
@@ -1032,6 +1052,65 @@ public sealed class MainViewModel : ObservableObject
 
         TimetableRows = rows;
         OnPropertyChanged(nameof(TimetableRows));
+
+        BuildScheduleMatrix();
+    }
+
+    private void BuildScheduleMatrix()
+    {
+        int periodsPerDay = Math.Max(1, PeriodsPerDay);
+        int dayIdx = SelectedDayIndex;
+
+        // Build day tabs
+        var dayTabs = new ObservableCollection<DayTabItem>();
+        for (int i = 0; i < DaysPerWeek; i++)
+        {
+            dayTabs.Add(new DayTabItem { Index = i, Name = GetDayName(i) });
+        }
+        DayTabs = dayTabs;
+        OnPropertyChanged(nameof(DayTabs));
+
+        // Determine classes for the selected grade
+        var classes = new List<SchoolClass>();
+        if (SelectedGradeInput is not null)
+        {
+            string gradeName = SelectedGradeInput.GradeName;
+            classes = Classes.Where(c => c.GradeName == gradeName)
+                .OrderBy(c => c.ClassNumber)
+                .ToList();
+        }
+        AvailableClasses = new ObservableCollection<SchoolClass>(classes);
+        OnPropertyChanged(nameof(AvailableClasses));
+
+        var matrix = new ObservableCollection<ScheduleMatrixRow>();
+        for (int period = 1; period <= periodsPerDay; period++)
+        {
+            var row = new ScheduleMatrixRow
+            {
+                PeriodIndex = period,
+                PeriodLabel = $"第{period}节",
+                IsOdd = period % 2 == 1
+            };
+
+            foreach (var cls in classes)
+            {
+                var entry = VisibleScheduleEntries
+                    .FirstOrDefault(e => e.DayIndex == dayIdx && e.PeriodIndex == period && e.ClassId == cls.Id);
+
+                row.Cells.Add(new ScheduleMatrixCell
+                {
+                    ClassName = cls.DisplayName,
+                    Subject = entry?.Subject ?? "",
+                    TeacherName = entry?.TeacherName ?? "",
+                });
+            }
+
+            matrix.Add(row);
+        }
+
+        ScheduleMatrix = matrix;
+        OnPropertyChanged(nameof(ScheduleMatrix));
+        OnPropertyChanged(nameof(DayNames));
     }
 
     private void ApplySchoolData(SchoolData data)
