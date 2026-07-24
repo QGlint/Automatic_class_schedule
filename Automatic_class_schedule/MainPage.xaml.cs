@@ -145,6 +145,26 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
         }
     }
 
+    private async void BrowseLocation_Click(object sender, RoutedEventArgs e)
+    {
+        var vm = (MainViewModel)DataContext;
+        var picker = new Windows.Storage.Pickers.FolderPicker();
+        picker.SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary;
+        picker.FileTypeFilter.Add("*");
+        var mainWindow = App.CurrentWindow;
+        if (mainWindow is not null)
+        {
+            var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(mainWindow);
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
+        }
+        var folder = await picker.PickSingleFolderAsync();
+        if (folder is not null)
+        {
+            var name = string.IsNullOrEmpty(vm.ProjectName) ? "我的项目" : vm.ProjectName;
+            vm.ProjectFilePath = System.IO.Path.Combine(folder.Path, name + ".ascproj");
+        }
+    }
+
     private async void SaveProject_Click(object sender, RoutedEventArgs e)
     {
         var vm = (MainViewModel)DataContext;

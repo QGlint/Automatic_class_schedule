@@ -499,7 +499,17 @@ public sealed class MainViewModel : ObservableObject
     public string ProjectName
     {
         get => _projectName;
-        set => SetProperty(ref _projectName, value);
+        set
+        {
+            if (SetProperty(ref _projectName, value))
+            {
+                if (!string.IsNullOrEmpty(value) && string.IsNullOrEmpty(_projectFilePath))
+                {
+                    var dir = Infrastructure.AppPaths.DefaultProjectDirectory;
+                    ProjectFilePath = Path.Combine(dir, value + ".ascproj");
+                }
+            }
+        }
     }
 
     public string ProjectFileName =>
@@ -537,15 +547,20 @@ public sealed class MainViewModel : ObservableObject
             return;
         }
 
-        var dir = Infrastructure.AppPaths.DefaultProjectDirectory;
-        if (!Directory.Exists(dir))
-            Directory.CreateDirectory(dir);
+        // 若未选路径，自动生成默认路径
+        if (string.IsNullOrEmpty(_projectFilePath))
+        {
+            var dir = Infrastructure.AppPaths.DefaultProjectDirectory;
+            if (!Directory.Exists(dir))
+                Directory.CreateDirectory(dir);
+            _projectFilePath = Path.Combine(dir, _projectName + ".ascproj");
+        }
 
-        var filePath = Path.Combine(dir, _projectName + ".ascproj");
+        var filePath = _projectFilePath;
 
         if (File.Exists(filePath))
         {
-            StatusMessage = $"项目 '{_projectName}' 已存在，请使用其他名称";
+            StatusMessage = $"项目文件已存在，请使用其他名称或路径";
             return;
         }
 
