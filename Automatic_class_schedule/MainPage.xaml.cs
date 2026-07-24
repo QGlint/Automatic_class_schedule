@@ -131,7 +131,7 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
     {
         var picker = new Windows.Storage.Pickers.FileOpenPicker();
         picker.SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary;
-        picker.FileTypeFilter.Add(".ascproj");
+        picker.FileTypeFilter.Add(".xml");
         var mainWindow = App.CurrentWindow;
         if (mainWindow is not null)
         {
@@ -147,10 +147,15 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
 
     private async void BrowseLocation_Click(object sender, RoutedEventArgs e)
     {
+        var vm = (MainViewModel)DataContext;
+        var dir = Infrastructure.AppPaths.DefaultProjectDirectory;
+        if (!Directory.Exists(dir))
+            Directory.CreateDirectory(dir);
+
         var picker = new Windows.Storage.Pickers.FileSavePicker();
         picker.SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary;
-        picker.FileTypeChoices.Add("排课项目", new List<string> { ".ascproj" });
-        picker.SuggestedFileName = "我的项目";
+        picker.FileTypeChoices.Add("排课项目", new List<string> { ".xml" });
+        picker.SuggestedFileName = string.IsNullOrEmpty(vm.ProjectName) ? "我的项目" : vm.ProjectName;
         var mainWindow = App.CurrentWindow;
         if (mainWindow is not null)
         {
@@ -160,7 +165,7 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
         var file = await picker.PickSaveFileAsync();
         if (file is not null)
         {
-            ((MainViewModel)DataContext).ProjectFilePath = file.Path;
+            vm.ProjectFilePath = file.Path;
         }
     }
 
@@ -168,17 +173,20 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
     {
         var vm = (MainViewModel)DataContext;
 
-        // If project already has a file path, save directly
         if (!string.IsNullOrEmpty(vm.ProjectFilePath))
         {
             vm.SaveProject(vm.ProjectFilePath);
             return;
         }
 
+        var dir = Infrastructure.AppPaths.DefaultProjectDirectory;
+        if (!Directory.Exists(dir))
+            Directory.CreateDirectory(dir);
+
         var picker = new Windows.Storage.Pickers.FileSavePicker();
         picker.SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary;
-        picker.FileTypeChoices.Add("排课项目", new List<string> { ".ascproj" });
-        picker.SuggestedFileName = "我的项目";
+        picker.FileTypeChoices.Add("排课项目", new List<string> { ".xml" });
+        picker.SuggestedFileName = string.IsNullOrEmpty(vm.ProjectName) ? "我的项目" : vm.ProjectName;
         var mainWindow = App.CurrentWindow;
         if (mainWindow is not null)
         {

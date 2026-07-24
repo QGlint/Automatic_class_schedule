@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Xml.Serialization;
 using Automatic_class_schedule.Infrastructure;
 using Automatic_class_schedule.Models;
 using Automatic_class_schedule.Services;
@@ -586,8 +587,11 @@ public sealed class MainViewModel : ObservableObject
         if (!Directory.Exists(dir))
             Directory.CreateDirectory(dir);
 
-        var json = System.Text.Json.JsonSerializer.Serialize(BuildSchoolData(), new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
-        File.WriteAllText(filePath, json);
+        var serializer = new XmlSerializer(typeof(Models.SchoolData));
+        using (var writer = new StreamWriter(filePath))
+        {
+            serializer.Serialize(writer, BuildSchoolData());
+        }
         _projectFilePath = filePath;
         OnPropertyChanged(nameof(ProjectFileName));
         StatusMessage = $"已保存: {ProjectFileName}";
@@ -604,8 +608,15 @@ public sealed class MainViewModel : ObservableObject
             return;
         }
 
-        var json = File.ReadAllText(filePath);
-        var data = System.Text.Json.JsonSerializer.Deserialize<Models.SchoolData>(json);
+        // 先释放旧项目数据
+        ClearAllData();
+
+        var serializer = new XmlSerializer(typeof(Models.SchoolData));
+        Models.SchoolData? data;
+        using (var reader = new StreamReader(filePath))
+        {
+            data = serializer.Deserialize(reader) as Models.SchoolData;
+        }
         if (data == null || data.GradeInputs.Count == 0)
         {
             StatusMessage = "项目文件无效";
@@ -1049,6 +1060,10 @@ public sealed class MainViewModel : ObservableObject
         EveningPeriods = 2;
         SelectedConfigPage = "基础设置";
         RefreshViews();
+
+        // 及时回收内存
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
     }
 
     private async Task LoadSampleDataAsync()
