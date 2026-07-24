@@ -1,0 +1,45 @@
+# UI Requirement Specification
+
+CourseEditor:
+  page: MainPage
+  layout:
+    LeftNav:
+      visible: true
+      minWidth: 200
+    CenterPanel:
+      visible: true
+      minWidth: 400
+    RightPanel:
+      visible: true
+      minWidth: 200
+  controls:
+    SaveButton:
+      visible: true
+      enabled: false
+    LoadButton:
+      visible: true
+      enabled: true
+    SeedSampleDataButton:
+      visible: true
+      enabled: true
+  behavior:
+    click_save:
+      action: save_data
+    click_load:
+      action: load_data
+
+ScheduleView:
+  page: MainPage
+  layout:
+    TimetableArea:
+      visible: true
+      minWidth: 600
+    GradeTabs:
+      visible: true
+  controls:
+    GradeTabButton:
+      visible: true
+      enabled: true
+    DayColumn:
+      visible: true
+      minWidth: 200

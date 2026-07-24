@@ -7,12 +7,17 @@ using Automatic_class_schedule.ViewModels;
 
 namespace Automatic_class_schedule;
 
-public sealed partial class MainPage : Page
+public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
 {
     public MainPage()
     {
         InitializeComponent();
         DataContext = new MainViewModel();
+    }
+
+    public Infrastructure.RuntimeSnapshot GetRuntimeSnapshot()
+    {
+        return Infrastructure.RuntimeInspector.Inspect(this);
     }
 
     private void GradeButton_Click(object sender, RoutedEventArgs e)
