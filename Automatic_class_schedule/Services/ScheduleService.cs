@@ -89,13 +89,15 @@ public sealed class ScheduleService
                 continue;
             }
 
+            string shortGrade = grade.GradeName.Replace("年级", "");
+
             for (int i = 1; i <= grade.ClassCount; i++)
             {
                 classes.Add(new SchoolClass
                 {
                     GradeName = grade.GradeName,
                     ClassNumber = i,
-                    Name = $"{grade.GradeName}{i}班"
+                    Name = $"{shortGrade}{i}班"
                 });
             }
         }
@@ -106,49 +108,51 @@ public sealed class ScheduleService
     public void GenerateAssignments(ICollection<TeacherAssignment> assignments, IEnumerable<SubjectDefinition> subjects, IEnumerable<SchoolClass> classes)
     {
         assignments.Clear();
-        List<string> classNames = classes.Select(c => c.Name).ToList();
-        if (classNames.Count == 0) return;
+        var classList = classes.ToList();
+        if (classList.Count == 0) return;
 
-        string[] allSubjects = { "语文", "数学", "英语", "体育", "政治", "历史", "地理", "物理", "化学", "生物" };
-        int[] cpTeacher = { 2, 2, 2, 6, 3, 3, 3, 3, 3, 3 };
-
-        int classCount = classNames.Count;
-
-        for (int si = 0; si < allSubjects.Length; si++)
+        foreach (IGrouping<string, SchoolClass> gradeGroup in classList.GroupBy(c => c.GradeName))
         {
-            string subject = allSubjects[si];
-            SubjectDefinition? subDef = subjects.FirstOrDefault(s => s.Name == subject);
-            int weeklyCount = subDef?.DefaultWeeklyCount ?? GetDefaultWeeklyCount(subject);
-            int perTeacher = cpTeacher[si];
-            int numTeachers = (int)Math.Ceiling((double)classCount / perTeacher);
+            string gradeName = gradeGroup.Key;
+            List<SchoolClass> gradeClasses = gradeGroup.ToList();
 
-            bool preferMorning = subject is "数学" or "英语" or "语文" or "物理" or "化学";
-            bool avoidLast = subject is "体育";
-            string distributionRule = subDef?.DistributionRule ?? (preferMorning ? "每天一次" : "均衡分布");
-
-            int currentOffset = 0;
-            for (int ti = 0; ti < numTeachers; ti++)
+            foreach (SubjectDefinition subDef in subjects.Where(s => string.IsNullOrEmpty(s.GradeName) || s.GradeName == gradeName))
             {
-                int remaining = classCount - currentOffset;
-                int take = Math.Min(perTeacher, remaining);
-                if (take <= 0) break;
+                int weeklyCount = subDef.DefaultWeeklyCount;
+                int classCount = gradeClasses.Count;
+                int perTeacher = Math.Max(1, (int)Math.Ceiling(classCount / 3.0));
 
-                List<string> teacherClasses = classNames.Skip(currentOffset).Take(take).ToList();
-                currentOffset += take;
+                bool preferMorning = subDef.Name is "数学" or "英语" or "语文" or "物理" or "化学";
+                bool avoidLast = subDef.Name is "体育";
+                string distributionRule = subDef.DistributionRule;
 
-                string teacherName = $"{subject[..1]}老师{ti + 1}";
+                int numTeachers = (int)Math.Ceiling((double)classCount / perTeacher);
+                int currentOffset = 0;
 
-                TeacherAssignment ta = new()
+                for (int ti = 0; ti < numTeachers; ti++)
                 {
-                    TeacherName = teacherName,
-                    Subject = subject,
-                    WeeklyCount = weeklyCount,
-                    ClassNames = string.Join("、", teacherClasses),
-                    DistributionRule = distributionRule,
-                    PreferMorning = preferMorning,
-                    AvoidLastPeriod = avoidLast
-                };
-                assignments.Add(ta);
+                    int remaining = classCount - currentOffset;
+                    int take = Math.Min(perTeacher, remaining);
+                    if (take <= 0) break;
+
+                    List<SchoolClass> teacherClasses = gradeClasses.Skip(currentOffset).Take(take).ToList();
+                    currentOffset += take;
+
+                    string teacherName = $"{subDef.Name[..1]}老师{ti + 1}";
+                    var numbers = teacherClasses.Select(c => c.ClassNumber.ToString()).ToList();
+
+                    assignments.Add(new TeacherAssignment
+                    {
+                        TeacherName = teacherName,
+                        Subject = subDef.Name,
+                        WeeklyCount = weeklyCount,
+                        GradeName = gradeName,
+                        ClassNumbers = string.Join(",", numbers),
+                        DistributionRule = distributionRule,
+                        PreferMorning = preferMorning,
+                        AvoidLastPeriod = avoidLast
+                    });
+                }
             }
         }
     }

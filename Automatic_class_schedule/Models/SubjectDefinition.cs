@@ -32,10 +32,17 @@ public sealed class SubjectDefinition : Infrastructure.ObservableObject
     }
 
     private string _distributionRule = "均衡分布";
+    private string _gradeName = string.Empty;
 
     public string DistributionRule
     {
         get => _distributionRule;
         set => SetProperty(ref _distributionRule, value);
+    }
+
+    public string GradeName
+    {
+        get => _gradeName;
+        set => SetProperty(ref _gradeName, value);
     }
 }

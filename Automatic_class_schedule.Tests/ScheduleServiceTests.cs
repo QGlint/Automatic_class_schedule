@@ -20,7 +20,7 @@ public sealed class ScheduleServiceTests
         var grades = new[] { new GradeInput { GradeName = "七年级", ClassCount = 8 } };
         var result = _service.BuildClasses(grades);
         Assert.Equal(8, result.Count);
-        Assert.All(result, c => Assert.StartsWith("七年级", c.Name));
+        Assert.All(result, c => Assert.Equal("七", c.Name[..1]));
     }
 
     [Fact]

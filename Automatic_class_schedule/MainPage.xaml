@@ -96,48 +96,71 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- ========== 顶部工具按钮栏 ========== -->
-        <Border Background="White" CornerRadius="10" BorderBrush="#FFD9E1EC" BorderThickness="1" Padding="6,4">
+        <!-- ========== 顶部操作栏（工程 / 配置） ========== -->
+        <Border Background="#FFFAFBFC" CornerRadius="8" BorderBrush="#FFE0E6EF" BorderThickness="1" Padding="6,3">
             <Grid>
                 <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="工程" FontSize="12" FontWeight="SemiBold" Foreground="#FF7A8BA8" VerticalAlignment="Center" Margin="8,0,6,0" />
                     <Button Content="新建项目" Command="{Binding NewProjectCommand}" Style="{StaticResource TopButtonStyle}" />
+                    <Button Content="打开项目" Command="{Binding LoadCommand}" Style="{StaticResource TopButtonStyle}" />
                     <Button Content="加载示例" Command="{Binding SeedSampleDataCommand}" Style="{StaticResource TopButtonStyle}" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="12,0,0,0">
+                    <TextBlock Text="配置" FontSize="12" FontWeight="SemiBold" Foreground="#FF7A8BA8" VerticalAlignment="Center" Margin="8,0,6,0" />
                     <Button Content="保存配置" Command="{Binding SaveCommand}" Style="{StaticResource TopButtonStyle}" />
                     <Button Content="载入配置" Command="{Binding LoadCommand}" Style="{StaticResource TopButtonStyle}" />
                 </StackPanel>
-                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                     <ProgressBar Value="{Binding ProgressValue}" Maximum="1" Width="160" Margin="0,0,6,0" />
                     <TextBlock Text="{Binding StatusMessage}" Foreground="#FF5A6877" Margin="6,0" FontSize="13" />
                 </StackPanel>
             </Grid>
         </Border>
 
-        <!-- ========== 页面切换栏（缩小版导航栏） ========== -->
-        <Border Grid.Row="1" Background="White" CornerRadius="10" BorderBrush="#FFD9E1EC" BorderThickness="1" Padding="6,2" Margin="0,4,0,0">
-            <StackPanel Orientation="Horizontal">
-                <Button Content="配置" Command="{Binding SelectMainPageCommand}" CommandParameter="配置"
-                        Style="{StaticResource TopButtonStyle}"
-                        Visibility="{Binding SelectedMainPage, Converter={StaticResource StringMatchToVisibility}, ConverterParameter=配置}" />
-                <Button Content="配置" Command="{Binding SelectMainPageCommand}" CommandParameter="配置"
-                        Style="{StaticResource TopActiveButtonStyle}"
+        <!-- ========== 主导航栏（配置 / 课表 / 导出） ========== -->
+        <Border Grid.Row="1" Background="White" CornerRadius="10" BorderBrush="#FFD9E1EC" BorderThickness="1" Padding="0" Margin="0,6,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Button Content="⚙ 配置" Command="{Binding SelectMainPageCommand}" CommandParameter="配置"
+                        Height="48" FontSize="16" FontWeight="SemiBold"
+                        BorderThickness="0" CornerRadius="0"
+                        Background="#FF214E78" Foreground="White"
                         Visibility="{Binding SelectedMainPage, Converter={StaticResource InverseBoolToVisibility}, ConverterParameter=配置}" />
-                <Button Content="课表" Command="{Binding SelectMainPageCommand}" CommandParameter="课表"
-                        Style="{StaticResource TopButtonStyle}"
-                        Visibility="{Binding SelectedMainPage, Converter={StaticResource StringMatchToVisibility}, ConverterParameter=课表}" />
-                <Button Content="课表" Command="{Binding SelectMainPageCommand}" CommandParameter="课表"
-                        Style="{StaticResource TopActiveButtonStyle}"
+                <Button Content="⚙ 配置" Command="{Binding SelectMainPageCommand}" CommandParameter="配置"
+                        Height="48" FontSize="16" FontWeight="SemiBold"
+                        BorderThickness="0" CornerRadius="0"
+                        Background="#FFF0F5FF" Foreground="#FF214E78"
+                        Visibility="{Binding SelectedMainPage, Converter={StaticResource StringMatchToVisibility}, ConverterParameter=配置}" />
+                <Button Grid.Column="1" Content="📅 课表" Command="{Binding SelectMainPageCommand}" CommandParameter="课表"
+                        Height="48" FontSize="16" FontWeight="SemiBold"
+                        BorderThickness="0" CornerRadius="0"
+                        Background="#FF214E78" Foreground="White"
                         Visibility="{Binding SelectedMainPage, Converter={StaticResource InverseBoolToVisibility}, ConverterParameter=课表}" />
-                <Button Content="导出" Command="{Binding SelectMainPageCommand}" CommandParameter="导出"
-                        Style="{StaticResource TopButtonStyle}"
-                        Visibility="{Binding SelectedMainPage, Converter={StaticResource StringMatchToVisibility}, ConverterParameter=导出}" />
-                <Button Content="导出" Command="{Binding SelectMainPageCommand}" CommandParameter="导出"
-                        Style="{StaticResource TopActiveButtonStyle}"
+                <Button Grid.Column="1" Content="📅 课表" Command="{Binding SelectMainPageCommand}" CommandParameter="课表"
+                        Height="48" FontSize="16" FontWeight="SemiBold"
+                        BorderThickness="0" CornerRadius="0"
+                        Background="#FFF0F5FF" Foreground="#FF214E78"
+                        Visibility="{Binding SelectedMainPage, Converter={StaticResource StringMatchToVisibility}, ConverterParameter=课表}" />
+                <Button Grid.Column="2" Content="📤 导出" Command="{Binding SelectMainPageCommand}" CommandParameter="导出"
+                        Height="48" FontSize="16" FontWeight="SemiBold"
+                        BorderThickness="0" CornerRadius="0"
+                        Background="#FF214E78" Foreground="White"
                         Visibility="{Binding SelectedMainPage, Converter={StaticResource InverseBoolToVisibility}, ConverterParameter=导出}" />
-            </StackPanel>
+                <Button Grid.Column="2" Content="📤 导出" Command="{Binding SelectMainPageCommand}" CommandParameter="导出"
+                        Height="48" FontSize="16" FontWeight="SemiBold"
+                        BorderThickness="0" CornerRadius="0"
+                        Background="#FFF0F5FF" Foreground="#FF214E78"
+                        Visibility="{Binding SelectedMainPage, Converter={StaticResource StringMatchToVisibility}, ConverterParameter=导出}" />
+            </Grid>
         </Border>
 
         <Grid Grid.Row="2" Margin="0,8,0,0">
@@ -345,17 +368,9 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel>
                         <TextBlock Text="班级配置" FontSize="18" Foreground="#FF214E78" />
-                        <TextBlock Text="配置年级和每个年级的班级数。" Foreground="#FF5A6877" Margin="0,0,0,10" />
+                        <TextBlock Text="确认年级和各年级班级数，系统自动生成班级。" Foreground="#FF5A6877" Margin="0,0,0,10" />
                         <Border Style="{StaticResource SectionBorderStyle}">
                             <StackPanel>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="添加年级和班级数，点击生成班级创建具体班级。" Foreground="#FF5A6877" VerticalAlignment="Center" FontSize="13" />
-                                    <Button Grid.Column="1" Content="生成班级" Command="{Binding GenerateClassesCommand}" Style="{StaticResource RoundButtonBase}" Background="#FF214E78" Foreground="White" Margin="10,0,0,0" />
-                                </Grid>
                                 <controls:DataGrid ItemsSource="{Binding GradeInputs}" SelectedItem="{Binding SelectedGradeInput, Mode=TwoWay}">
                                     <controls:DataGrid.Columns>
                                         <controls:DataGridTextColumn Header="年级" Binding="{Binding GradeName, UpdateSourceTrigger=PropertyChanged}" Width="*" />
@@ -366,12 +381,7 @@
                         </Border>
                         <Border Style="{StaticResource SectionBorderStyle}">
                             <StackPanel>
-                                <TextBlock Text="已生成班级" FontWeight="SemiBold" />
-                                <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
-                                    <TextBlock Text="共 " Foreground="#FF5A6877" />
-                                    <TextBlock Text="{Binding TotalClasses}" Foreground="#FF5A6877" />
-                                    <TextBlock Text=" 个班级" Foreground="#FF5A6877" />
-                                </StackPanel>
+                                <TextBlock Text="班级列表" FontWeight="SemiBold" />
                                 <ItemsControl ItemsSource="{Binding Classes}" Margin="0,6,0,0">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
@@ -399,30 +409,50 @@
                     <StackPanel>
                         <TextBlock Text="课程配置" FontSize="18" Foreground="#FF214E78" />
                         <TextBlock Text="配置课程名称、类别、每周课时和分布规则。" Foreground="#FF5A6877" Margin="0,0,0,10" />
+                        <!-- 年级子标签 -->
+                        <ItemsControl ItemsSource="{Binding GradeInputs}" Margin="0,0,0,6">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Content="{Binding GradeName}" Click="SubjectGradeTabButton_Click"
+                                            Height="36" MinWidth="80" Margin="0,0,6,0" Padding="12,4"
+                                            CornerRadius="6" FontSize="14" FontWeight="SemiBold"
+                                            BorderThickness="0"
+                                            Background="#FFF0F5FF" Foreground="#FF214E78" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                         <Border Style="{StaticResource SectionBorderStyle}">
                             <StackPanel>
-                                <TextBlock Text="课程列表" FontWeight="SemiBold" />
-                                <controls:DataGrid ItemsSource="{Binding Subjects}" SelectedItem="{Binding SelectedSubject, Mode=TwoWay}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="课程列表" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    <Button Grid.Column="1" Content="添加" Command="{Binding AddSubjectCommand}" Style="{StaticResource RoundButtonBase}" Background="#FF214E78" Foreground="White" Margin="0,0,6,0" />
+                                    <Button Grid.Column="2" Content="删除" Command="{Binding DeleteSubjectCommand}" Style="{StaticResource RoundButtonBase}" Background="#FFF0F5FF" Foreground="#FF214E78" />
+                                </Grid>
+                                <controls:DataGrid ItemsSource="{Binding FilteredSubjects}" SelectedItem="{Binding SelectedSubject, Mode=TwoWay}">
                                     <controls:DataGrid.Columns>
+                                        <controls:DataGridTextColumn Header="年级" Binding="{Binding GradeName, UpdateSourceTrigger=PropertyChanged}" Width="*" />
                                         <controls:DataGridTextColumn Header="课程" Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Width="*" />
-                                        <controls:DataGridTextColumn Header="类别" Binding="{Binding Category, UpdateSourceTrigger=PropertyChanged}" Width="100" />
-                                        <controls:DataGridTextColumn Header="周课时" Binding="{Binding DefaultWeeklyCount, UpdateSourceTrigger=PropertyChanged}" Width="80" />
+                                        <controls:DataGridTextColumn Header="类别" Binding="{Binding Category, UpdateSourceTrigger=PropertyChanged}" Width="*" />
+                                        <controls:DataGridTextColumn Header="周课时" Binding="{Binding DefaultWeeklyCount, UpdateSourceTrigger=PropertyChanged}" Width="*" />
+                                        <controls:DataGridTextColumn Header="分布规则" Binding="{Binding DistributionRule, UpdateSourceTrigger=PropertyChanged}" Width="*" />
                                     </controls:DataGrid.Columns>
                                 </controls:DataGrid>
                             </StackPanel>
                         </Border>
-                        <Border Style="{StaticResource SectionBorderStyle}">
-                            <StackPanel>
-                                <TextBlock Text="分布规则" FontWeight="SemiBold" />
-                                <TextBlock Text="选择课程在每周的分布方式。" Foreground="#FF5A6877" />
-                                <ComboBox SelectedValue="{Binding SelectedSubject.DistributionRule, Mode=TwoWay}" Margin="0,6,0,0" Width="180" HorizontalAlignment="Left">
-                                    <x:String>每天一次</x:String>
-                                    <x:String>均衡分布</x:String>
-                                    <x:String>集中安排</x:String>
-                                    <x:String>上午优先</x:String>
-                                </ComboBox>
-                            </StackPanel>
-                        </Border>
+                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                            <Button Content="保存为模板" Click="SaveCourseTemplate_Click" Style="{StaticResource RoundButtonBase}" Background="#FF214E78" Foreground="White" Margin="0,0,8,0" />
+                            <Button Content="载入模板" Click="LoadCourseTemplate_Click" Style="{StaticResource RoundButtonBase}" Background="#FFF0F5FF" Foreground="#FF214E78" />
+                        </StackPanel>
                         <Button Content="生成教师配置示例" Command="{Binding GenerateAssignmentsCommand}" Style="{StaticResource RoundButtonBase}" Background="#FF214E78" Foreground="White" HorizontalAlignment="Left" Margin="0,4,0,0" />
                         <TextBlock Text="点击可基于当前课程和班级自动生成教师授课安排。" Foreground="#FF5A6877" TextWrapping="Wrap" Margin="0,6,0,0" FontSize="12" />
                     </StackPanel>
@@ -448,16 +478,21 @@
                                 </Grid>
                                 <controls:DataGrid ItemsSource="{Binding TeacherAssignments}" SelectedItem="{Binding SelectedTeacherAssignment, Mode=TwoWay}">
                                     <controls:DataGrid.Columns>
-                                        <controls:DataGridTextColumn Header="教师" Binding="{Binding TeacherName, UpdateSourceTrigger=PropertyChanged}" Width="80" />
-                                        <controls:DataGridTextColumn Header="科目" Binding="{Binding Subject, UpdateSourceTrigger=PropertyChanged}" Width="70" />
-                                        <controls:DataGridTextColumn Header="所带班级" Binding="{Binding ClassNames, UpdateSourceTrigger=PropertyChanged}" Width="*" MinWidth="120" />
-                                        <controls:DataGridTextColumn Header="周课时" Binding="{Binding WeeklyCount, UpdateSourceTrigger=PropertyChanged}" Width="60" />
-                                        <controls:DataGridTextColumn Header="分布规则" Binding="{Binding DistributionRule, UpdateSourceTrigger=PropertyChanged}" Width="80" />
+                                        <controls:DataGridTextColumn Header="教师" Binding="{Binding TeacherName, UpdateSourceTrigger=PropertyChanged}" Width="*" />
+                                        <controls:DataGridTextColumn Header="科目" Binding="{Binding Subject, UpdateSourceTrigger=PropertyChanged}" Width="*" />
+                                        <controls:DataGridTextColumn Header="年级" Binding="{Binding GradeName, UpdateSourceTrigger=PropertyChanged}" Width="*" />
+                                        <controls:DataGridTextColumn Header="班级号" Binding="{Binding ClassNumbers, UpdateSourceTrigger=PropertyChanged}" Width="*" />
+                                        <controls:DataGridTextColumn Header="所带班级" Binding="{Binding ClassNames, UpdateSourceTrigger=PropertyChanged}" Width="*" IsReadOnly="True" />
+                                        <controls:DataGridTextColumn Header="周课时" Binding="{Binding WeeklyCount, UpdateSourceTrigger=PropertyChanged}" Width="*" />
+                                        <controls:DataGridTextColumn Header="分布规则" Binding="{Binding DistributionRule, UpdateSourceTrigger=PropertyChanged}" Width="*" />
                                     </controls:DataGrid.Columns>
                                 </controls:DataGrid>
                             </StackPanel>
                         </Border>
-                        <Button Content="从课程生成教师示例" Command="{Binding GenerateAssignmentsCommand}" Style="{StaticResource RoundButtonBase}" Background="#FFF0F5FF" Foreground="#FF214E78" HorizontalAlignment="Left" />
+                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                            <Button Content="从课程生成教师示例" Command="{Binding GenerateAssignmentsCommand}" Style="{StaticResource RoundButtonBase}" Background="#FFF0F5FF" Foreground="#FF214E78" Margin="0,0,8,0" />
+                            <Button Content="导入教师数据" Click="ImportTeacherData_Click" Style="{StaticResource RoundButtonBase}" Background="#FFF0F5FF" Foreground="#FF214E78" />
+                        </StackPanel>
                     </StackPanel>
                 </ScrollViewer>
             </Border>
@@ -474,10 +509,10 @@
                                 <TextBlock Text="固定课程列表" FontWeight="SemiBold" />
                                 <controls:DataGrid ItemsSource="{Binding FixedLessons}" SelectedItem="{Binding SelectedFixedLesson, Mode=TwoWay}">
                                     <controls:DataGrid.Columns>
-                                        <controls:DataGridTextColumn Header="范围" Binding="{Binding ScopeValue, UpdateSourceTrigger=PropertyChanged}" Width="120" />
-                                        <controls:DataGridTextColumn Header="星期" Binding="{Binding DayIndex, UpdateSourceTrigger=PropertyChanged}" Width="70" />
-                                        <controls:DataGridTextColumn Header="节次" Binding="{Binding PeriodIndex, UpdateSourceTrigger=PropertyChanged}" Width="70" />
-                                        <controls:DataGridTextColumn Header="课程" Binding="{Binding Subject, UpdateSourceTrigger=PropertyChanged}" Width="80" />
+                                        <controls:DataGridTextColumn Header="范围" Binding="{Binding ScopeValue, UpdateSourceTrigger=PropertyChanged}" Width="*" />
+                                        <controls:DataGridTextColumn Header="星期" Binding="{Binding DayIndex, UpdateSourceTrigger=PropertyChanged}" Width="*" />
+                                        <controls:DataGridTextColumn Header="节次" Binding="{Binding PeriodIndex, UpdateSourceTrigger=PropertyChanged}" Width="*" />
+                                        <controls:DataGridTextColumn Header="课程" Binding="{Binding Subject, UpdateSourceTrigger=PropertyChanged}" Width="*" />
                                         <controls:DataGridTextColumn Header="原因" Binding="{Binding Reason, UpdateSourceTrigger=PropertyChanged}" Width="*" />
                                     </controls:DataGrid.Columns>
                                 </controls:DataGrid>
@@ -558,9 +593,10 @@
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
-                    <Border Background="#FFF0F5FF" CornerRadius="8" Padding="10" Margin="0,0,0,8">
+                    <Border Background="#FFF0F5FF" CornerRadius="8" Padding="10" Margin="0,0,0,6">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
@@ -574,13 +610,33 @@
                         </Grid>
                     </Border>
 
-                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+                    <!-- 年级子标签 -->
+                    <ItemsControl Grid.Row="1" ItemsSource="{Binding GradeInputs}" Margin="0,0,0,6">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid>
+                                    <Button Content="{Binding GradeName}" Click="GradeTabButton_Click"
+                                            Height="36" MinWidth="80" Margin="0,0,6,0" Padding="12,4"
+                                            CornerRadius="6" FontSize="14" FontWeight="SemiBold"
+                                            BorderThickness="0"
+                                            Background="#FFF0F5FF" Foreground="#FF214E78" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="60" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <!-- 左侧节次标签（固定在整体最左边） -->
+                            <!-- 左侧节次标签 -->
                             <ItemsControl Grid.Column="0" ItemsSource="{Binding TimetableDays[0].Cells}" Margin="0,0,4,0">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
@@ -607,13 +663,13 @@
                                 </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border Width="220" Margin="0,0,8,0" Padding="8" Background="White" BorderBrush="#FFD9E1EC" BorderThickness="1" CornerRadius="8">
+                                        <Border MinWidth="200" Margin="0,0,8,0" Padding="10" Background="White" BorderBrush="#FFD9E1EC" BorderThickness="1" CornerRadius="8">
                                             <Grid>
                                                 <Grid.RowDefinitions>
                                                     <RowDefinition Height="Auto" />
                                                     <RowDefinition Height="*" />
                                                 </Grid.RowDefinitions>
-                                                <Border Background="#FFF0F5FF" CornerRadius="6" Padding="8" Margin="0,0,0,8">
+                                                <Border Background="#FFF0F5FF" CornerRadius="6" Padding="8" Margin="0,0,0,6">
                                                     <TextBlock Text="{Binding DayName}" FontSize="16" Foreground="#FF214E78" HorizontalAlignment="Center" />
                                                 </Border>
                                                 <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
@@ -647,18 +703,13 @@
                         <Border Style="{StaticResource SectionBorderStyle}">
                             <StackPanel>
                                 <TextBlock Text="导出操作" FontWeight="SemiBold" />
-                                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                    <Button Content="导出课表" Command="{Binding ExportCommand}" Style="{StaticResource RoundButtonBase}" Background="#FF214E78" Foreground="White" Margin="0,0,8,0" />
-                                    <Button Content="导入数据" Click="ImportButton_Click" Style="{StaticResource RoundButtonBase}" Background="#FFF0F5FF" Foreground="#FF214E78" />
-                                </StackPanel>
+                                <Button Content="导出课表" Command="{Binding ExportCommand}" Style="{StaticResource RoundButtonBase}" Background="#FF214E78" Foreground="White" HorizontalAlignment="Left" Margin="0,8,0,0" />
                             </StackPanel>
                         </Border>
                         <Border Style="{StaticResource SectionBorderStyle}">
                             <StackPanel>
                                 <TextBlock Text="输出目录" FontWeight="SemiBold" />
                                 <TextBlock Text="{Binding ExportFolderPath}" TextWrapping="Wrap" Foreground="#FF5A6877" FontSize="12" />
-                                <TextBlock Text="本地数据文件" FontWeight="SemiBold" Margin="0,8,0,0" />
-                                <TextBlock Text="{Binding DataFilePath}" TextWrapping="Wrap" Foreground="#FF5A6877" FontSize="12" />
                             </StackPanel>
                         </Border>
                         <Border Style="{StaticResource SectionBorderStyle}">

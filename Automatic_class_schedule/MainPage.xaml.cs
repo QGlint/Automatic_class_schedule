@@ -39,9 +39,61 @@ public sealed partial class MainPage : Page
         }
     }
 
+    private void GradeTabButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button button && button.DataContext is GradeInput grade)
+        {
+            var vm = (MainViewModel)DataContext;
+            vm.SelectGradeCommand.Execute(grade);
+            vm.SelectViewModeCommand.Execute("年级总表");
+        }
+    }
+
+    private void SubjectGradeTabButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button button && button.DataContext is GradeInput grade)
+        {
+            ((MainViewModel)DataContext).SelectSubjectGradeCommand.Execute(grade.GradeName);
+        }
+    }
+
     private void ImportButton_Click(object sender, RoutedEventArgs e)
     {
         ((MainViewModel)DataContext).ImportCommand.Execute(null);
+    }
+
+    private void ImportTeacherData_Click(object sender, RoutedEventArgs e)
+    {
+        ((MainViewModel)DataContext).ImportCommand.Execute(null);
+    }
+
+    private async void SaveCourseTemplate_Click(object sender, RoutedEventArgs e)
+    {
+        var vm = (MainViewModel)DataContext;
+        var filePicker = new Windows.Storage.Pickers.FileSavePicker();
+        filePicker.SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary;
+        filePicker.FileTypeChoices.Add("课程模板", new List<string> { ".json" });
+        filePicker.SuggestedFileName = "课程模板";
+        var file = await filePicker.PickSaveFileAsync();
+        if (file != null)
+        {
+            var json = vm.SerializeSubjects();
+            await Windows.Storage.FileIO.WriteTextAsync(file, json);
+        }
+    }
+
+    private async void LoadCourseTemplate_Click(object sender, RoutedEventArgs e)
+    {
+        var vm = (MainViewModel)DataContext;
+        var filePicker = new Windows.Storage.Pickers.FileOpenPicker();
+        filePicker.SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary;
+        filePicker.FileTypeFilter.Add(".json");
+        var file = await filePicker.PickSingleFileAsync();
+        if (file != null)
+        {
+            var json = await Windows.Storage.FileIO.ReadTextAsync(file);
+            vm.DeserializeSubjects(json);
+        }
     }
 
     private void Entry_DragStarting(UIElement sender, DragStartingEventArgs e)

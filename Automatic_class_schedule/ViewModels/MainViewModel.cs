@@ -37,6 +37,7 @@ public sealed class MainViewModel : ObservableObject
     private string _progressMessage = string.Empty;
     private string _teacherSearchText = string.Empty;
     private string _gradeFilterText = string.Empty;
+    private string _currentSubjectGradeName = string.Empty;
     private CancellationTokenSource? _cts;
 
     public MainViewModel()
@@ -76,17 +77,25 @@ public sealed class MainViewModel : ObservableObject
         SelectMainPageCommand = new RelayCommand<string>(SetMainPage);
         SelectConfigPageCommand = new RelayCommand<string>(SetConfigPage);
         SelectViewModeCommand = new RelayCommand<string>(SetViewMode);
+        SelectSubjectGradeCommand = new RelayCommand<string>(SetSubjectGrade);
         SelectGradeCommand = new RelayCommand<GradeInput>(SelectGrade);
         SelectClassCommand = new RelayCommand<SchoolClass>(SelectClass);
         SelectTeacherCommand = new RelayCommand<Teacher>(SelectTeacher);
         SearchTeacherCommand = new RelayCommand(RefreshViews);
         FilterGradeCommand = new RelayCommand(RefreshViews);
+        AddSubjectCommand = new RelayCommand(AddSubject);
+        DeleteSubjectCommand = new RelayCommand(DeleteSubject, () => SelectedSubject is not null);
 
         LoadData();
         if (GradeInputs.Count == 0)
         {
             InitDefaultGrades();
             InitDefaultSubjects();
+        }
+
+        if (Classes.Count == 0 && GradeInputs.Count > 0)
+        {
+            GenerateClasses();
         }
         else
         {
@@ -106,16 +115,57 @@ public sealed class MainViewModel : ObservableObject
 
     private void InitDefaultSubjects()
     {
-        Subjects.Add(new SubjectDefinition { Name = "语文", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次" });
-        Subjects.Add(new SubjectDefinition { Name = "数学", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次" });
-        Subjects.Add(new SubjectDefinition { Name = "英语", Category = "主科", DefaultWeeklyCount = 5, DistributionRule = "每天一次" });
-        Subjects.Add(new SubjectDefinition { Name = "物理", Category = "理科", DefaultWeeklyCount = 3, DistributionRule = "均衡分布" });
-        Subjects.Add(new SubjectDefinition { Name = "化学", Category = "理科", DefaultWeeklyCount = 3, DistributionRule = "均衡分布" });
-        Subjects.Add(new SubjectDefinition { Name = "生物", Category = "理科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布" });
-        Subjects.Add(new SubjectDefinition { Name = "历史", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布" });
-        Subjects.Add(new SubjectDefinition { Name = "地理", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布" });
-        Subjects.Add(new SubjectDefinition { Name = "政治", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布" });
-        Subjects.Add(new SubjectDefinition { Name = "体育", Category = "副科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布" });
+        string[] allGrades = GradeInputs.Select(g => g.GradeName).ToArray();
+        foreach (string grade in allGrades)
+        {
+            Subjects.Add(new SubjectDefinition { Name = "语文", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次", GradeName = grade });
+            Subjects.Add(new SubjectDefinition { Name = "数学", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次", GradeName = grade });
+            Subjects.Add(new SubjectDefinition { Name = "英语", Category = "主科", DefaultWeeklyCount = 5, DistributionRule = "每天一次", GradeName = grade });
+            if (grade != "七年级")
+            {
+                Subjects.Add(new SubjectDefinition { Name = "物理", Category = "理科", DefaultWeeklyCount = 3, DistributionRule = "均衡分布", GradeName = grade });
+            }
+            if (grade != "七年级" && grade != "八年级")
+            {
+                Subjects.Add(new SubjectDefinition { Name = "化学", Category = "理科", DefaultWeeklyCount = 3, DistributionRule = "均衡分布", GradeName = grade });
+            }
+            Subjects.Add(new SubjectDefinition { Name = "生物", Category = "理科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = grade });
+            Subjects.Add(new SubjectDefinition { Name = "历史", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = grade });
+            Subjects.Add(new SubjectDefinition { Name = "地理", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = grade });
+            Subjects.Add(new SubjectDefinition { Name = "政治", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = grade });
+            Subjects.Add(new SubjectDefinition { Name = "体育", Category = "副科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = grade });
+        }
+    }
+
+    private void AddSubject()
+    {
+        string? firstGrade = GradeInputs.FirstOrDefault()?.GradeName;
+        var subj = new SubjectDefinition
+        {
+            Name = "新科目",
+            Category = "副科",
+            DefaultWeeklyCount = 2,
+            GradeName = firstGrade ?? string.Empty
+        };
+        subj.DistributionRule = GetDefaultDistributionRule(subj.Category, subj.DefaultWeeklyCount);
+        Subjects.Add(subj);
+    }
+
+    private static string GetDefaultDistributionRule(string category, int weeklyCount)
+    {
+        if (category == "主科" && weeklyCount >= 4) return "均衡分布";
+        if (category == "主科") return "均衡分布";
+        if (weeklyCount >= 3) return "均衡分布";
+        return "集中安排";
+    }
+
+    private void DeleteSubject()
+    {
+        if (SelectedSubject is not null)
+        {
+            Subjects.Remove(SelectedSubject);
+            SelectedSubject = Subjects.FirstOrDefault();
+        }
     }
 
     public ObservableCollection<GradeInput> GradeInputs { get; }
@@ -457,6 +507,27 @@ public sealed class MainViewModel : ObservableObject
         ? Classes.ToList()
         : Classes.Where(c => c.GradeName.Contains(GradeFilterText, StringComparison.OrdinalIgnoreCase)).ToList();
 
+    public string CurrentSubjectGradeName
+    {
+        get => _currentSubjectGradeName;
+        set
+        {
+            if (SetProperty(ref _currentSubjectGradeName, value))
+            {
+                OnPropertyChanged(nameof(FilteredSubjects));
+                OnPropertyChanged(nameof(IsAllSubjectsGrade));
+                OnPropertyChanged(nameof(IsSubjectGradeSelected));
+            }
+        }
+    }
+
+    public List<SubjectDefinition> FilteredSubjects => string.IsNullOrWhiteSpace(CurrentSubjectGradeName) || CurrentSubjectGradeName == "全部"
+        ? Subjects.ToList()
+        : Subjects.Where(s => s.GradeName == CurrentSubjectGradeName).ToList();
+
+    public bool IsAllSubjectsGrade => CurrentSubjectGradeName == "全部";
+    public bool IsSubjectGradeSelected => !string.IsNullOrWhiteSpace(CurrentSubjectGradeName) && CurrentSubjectGradeName != "全部";
+
     public RelayCommand SeedSampleDataCommand { get; }
     public RelayCommand GenerateClassesCommand { get; }
     public RelayCommand GenerateRequirementsCommand { get; }
@@ -474,11 +545,31 @@ public sealed class MainViewModel : ObservableObject
     public RelayCommand<string> SelectMainPageCommand { get; }
     public RelayCommand<string> SelectConfigPageCommand { get; }
     public RelayCommand<string> SelectViewModeCommand { get; }
+    public RelayCommand<string> SelectSubjectGradeCommand { get; }
     public RelayCommand<GradeInput> SelectGradeCommand { get; }
     public RelayCommand<SchoolClass> SelectClassCommand { get; }
     public RelayCommand<Teacher> SelectTeacherCommand { get; }
     public RelayCommand SearchTeacherCommand { get; }
+    public RelayCommand AddSubjectCommand { get; }
+    public RelayCommand DeleteSubjectCommand { get; }
     public RelayCommand FilterGradeCommand { get; }
+
+    public string SerializeSubjects()
+    {
+        var json = System.Text.Json.JsonSerializer.Serialize(Subjects, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+        return json;
+    }
+
+    public void DeserializeSubjects(string json)
+    {
+        var subjects = System.Text.Json.JsonSerializer.Deserialize<System.Collections.ObjectModel.ObservableCollection<SubjectDefinition>>(json);
+        if (subjects != null)
+        {
+            Subjects.Clear();
+            foreach (var s in subjects)
+                Subjects.Add(s);
+        }
+    }
 
     public void MoveEntry(ScheduleEntry entry, int dayIndex, int periodIndex)
     {
@@ -558,6 +649,7 @@ public sealed class MainViewModel : ObservableObject
             SelectedConfigPage = "基础设置";
             SelectedViewMode = "年级总表";
             SelectedGradeInput = GradeInputs.FirstOrDefault();
+            CurrentSubjectGradeName = GradeInputs.FirstOrDefault()?.GradeName ?? "全部";
             SelectedClass = Classes.FirstOrDefault();
             SelectedTeacher = Teachers.FirstOrDefault();
             StatusMessage = "已载入示例数据";
@@ -773,6 +865,12 @@ public sealed class MainViewModel : ObservableObject
         SelectedConfigPage = page;
     }
 
+    private void SetSubjectGrade(string? gradeName)
+    {
+        if (string.IsNullOrWhiteSpace(gradeName)) return;
+        CurrentSubjectGradeName = gradeName;
+    }
+
     private void SetViewMode(string? viewMode)
     {
         if (string.IsNullOrWhiteSpace(viewMode)) return;
@@ -840,7 +938,10 @@ public sealed class MainViewModel : ObservableObject
         else if (SelectedViewMode == "教师课表" && SelectedTeacher is not null)
             entries = entries.Where(x => x.TeacherId == SelectedTeacher.Id);
         else if (SelectedViewMode == "年级总表" && SelectedGradeInput is not null)
-            entries = entries.Where(x => x.ClassName.StartsWith(SelectedGradeInput.GradeName, StringComparison.OrdinalIgnoreCase));
+        {
+            string shortGrade = SelectedGradeInput.GradeName.Replace("年级", "");
+            entries = entries.Where(x => x.ClassName.StartsWith(shortGrade, StringComparison.OrdinalIgnoreCase));
+        }
 
         if (!string.IsNullOrWhiteSpace(GradeFilterText) && SelectedViewMode != "年级总表")
             entries = entries.Where(x => x.ClassName.StartsWith(GradeFilterText, StringComparison.OrdinalIgnoreCase));
