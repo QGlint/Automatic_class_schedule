@@ -150,7 +150,7 @@ public sealed class ScheduleService
                     List<SchoolClass> teacherClasses = gradeClasses.Skip(currentOffset).Take(take).ToList();
                     currentOffset += take;
 
-                    string teacherName = $"{shortGrade}{subDef.Name[..1]}老师{ti + 1}";
+                    string teacherName = $"{shortGrade}{subDef.Name[..1]}{ti + 1}";
                     var numbers = teacherClasses.Select(c => c.ClassNumber.ToString()).ToList();
 
                     assignments.Add(new TeacherAssignment

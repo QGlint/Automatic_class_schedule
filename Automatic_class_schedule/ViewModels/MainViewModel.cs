@@ -76,6 +76,8 @@ public sealed class MainViewModel : ObservableObject
         AddTeacherAssignmentCommand = new RelayCommand(AddTeacherAssignment);
         DeleteTeacherAssignmentCommand = new RelayCommand(DeleteTeacherAssignment, () => SelectedTeacherAssignment is not null);
         GenerateTeacherTemplateCommand = new RelayCommand(GenerateTeacherTemplate);
+        AddFixedLessonCommand = new RelayCommand(AddFixedLesson);
+        DeleteFixedLessonCommand = new RelayCommand(DeleteFixedLesson, () => SelectedFixedLesson is not null);
         AutoScheduleCommand = new RelayCommand(() => _ = AutoScheduleAsync());
         ValidateCommand = new RelayCommand(ValidateSchedule);
         SaveCommand = new RelayCommand(SaveData);
@@ -954,6 +956,8 @@ public sealed class MainViewModel : ObservableObject
     public RelayCommand AddTeacherAssignmentCommand { get; }
     public RelayCommand DeleteTeacherAssignmentCommand { get; }
     public RelayCommand GenerateTeacherTemplateCommand { get; }
+    public RelayCommand AddFixedLessonCommand { get; }
+    public RelayCommand DeleteFixedLessonCommand { get; }
     public RelayCommand AutoScheduleCommand { get; }
     public RelayCommand ValidateCommand { get; }
     public RelayCommand SaveCommand { get; }
@@ -1419,6 +1423,26 @@ public sealed class MainViewModel : ObservableObject
         StatusMessage = $"已生成 {Requirements.Count} 条授课需求";
         Log($"生成需求：{Requirements.Count} 条");
         RefreshViews();
+    }
+
+    private void AddFixedLesson()
+    {
+        FixedLessons.Add(new FixedLesson
+        {
+            ScopeValue = "全校",
+            DayIndex = 1,
+            PeriodIndex = 1,
+            Subject = ""
+        });
+    }
+
+    private void DeleteFixedLesson()
+    {
+        if (SelectedFixedLesson is not null)
+        {
+            FixedLessons.Remove(SelectedFixedLesson);
+            SelectedFixedLesson = FixedLessons.FirstOrDefault();
+        }
     }
 
     private void AddTeacherAssignment()

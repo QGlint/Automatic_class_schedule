@@ -16,6 +16,7 @@
         <infra:BoolToForegroundConverter x:Key="BoolToForeground" />
         <infra:DistributionRuleOptionsProvider x:Key="DistRuleProvider" />
         <infra:CategoryOptionsProvider x:Key="CategoryProvider" />
+        <infra:FixedLessonScopeProvider x:Key="ScopeProvider" />
 
         <Style x:Key="RoundButtonBase" TargetType="Button">
             <Setter Property="CornerRadius" Value="6" />
@@ -686,17 +687,56 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel>
                         <TextBlock Text="固定课程" FontSize="18" Foreground="#FF214E78" />
-                        <TextBlock Text="配置全校、年级、班级或教师级别的固定课程。" Foreground="#FF5A6877" Margin="0,0,0,10" />
+                        <TextBlock Text="配置全校、年级级别的固定课程。" Foreground="#FF5A6877" Margin="0,0,0,10" />
                         <Border Style="{StaticResource SectionBorderStyle}">
                             <StackPanel>
-                                <TextBlock Text="固定课程列表" FontWeight="SemiBold" />
-                                <controls:DataGrid ItemsSource="{Binding FixedLessons}" SelectedItem="{Binding SelectedFixedLesson, Mode=TwoWay}">
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="固定课程列表" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    <Button Grid.Column="1" Content="添加" Command="{Binding AddFixedLessonCommand}" Style="{StaticResource RoundButtonBase}" Background="#FF214E78" Foreground="White" Margin="0,0,6,0" />
+                                    <Button Grid.Column="2" Content="删除" Command="{Binding DeleteFixedLessonCommand}" Style="{StaticResource RoundButtonBase}" Background="#FFF0F5FF" Foreground="#FFCC4444" />
+                                </Grid>
+                                <controls:DataGrid ItemsSource="{Binding FixedLessons}" SelectedItem="{Binding SelectedFixedLesson, Mode=TwoWay}"
+                                                   IsReadOnly="False" AutoGenerateColumns="False"
+                                                   GridLinesVisibility="Horizontal" RowHeight="36">
                                     <controls:DataGrid.Columns>
-                                        <controls:DataGridTextColumn Header="范围" Binding="{Binding ScopeValue, UpdateSourceTrigger=PropertyChanged}" Width="*" />
-                                        <controls:DataGridTextColumn Header="星期" Binding="{Binding DayIndex, UpdateSourceTrigger=PropertyChanged}" Width="*" />
-                                        <controls:DataGridTextColumn Header="节次" Binding="{Binding PeriodIndex, UpdateSourceTrigger=PropertyChanged}" Width="*" />
-                                        <controls:DataGridTextColumn Header="课程" Binding="{Binding Subject, UpdateSourceTrigger=PropertyChanged}" Width="*" />
-                                        <controls:DataGridTextColumn Header="原因" Binding="{Binding Reason, UpdateSourceTrigger=PropertyChanged}" Width="*" />
+                                        <controls:DataGridTemplateColumn Header="范围" Width="*">
+                                            <controls:DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <ComboBox ItemsSource="{Binding Options, Source={StaticResource ScopeProvider}}"
+                                                              SelectedItem="{Binding ScopeValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                              BorderThickness="0" MinHeight="28" VerticalAlignment="Center" />
+                                                </DataTemplate>
+                                            </controls:DataGridTemplateColumn.CellTemplate>
+                                        </controls:DataGridTemplateColumn>
+                                        <controls:DataGridTemplateColumn Header="星期" Width="*">
+                                            <controls:DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBox Text="{Binding DayIndex, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                             BorderThickness="0" Background="Transparent" VerticalAlignment="Center" Padding="4,2" />
+                                                </DataTemplate>
+                                            </controls:DataGridTemplateColumn.CellTemplate>
+                                        </controls:DataGridTemplateColumn>
+                                        <controls:DataGridTemplateColumn Header="第几节" Width="*">
+                                            <controls:DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBox Text="{Binding PeriodIndex, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                             BorderThickness="0" Background="Transparent" VerticalAlignment="Center" Padding="4,2" />
+                                                </DataTemplate>
+                                            </controls:DataGridTemplateColumn.CellTemplate>
+                                        </controls:DataGridTemplateColumn>
+                                        <controls:DataGridTemplateColumn Header="课程名称" Width="*">
+                                            <controls:DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBox Text="{Binding Subject, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                             BorderThickness="0" Background="Transparent" VerticalAlignment="Center" Padding="4,2" />
+                                                </DataTemplate>
+                                            </controls:DataGridTemplateColumn.CellTemplate>
+                                        </controls:DataGridTemplateColumn>
                                     </controls:DataGrid.Columns>
                                 </controls:DataGrid>
                             </StackPanel>
