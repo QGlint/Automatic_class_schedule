@@ -9,6 +9,7 @@ public sealed class ScheduleSettings : Infrastructure.ObservableObject
     private bool _includeEveningSelfStudy;
     private int _eveningPeriods = 2;
     private string _schoolName = "";
+    private bool[] _eveningStudyDays = { true, true, true, true, true, false, false };
 
     public int DaysPerWeek
     {
@@ -75,6 +76,13 @@ public sealed class ScheduleSettings : Infrastructure.ObservableObject
                 OnPropertyChanged(nameof(PeriodsPerDay));
             }
         }
+    }
+
+    /// <summary>晚自习天配置（周一到周日，7个bool）。默认周一到周五有晚自习。</summary>
+    public bool[] EveningStudyDays
+    {
+        get => _eveningStudyDays;
+        set => SetProperty(ref _eveningStudyDays, value);
     }
 
     public string SchoolName

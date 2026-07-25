@@ -523,4 +523,56 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
             }
         }
     }
+
+    // ===== 基础设置页事件处理 =====
+
+    private void EveningDayButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button button && button.DataContext is DayToggleItem item)
+        {
+            var vm = (MainViewModel)DataContext;
+            vm.ToggleEveningDayCommand.Execute(item.Index);
+        }
+    }
+
+    private void GradeEveningDayButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button button && button.DataContext is DayToggleItem item)
+        {
+            var vm = (MainViewModel)DataContext;
+            vm.ToggleGradeEveningDayCommand.Execute(item.Index.ToString());
+        }
+    }
+
+    private void SettingsTab_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button clickedButton && clickedButton.Tag is string tagStr && int.TryParse(tagStr, out int tabIndex))
+        {
+            var vm = (MainViewModel)DataContext;
+            vm.SelectSettingsTabCommand.Execute(tabIndex);
+            UpdateSettingsTabVisuals(tabIndex);
+        }
+    }
+
+    private void UpdateSettingsTabVisuals(int activeIndex)
+    {
+        var darkBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 0x21, 0x4E, 0x78));
+        var lightBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 0xF0, 0xF5, 0xFF));
+        var whiteBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 0xFF, 0xFF, 0xFF));
+
+        Button[] tabs = { TabBtnGlobal, TabBtnGrade7, TabBtnGrade8, TabBtnGrade9 };
+        for (int i = 0; i < tabs.Length; i++)
+        {
+            if (i == activeIndex)
+            {
+                tabs[i].Background = darkBrush;
+                tabs[i].Foreground = whiteBrush;
+            }
+            else
+            {
+                tabs[i].Background = lightBrush;
+                tabs[i].Foreground = darkBrush;
+            }
+        }
+    }
 }

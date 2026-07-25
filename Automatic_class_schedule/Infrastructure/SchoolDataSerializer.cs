@@ -25,6 +25,7 @@ public static class SchoolDataSerializer
         ScheduleEntries = 0x09,
         ProjectName = 0x0A,
         CacheRef = 0x0B,
+        GradeConfigs = 0x0C,
         End = 0xFF
     }
 
@@ -55,6 +56,7 @@ public static class SchoolDataSerializer
 
             // Settings
             WriteSection(writer, SectionTag.Settings, w => WriteSettings(w, data.Settings));
+            WriteListSection(writer, SectionTag.GradeConfigs, data.GradeConfigs, WriteGradeConfig);
             WriteListSection(writer, SectionTag.GradeInputs, data.GradeInputs, WriteGradeInput);
             WriteListSection(writer, SectionTag.Classes, data.Classes, WriteSchoolClass);
             WriteListSection(writer, SectionTag.Teachers, data.Teachers, WriteTeacher);
@@ -248,6 +250,10 @@ public static class SchoolDataSerializer
                     data.Settings = ReadSettings(reader);
                     break;
 
+                case SectionTag.GradeConfigs:
+                    ReadList(reader.ReadInt32(), reader, data.GradeConfigs, ReadGradeConfig);
+                    break;
+
                 case SectionTag.CacheRef:
                     reader.ReadInt32(); // skip -1
                     string sectionName = reader.ReadString();
@@ -429,6 +435,7 @@ public static class SchoolDataSerializer
         r.ReadBoolean(); // IncludeEveningSelfStudy
         r.ReadInt32(); // EveningPeriods
         r.ReadString(); // SchoolName
+        for (int i = 0; i < 7; i++) r.ReadBoolean(); // EveningStudyDays
     }
 
     private static void SkipListSection(BinaryReader r, SectionTag tag, int count)
@@ -466,6 +473,12 @@ public static class SchoolDataSerializer
                     r.ReadString(); r.ReadString(); r.ReadString(); r.ReadInt32(); r.ReadInt32();
                     r.ReadBoolean(); r.ReadBoolean(); r.ReadString();
                     break;
+                case SectionTag.GradeConfigs:
+                    r.ReadBytes(0); // placeholder
+                    r.ReadString(); r.ReadBoolean(); r.ReadInt32(); r.ReadInt32(); r.ReadInt32();
+                    r.ReadBoolean(); r.ReadInt32();
+                    for (int j = 0; j < 7; j++) r.ReadBoolean();
+                    break;
                 default:
                     return; // Can't skip unknown section
             }
@@ -486,11 +499,15 @@ public static class SchoolDataSerializer
         w.Write(s.IncludeEveningSelfStudy);
         w.Write(s.EveningPeriods);
         w.Write(s.SchoolName);
+        // EveningStudyDays: 7 bools (周一到周日)
+        var days = s.EveningStudyDays ?? new bool[7];
+        for (int i = 0; i < 7; i++)
+            w.Write(i < days.Length && days[i]);
     }
 
     private static ScheduleSettings ReadSettings(BinaryReader r)
     {
-        return new ScheduleSettings
+        var s = new ScheduleSettings
         {
             DaysPerWeek = r.ReadInt32(),
             PeriodsPerDay = r.ReadInt32(),
@@ -500,6 +517,11 @@ public static class SchoolDataSerializer
             EveningPeriods = r.ReadInt32(),
             SchoolName = r.ReadString()
         };
+        var days = new bool[7];
+        for (int i = 0; i < 7; i++)
+            days[i] = r.ReadBoolean();
+        s.EveningStudyDays = days;
+        return s;
     }
 
     // ---- GradeInput ----
@@ -516,6 +538,40 @@ public static class SchoolDataSerializer
             GradeName = r.ReadString(),
             ClassCount = r.ReadInt32()
         };
+    }
+
+    // ---- GradeScheduleConfig ----
+    private static void WriteGradeConfig(BinaryWriter w, GradeScheduleConfig c)
+    {
+        w.Write(c.GradeName);
+        w.Write(c.UseCustomSettings);
+        w.Write(c.DaysPerWeek);
+        w.Write(c.MorningPeriods);
+        w.Write(c.AfternoonPeriods);
+        w.Write(c.IncludeEveningSelfStudy);
+        w.Write(c.EveningPeriods);
+        var days = c.EveningStudyDays ?? new bool[7];
+        for (int i = 0; i < 7; i++)
+            w.Write(i < days.Length && days[i]);
+    }
+
+    private static GradeScheduleConfig ReadGradeConfig(BinaryReader r)
+    {
+        var c = new GradeScheduleConfig
+        {
+            GradeName = r.ReadString(),
+            UseCustomSettings = r.ReadBoolean(),
+            DaysPerWeek = r.ReadInt32(),
+            MorningPeriods = r.ReadInt32(),
+            AfternoonPeriods = r.ReadInt32(),
+            IncludeEveningSelfStudy = r.ReadBoolean(),
+            EveningPeriods = r.ReadInt32()
+        };
+        var days = new bool[7];
+        for (int i = 0; i < 7; i++)
+            days[i] = r.ReadBoolean();
+        c.EveningStudyDays = days;
+        return c;
     }
 
     // ---- SchoolClass ----

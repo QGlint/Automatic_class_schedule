@@ -4,6 +4,7 @@ public sealed class SchoolData
 {
     public string ProjectName { get; set; } = "";
     public ScheduleSettings Settings { get; set; } = new();
+    public List<GradeScheduleConfig> GradeConfigs { get; set; } = new();
     public List<GradeInput> GradeInputs { get; set; } = new();
     public List<SchoolClass> Classes { get; set; } = new();
     public List<Teacher> Teachers { get; set; } = new();

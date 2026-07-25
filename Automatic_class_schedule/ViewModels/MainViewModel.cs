@@ -44,6 +44,8 @@ public sealed class MainViewModel : ObservableObject
     private bool _hasActiveProject;
     private byte[]? _savedSnapshot;
     private readonly RecentProjectsService _recentProjects;
+    private bool[] _eveningStudyDays = { true, true, true, true, true, false, false };
+    private int _selectedSettingsTabIndex;
 
     public MainViewModel()
     {
@@ -53,6 +55,7 @@ public sealed class MainViewModel : ObservableObject
         _excelService = new ExcelScheduleService();
 
         GradeInputs = new ObservableCollection<GradeInput>();
+        GradeConfigs = new ObservableCollection<GradeScheduleConfig>();
         Classes = new ObservableCollection<SchoolClass>();
         Teachers = new ObservableCollection<Teacher>();
         Subjects = new ObservableCollection<SubjectDefinition>();
@@ -99,7 +102,11 @@ public sealed class MainViewModel : ObservableObject
         SaveAsCommand = new RelayCommand<string?>(SaveProject);
         OpenProjectCommand = new RelayCommand<string?>(OpenProject);
         CreateProjectCommand = new RelayCommand(() => CreateProject());
+        ToggleEveningDayCommand = new RelayCommand<int>(ToggleEveningDay);
+        ToggleGradeEveningDayCommand = new RelayCommand<string>(ToggleGradeEveningDay);
+        SelectSettingsTabCommand = new RelayCommand<int>(SelectSettingsTab);
 
+        InitEveningDayItems();
         LoadCourseTemplates();
 
         // 确保 ACS 工作空间目录存在
@@ -184,6 +191,9 @@ public sealed class MainViewModel : ObservableObject
     }
 
     public ObservableCollection<GradeInput> GradeInputs { get; }
+    public ObservableCollection<GradeScheduleConfig> GradeConfigs { get; }
+    public ObservableCollection<DayToggleItem> EveningDayItems { get; } = new();
+    public ObservableCollection<DayToggleItem> GradeEveningDayItems { get; } = new();
     public ObservableCollection<SchoolClass> Classes { get; }
     public ObservableCollection<Teacher> Teachers { get; }
     public ObservableCollection<SubjectDefinition> Subjects { get; }
@@ -295,6 +305,40 @@ public sealed class MainViewModel : ObservableObject
             }
         }
     }
+
+    /// <summary>全局晚自习天配置（周一到周日）</summary>
+    public bool[] EveningStudyDays
+    {
+        get => _eveningStudyDays;
+        set => SetProperty(ref _eveningStudyDays, value);
+    }
+
+    /// <summary>基础设置页Tab索引（0=全局, 1=七年级, 2=八年级, 3=九年级）</summary>
+    public int SelectedSettingsTabIndex
+    {
+        get => _selectedSettingsTabIndex;
+        set
+        {
+            if (SetProperty(ref _selectedSettingsTabIndex, value))
+            {
+                OnPropertyChanged(nameof(IsGlobalSettingsTab));
+                OnPropertyChanged(nameof(SelectedGradeConfig));
+                OnPropertyChanged(nameof(IsGradeSettingsTab));
+            }
+        }
+    }
+
+    public bool IsGlobalSettingsTab => _selectedSettingsTabIndex == 0;
+    public bool IsGradeSettingsTab => _selectedSettingsTabIndex > 0;
+
+    /// <summary>当前选中的年级配置（Tab索引1-3对应七年级/八年级/九年级）</summary>
+    public GradeScheduleConfig? SelectedGradeConfig =>
+        _selectedSettingsTabIndex > 0 && _selectedSettingsTabIndex <= GradeConfigs.Count
+            ? GradeConfigs[_selectedSettingsTabIndex - 1]
+            : null;
+
+    public string[] SettingsTabNames { get; } = { "全局", "七年级", "八年级", "九年级" };
+    public string[] DayLabels { get; } = { "周一", "周二", "周三", "周四", "周五", "周六", "周日" };
 
     public string SelectedMainPage
     {
@@ -615,7 +659,10 @@ public sealed class MainViewModel : ObservableObject
         AfternoonPeriods = 3;
         IncludeEveningSelfStudy = false;
         EveningPeriods = 2;
+        EveningStudyDays = new[] { true, true, true, true, true, false, false };
+        SelectedSettingsTabIndex = 0;
         InitDefaultGrades();
+        InitDefaultGradeConfigs();
         InitDefaultSubjects();
         GenerateClasses();
         _currentSubjectGradeName = GradeInputs.FirstOrDefault()?.GradeName ?? "";
@@ -905,6 +952,9 @@ public sealed class MainViewModel : ObservableObject
     public RelayCommand<string?> OpenProjectCommand { get; }
     public RelayCommand CreateProjectCommand { get; }
     public RelayCommand FilterGradeCommand { get; }
+    public RelayCommand<int> ToggleEveningDayCommand { get; }
+    public RelayCommand<string> ToggleGradeEveningDayCommand { get; }
+    public RelayCommand<int> SelectSettingsTabCommand { get; }
 
     public string SerializeSubjects()
     {
@@ -1213,6 +1263,7 @@ public sealed class MainViewModel : ObservableObject
     private void ClearAllData()
     {
         GradeInputs.Clear();
+        GradeConfigs.Clear();
         Classes.Clear();
         Teachers.Clear();
         Subjects.Clear();
@@ -1227,6 +1278,8 @@ public sealed class MainViewModel : ObservableObject
         AfternoonPeriods = 3;
         IncludeEveningSelfStudy = false;
         EveningPeriods = 2;
+        EveningStudyDays = new[] { true, true, true, true, true, false, false };
+        SelectedSettingsTabIndex = 0;
         SelectedConfigPage = "基础设置";
         RefreshViews();
 
@@ -1523,6 +1576,71 @@ public sealed class MainViewModel : ObservableObject
         Log(StatusMessage);
     }
 
+    private void ToggleEveningDay(int dayIndex)
+    {
+        if (dayIndex < 0 || dayIndex >= 7) return;
+        var days = (bool[])_eveningStudyDays.Clone();
+        days[dayIndex] = !days[dayIndex];
+        EveningStudyDays = days;
+        SyncEveningDayItems();
+    }
+
+    private void ToggleGradeEveningDay(string? param)
+    {
+        // param format: "dayIndex" — toggles on the currently selected grade config
+        if (!int.TryParse(param, out int dayIndex) || dayIndex < 0 || dayIndex >= 7) return;
+        var config = SelectedGradeConfig;
+        if (config == null) return;
+        var days = (bool[])config.EveningStudyDays.Clone();
+        days[dayIndex] = !days[dayIndex];
+        config.EveningStudyDays = days;
+        SyncGradeEveningDayItems();
+    }
+
+    private void SelectSettingsTab(int tabIndex)
+    {
+        SelectedSettingsTabIndex = tabIndex;
+        SyncGradeEveningDayItems();
+    }
+
+    private void InitDefaultGradeConfigs()
+    {
+        GradeConfigs.Clear();
+        string[] gradeNames = { "七年级", "八年级", "九年级" };
+        foreach (var name in gradeNames)
+        {
+            GradeConfigs.Add(new GradeScheduleConfig { GradeName = name });
+        }
+    }
+
+    private void InitEveningDayItems()
+    {
+        EveningDayItems.Clear();
+        string[] labels = { "周一", "周二", "周三", "周四", "周五", "周六", "周日" };
+        for (int i = 0; i < 7; i++)
+        {
+            EveningDayItems.Add(new DayToggleItem { Label = labels[i], Index = i, IsSelected = _eveningStudyDays[i] });
+        }
+    }
+
+    private void SyncEveningDayItems()
+    {
+        for (int i = 0; i < 7 && i < EveningDayItems.Count; i++)
+            EveningDayItems[i].IsSelected = _eveningStudyDays[i];
+    }
+
+    private void SyncGradeEveningDayItems()
+    {
+        var config = SelectedGradeConfig;
+        GradeEveningDayItems.Clear();
+        string[] labels = { "周一", "周二", "周三", "周四", "周五", "周六", "周日" };
+        var days = config?.EveningStudyDays ?? new bool[7];
+        for (int i = 0; i < 7; i++)
+        {
+            GradeEveningDayItems.Add(new DayToggleItem { Label = labels[i], Index = i, IsSelected = i < days.Length && days[i] });
+        }
+    }
+
     public void RefreshViews()
     {
         RefreshVisibleEntries();
@@ -1811,6 +1929,8 @@ public sealed class MainViewModel : ObservableObject
         AfternoonPeriods = data.Settings.AfternoonPeriods;
         IncludeEveningSelfStudy = data.Settings.IncludeEveningSelfStudy;
         EveningPeriods = data.Settings.EveningPeriods;
+        EveningStudyDays = data.Settings.EveningStudyDays ?? new[] { true, true, true, true, true, false, false };
+        SyncEveningDayItems();
 
         ReplaceCollection(GradeInputs, data.GradeInputs);
         ReplaceCollection(Classes, data.Classes);
@@ -1821,6 +1941,12 @@ public sealed class MainViewModel : ObservableObject
         ReplaceCollection(FixedLessons, data.FixedLessons);
         ReplaceCollection(ScheduleEntries, data.ScheduleEntries);
 
+        // 加载年级个性化配置
+        if (data.GradeConfigs.Count > 0)
+            ReplaceCollection(GradeConfigs, data.GradeConfigs);
+        else
+            InitDefaultGradeConfigs();
+
         SelectedGradeInput = GradeInputs.FirstOrDefault();
         SelectedClass = Classes.FirstOrDefault();
         SelectedTeacher = Teachers.FirstOrDefault();
@@ -1828,6 +1954,7 @@ public sealed class MainViewModel : ObservableObject
         SelectedRequirement = Requirements.FirstOrDefault();
         SelectedFixedLesson = FixedLessons.FirstOrDefault();
         SelectedTeacherAssignment = TeacherAssignments.FirstOrDefault();
+        SelectedSettingsTabIndex = 0;
     }
 
     private SchoolData BuildSchoolData()
@@ -1842,8 +1969,10 @@ public sealed class MainViewModel : ObservableObject
                 MorningPeriods = MorningPeriods,
                 AfternoonPeriods = AfternoonPeriods,
                 IncludeEveningSelfStudy = IncludeEveningSelfStudy,
-                EveningPeriods = EveningPeriods
+                EveningPeriods = EveningPeriods,
+                EveningStudyDays = EveningStudyDays
             },
+            GradeConfigs = GradeConfigs.ToList(),
             GradeInputs = GradeInputs.ToList(),
             Classes = Classes.ToList(),
             Teachers = Teachers.ToList(),
