@@ -73,6 +73,9 @@ public sealed class MainViewModel : ObservableObject
         GenerateClassesCommand = new RelayCommand(GenerateClasses);
         GenerateRequirementsCommand = new RelayCommand(GenerateRequirements);
         GenerateAssignmentsCommand = new RelayCommand(GenerateAssignments);
+        AddTeacherAssignmentCommand = new RelayCommand(AddTeacherAssignment);
+        DeleteTeacherAssignmentCommand = new RelayCommand(DeleteTeacherAssignment, () => SelectedTeacherAssignment is not null);
+        GenerateTeacherTemplateCommand = new RelayCommand(GenerateTeacherTemplate);
         AutoScheduleCommand = new RelayCommand(() => _ = AutoScheduleAsync());
         ValidateCommand = new RelayCommand(ValidateSchedule);
         SaveCommand = new RelayCommand(SaveData);
@@ -948,6 +951,9 @@ public sealed class MainViewModel : ObservableObject
     public RelayCommand GenerateClassesCommand { get; }
     public RelayCommand GenerateRequirementsCommand { get; }
     public RelayCommand GenerateAssignmentsCommand { get; }
+    public RelayCommand AddTeacherAssignmentCommand { get; }
+    public RelayCommand DeleteTeacherAssignmentCommand { get; }
+    public RelayCommand GenerateTeacherTemplateCommand { get; }
     public RelayCommand AutoScheduleCommand { get; }
     public RelayCommand ValidateCommand { get; }
     public RelayCommand SaveCommand { get; }
@@ -1407,6 +1413,35 @@ public sealed class MainViewModel : ObservableObject
         StatusMessage = $"已生成 {Requirements.Count} 条授课需求";
         Log($"生成需求：{Requirements.Count} 条");
         RefreshViews();
+    }
+
+    private void AddTeacherAssignment()
+    {
+        TeacherAssignments.Add(new TeacherAssignment
+        {
+            TeacherName = "新教师",
+            Subject = "",
+            GradeName = GradeInputs.FirstOrDefault()?.GradeName ?? "",
+            WeeklyCount = 0
+        });
+    }
+
+    private void DeleteTeacherAssignment()
+    {
+        if (SelectedTeacherAssignment is not null)
+        {
+            TeacherAssignments.Remove(SelectedTeacherAssignment);
+            SelectedTeacherAssignment = TeacherAssignments.FirstOrDefault();
+        }
+    }
+
+    private void GenerateTeacherTemplate()
+    {
+        string dir = EnsureExportFolder();
+        string path = Path.Combine(dir, "教师导入模板.xlsx");
+        _excelService.GenerateImportTemplate(path, GradeInputs.ToList());
+        StatusMessage = $"已生成导入模板: {path}";
+        Log($"生成教师导入模板: {path}");
     }
 
     private async Task AutoScheduleAsync()

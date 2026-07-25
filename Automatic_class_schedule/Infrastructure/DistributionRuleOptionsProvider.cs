@@ -7,3 +7,9 @@ public sealed class DistributionRuleOptionsProvider
 {
     public List<string> Options { get; } = new() { "均匀分布", "每日至少一次", "集中安排" };
 }
+
+/// <summary>课程类别选项资源提供器</summary>
+public sealed class CategoryOptionsProvider
+{
+    public List<string> Options { get; } = new() { "主科", "理科", "文科", "副科", "自习", "自定义" };
+}

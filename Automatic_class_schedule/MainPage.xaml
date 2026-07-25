@@ -15,6 +15,7 @@
         <infra:BoolToBrushConverter x:Key="BoolToBrush" />
         <infra:BoolToForegroundConverter x:Key="BoolToForeground" />
         <infra:DistributionRuleOptionsProvider x:Key="DistRuleProvider" />
+        <infra:CategoryOptionsProvider x:Key="CategoryProvider" />
 
         <Style x:Key="RoundButtonBase" TargetType="Button">
             <Setter Property="CornerRadius" Value="6" />
@@ -260,7 +261,6 @@
                                 Visibility="{Binding SelectedConfigPage, Converter={StaticResource StringMatchToVisibility}, ConverterParameter=自动排课}" />
                         <Rectangle Height="1" Fill="#FFD9E1EC" Margin="0,6,0,8" />
                         <Button Content="检查冲突" Command="{Binding ValidateCommand}" Style="{StaticResource NavButtonStyle}" />
-                        <Button Content="导入数据" Command="{Binding ImportCommand}" Style="{StaticResource NavButtonStyle}" />
                     </StackPanel>
                 </ScrollViewer>
             </Border>
@@ -567,13 +567,23 @@
                                     <Button Grid.Column="1" Content="添加" Command="{Binding AddSubjectCommand}" Style="{StaticResource RoundButtonBase}" Background="#FF214E78" Foreground="White" Margin="0,0,6,0" />
                                     <Button Grid.Column="2" Content="删除" Command="{Binding DeleteSubjectCommand}" Style="{StaticResource RoundButtonBase}" Background="#FFF0F5FF" Foreground="#FF214E78" />
                                 </Grid>
-                                <controls:DataGrid ItemsSource="{Binding FilteredSubjects}" SelectedItem="{Binding SelectedSubject, Mode=TwoWay}">
+                                <controls:DataGrid ItemsSource="{Binding FilteredSubjects}" SelectedItem="{Binding SelectedSubject, Mode=TwoWay}"
+                                                   IsReadOnly="False" AutoGenerateColumns="False"
+                                                   GridLinesVisibility="Horizontal" RowHeight="36">
                                     <controls:DataGrid.Columns>
-                                        <controls:DataGridTextColumn Header="年级" Binding="{Binding GradeName, UpdateSourceTrigger=PropertyChanged}" Width="*" />
-                                        <controls:DataGridTextColumn Header="课程" Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Width="*" />
-                                        <controls:DataGridTextColumn Header="类别" Binding="{Binding Category, UpdateSourceTrigger=PropertyChanged}" Width="*" />
-                                        <controls:DataGridTextColumn Header="周课时" Binding="{Binding DefaultWeeklyCount, UpdateSourceTrigger=PropertyChanged}" Width="*" />
-                                        <controls:DataGridTemplateColumn Header="分布规则" Width="*">
+                                        <controls:DataGridTextColumn Header="年级" Binding="{Binding GradeName, UpdateSourceTrigger=PropertyChanged}" Width="80" IsReadOnly="True" />
+                                        <controls:DataGridTextColumn Header="课程" Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Width="100" />
+                                        <controls:DataGridTemplateColumn Header="类别" Width="90">
+                                            <controls:DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <ComboBox ItemsSource="{Binding Options, Source={StaticResource CategoryProvider}}"
+                                                              SelectedItem="{Binding Category, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                              BorderThickness="0" MinHeight="28" VerticalAlignment="Center" />
+                                                </DataTemplate>
+                                            </controls:DataGridTemplateColumn.CellTemplate>
+                                        </controls:DataGridTemplateColumn>
+                                        <controls:DataGridTextColumn Header="周课时" Binding="{Binding DefaultWeeklyCount, UpdateSourceTrigger=PropertyChanged}" Width="70" />
+                                        <controls:DataGridTemplateColumn Header="分布规则" Width="120">
                                             <controls:DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
                                                     <ComboBox ItemsSource="{Binding Options, Source={StaticResource DistRuleProvider}}"
@@ -599,27 +609,31 @@
                         <TextBlock Text="配置教师授课安排：教师 + 科目 + 所带班级。" Foreground="#FF5A6877" Margin="0,0,0,10" />
                         <Border Style="{StaticResource SectionBorderStyle}">
                             <StackPanel>
-                                <Grid>
+                                <Grid Margin="0,0,0,8">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Text="每行配置一个教师，可带多个班级（用、分隔）。" Foreground="#FF5A6877" VerticalAlignment="Center" FontSize="13" />
-                                    <Button Grid.Column="1" Content="生成需求" Command="{Binding GenerateRequirementsCommand}" Style="{StaticResource RoundButtonBase}" Background="#FF214E78" Foreground="White" Margin="10,0,0,0" />
+                                    <TextBlock Text="教师列表" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    <Button Grid.Column="1" Content="添加" Command="{Binding AddTeacherAssignmentCommand}" Style="{StaticResource RoundButtonBase}" Background="#FF214E78" Foreground="White" Margin="0,0,6,0" />
+                                    <Button Grid.Column="2" Content="删除" Command="{Binding DeleteTeacherAssignmentCommand}" Style="{StaticResource RoundButtonBase}" Background="#FFF0F5FF" Foreground="#FFCC4444" Margin="0,0,6,0" />
+                                    <Button Grid.Column="3" Content="生成导入模板" Command="{Binding GenerateTeacherTemplateCommand}" Style="{StaticResource RoundButtonBase}" Background="#FFF0F5FF" Foreground="#FF214E78" />
                                 </Grid>
-                                <controls:DataGrid ItemsSource="{Binding TeacherAssignments}" SelectedItem="{Binding SelectedTeacherAssignment, Mode=TwoWay}">
+                                <controls:DataGrid ItemsSource="{Binding TeacherAssignments}" SelectedItem="{Binding SelectedTeacherAssignment, Mode=TwoWay}"
+                                                   IsReadOnly="False" AutoGenerateColumns="False"
+                                                   GridLinesVisibility="Horizontal" RowHeight="40">
                                     <controls:DataGrid.Columns>
-                                        <controls:DataGridTextColumn Header="教师" Binding="{Binding TeacherName, UpdateSourceTrigger=PropertyChanged}" Width="*" />
-                                        <controls:DataGridTextColumn Header="科目" Binding="{Binding Subject, UpdateSourceTrigger=PropertyChanged}" Width="*" />
-                                        <controls:DataGridTextColumn Header="周课时" Binding="{Binding WeeklyCount, UpdateSourceTrigger=PropertyChanged}" Width="*" />
+                                        <controls:DataGridTextColumn Header="教师" Binding="{Binding TeacherName, UpdateSourceTrigger=PropertyChanged}" Width="90" />
+                                        <controls:DataGridTextColumn Header="科目" Binding="{Binding Subject, UpdateSourceTrigger=PropertyChanged}" Width="80" />
+                                        <controls:DataGridTextColumn Header="年级" Binding="{Binding GradeName, UpdateSourceTrigger=PropertyChanged}" Width="80" />
+                                        <controls:DataGridTextColumn Header="班级" Binding="{Binding ClassNames, UpdateSourceTrigger=PropertyChanged}" Width="200" />
+                                        <controls:DataGridTextColumn Header="周课时" Binding="{Binding WeeklyCount, UpdateSourceTrigger=PropertyChanged}" Width="70" />
                                     </controls:DataGrid.Columns>
                                 </controls:DataGrid>
                             </StackPanel>
                         </Border>
-                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                            <Button Content="从课程生成教师示例" Command="{Binding GenerateAssignmentsCommand}" Style="{StaticResource RoundButtonBase}" Background="#FFF0F5FF" Foreground="#FF214E78" Margin="0,0,8,0" />
-                            <Button Content="导入教师数据" Click="ImportTeacherData_Click" Style="{StaticResource RoundButtonBase}" Background="#FFF0F5FF" Foreground="#FF214E78" />
-                        </StackPanel>
                     </StackPanel>
                 </ScrollViewer>
             </Border>

@@ -134,6 +134,50 @@ public sealed class ExcelScheduleService
         ExportWorkbook(Path.Combine(folder, "年级课表.xlsx"), "年级课表", data.ScheduleEntries);
     }
 
+    /// <summary>生成教师导入模板 Excel</summary>
+    public void GenerateImportTemplate(string filePath, List<GradeInput> grades)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
+        using XLWorkbook workbook = new();
+
+        // 教师信息 sheet
+        IXLWorksheet teacherSheet = workbook.AddWorksheet("教师信息");
+        teacherSheet.Cell(1, 1).Value = "教师姓名";
+        teacherSheet.Cell(1, 2).Value = "科目";
+        teacherSheet.Cell(1, 3).Value = "班级（如：七1班、七2班，多个用顿号分隔）";
+        teacherSheet.Cell(1, 4).Value = "周课时";
+        // 示例行
+        teacherSheet.Cell(2, 1).Value = "张三";
+        teacherSheet.Cell(2, 2).Value = "语文";
+        teacherSheet.Cell(2, 3).Value = "七1班、七2班";
+        teacherSheet.Cell(2, 4).Value = 6;
+        teacherSheet.Cell(3, 1).Value = "李四";
+        teacherSheet.Cell(3, 2).Value = "数学";
+        teacherSheet.Cell(3, 3).Value = "八1班、八2班、八3班";
+        teacherSheet.Cell(3, 4).Value = 6;
+        // 调整列宽
+        teacherSheet.Column(1).Width = 14;
+        teacherSheet.Column(2).Width = 10;
+        teacherSheet.Column(3).Width = 36;
+        teacherSheet.Column(4).Width = 10;
+
+        // 班级配置 sheet
+        IXLWorksheet gradeSheet = workbook.AddWorksheet("班级配置");
+        gradeSheet.Cell(1, 1).Value = "年级";
+        gradeSheet.Cell(1, 2).Value = "班级数";
+        int row = 2;
+        foreach (var g in grades)
+        {
+            gradeSheet.Cell(row, 1).Value = g.GradeName;
+            gradeSheet.Cell(row, 2).Value = g.ClassCount;
+            row++;
+        }
+        gradeSheet.Column(1).Width = 12;
+        gradeSheet.Column(2).Width = 10;
+
+        workbook.SaveAs(filePath);
+    }
+
     private static void ExportWorkbook(string filePath, string sheetName, IEnumerable<ScheduleEntry> entries)
     {
         using XLWorkbook workbook = new();
