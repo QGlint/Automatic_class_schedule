@@ -24,6 +24,9 @@ public sealed class GreedyScheduleSolver : IScheduleSolver
         Dictionary<Guid, LessonRequirement> requirementMap = problem.Requirements.ToDictionary(x => x.Id, x => x);
         Dictionary<Guid, int> lockedCounts = locks.GroupBy(x => x.RequirementId).ToDictionary(x => x.Key, x => x.Count());
 
+        // 预放置固定课程
+        PlaceFixedLessons(problem, placed, result);
+
         List<LessonInstance> instances = BuildInstances(problem.Requirements, lockedCounts).OrderByDescending(GetPriority).ToList();
         int total = instances.Count;
         int completed = 0;
@@ -79,6 +82,56 @@ public sealed class GreedyScheduleSolver : IScheduleSolver
         result.Conflicts.AddRange(_conflictService.Analyze(problem, result.Entries));
         ApplySoftPreferenceConflicts(problem, result);
         return result;
+    }
+
+    /// <summary>将固定课程转化为 ScheduleEntry 预放置到课表中</summary>
+    private static void PlaceFixedLessons(ScheduleProblem problem, List<ScheduleEntry> placed, ScheduleResult result)
+    {
+        foreach (FixedLesson fl in problem.FixedLessons)
+        {
+            // 根据 ScopeValue 确定受影响的班级
+            IEnumerable<SchoolClass> affectedClasses = GetAffectedClasses(problem.Classes, fl.ScopeValue);
+
+            foreach (SchoolClass cls in affectedClasses)
+            {
+                var entry = new ScheduleEntry
+                {
+                    Id = Guid.NewGuid(),
+                    RequirementId = Guid.Empty,
+                    ClassId = cls.Id,
+                    TeacherId = Guid.Empty,
+                    ClassName = cls.DisplayName,
+                    TeacherName = fl.TeacherName,
+                    Subject = fl.Subject,
+                    DayIndex = Math.Max(0, fl.DayIndex - 1), // UI输入1-based → 内部0-based
+                    PeriodIndex = fl.PeriodIndex,
+                    Locked = true,
+                    IsFixed = true,
+                    Note = fl.Reason
+                };
+                placed.Add(entry);
+                result.Entries.Add(entry);
+            }
+        }
+    }
+
+    /// <summary>根据范围字符串获取受影响班级</summary>
+    private static IEnumerable<SchoolClass> GetAffectedClasses(IReadOnlyList<SchoolClass> classes, string scopeValue)
+    {
+        if (string.IsNullOrWhiteSpace(scopeValue) || scopeValue == "全校")
+            return classes;
+
+        // 支持 "七+八年级" 格式
+        string[] gradeParts = scopeValue.Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        HashSet<string> gradeNames = new();
+        foreach (string part in gradeParts)
+        {
+            // "七年级" 直接匹配，"七" 补全为 "七年级"
+            string grade = part.EndsWith("年级") ? part : part + "年级";
+            gradeNames.Add(grade);
+        }
+
+        return classes.Where(c => gradeNames.Contains(c.GradeName));
     }
 
     private ScheduleEntry? FindBestSlot(ScheduleProblem problem, IReadOnlyCollection<ScheduleEntry> placed, LessonRequirement requirement, LessonInstance instance)
