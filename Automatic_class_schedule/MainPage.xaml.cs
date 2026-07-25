@@ -103,6 +103,38 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
         }
     }
 
+    private async void SaveTemplateButton_Click(object sender, RoutedEventArgs e)
+    {
+        var vm = (MainViewModel)DataContext;
+        var nameBox = new TextBox { PlaceholderText = "输入配置名称", MinWidth = 260 };
+
+        var dialog = new ContentDialog
+        {
+            Title = "保存课程配置",
+            PrimaryButtonText = "保存",
+            CloseButtonText = "取消",
+            DefaultButton = ContentDialogButton.Primary,
+            XamlRoot = XamlRoot,
+            Content = new StackPanel
+            {
+                Spacing = 8,
+                Children =
+                {
+                    new TextBlock { Text = "配置名称" },
+                    nameBox
+                }
+            }
+        };
+
+        var result = await dialog.ShowAsync();
+        if (result == ContentDialogResult.Primary)
+        {
+            string name = nameBox.Text.Trim();
+            if (!string.IsNullOrEmpty(name))
+                vm.SaveCourseTemplate(name);
+        }
+    }
+
     private void ImportButton_Click(object sender, RoutedEventArgs e)
     {
         ((MainViewModel)DataContext).ImportCommand.Execute(null);

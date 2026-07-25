@@ -95,7 +95,7 @@ public sealed class MainViewModel : ObservableObject
         FilterGradeCommand = new RelayCommand(RefreshViews);
         AddSubjectCommand = new RelayCommand(AddSubject);
         DeleteSubjectCommand = new RelayCommand(DeleteSubject, () => SelectedSubject is not null);
-        SaveCourseTemplateCommand = new RelayCommand(SaveCourseTemplate);
+        SaveCourseTemplateCommand = new RelayCommand(() => SaveCourseTemplate());
         LoadCourseTemplateCommand = new RelayCommand(LoadCourseTemplate);
         DeleteCourseTemplateCommand = new RelayCommand(DeleteCourseTemplate, () => !string.IsNullOrEmpty(_selectedCourseTemplate));
         ToggleToolbarCommand = new RelayCommand(ToggleToolbar);
@@ -134,51 +134,54 @@ public sealed class MainViewModel : ObservableObject
         string[] allGrades = GradeInputs.Select(g => g.GradeName).ToArray();
         foreach (string grade in allGrades)
         {
-            Subjects.Add(new SubjectDefinition { Name = "语文", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次", GradeName = grade });
-            Subjects.Add(new SubjectDefinition { Name = "数学", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次", GradeName = grade });
-            Subjects.Add(new SubjectDefinition { Name = "英语", Category = "主科", DefaultWeeklyCount = 5, DistributionRule = "每天一次", GradeName = grade });
+            Subjects.Add(new SubjectDefinition { Name = "语文", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每日至少一次", GradeName = grade });
+            Subjects.Add(new SubjectDefinition { Name = "数学", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每日至少一次", GradeName = grade });
+            Subjects.Add(new SubjectDefinition { Name = "英语", Category = "主科", DefaultWeeklyCount = 5, DistributionRule = "每日至少一次", GradeName = grade });
             if (grade != "七年级")
             {
-                Subjects.Add(new SubjectDefinition { Name = "物理", Category = "理科", DefaultWeeklyCount = 3, DistributionRule = "均衡分布", GradeName = grade });
+                Subjects.Add(new SubjectDefinition { Name = "物理", Category = "理科", DefaultWeeklyCount = 3, DistributionRule = "均匀分布", GradeName = grade });
             }
             if (grade != "七年级" && grade != "八年级")
             {
-                Subjects.Add(new SubjectDefinition { Name = "化学", Category = "理科", DefaultWeeklyCount = 3, DistributionRule = "均衡分布", GradeName = grade });
+                Subjects.Add(new SubjectDefinition { Name = "化学", Category = "理科", DefaultWeeklyCount = 3, DistributionRule = "均匀分布", GradeName = grade });
             }
             if (grade != "九年级")
             {
-                Subjects.Add(new SubjectDefinition { Name = "生物", Category = "理科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = grade });
+                Subjects.Add(new SubjectDefinition { Name = "生物", Category = "理科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = grade });
             }
             if (grade != "九年级")
             {
-                Subjects.Add(new SubjectDefinition { Name = "地理", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = grade });
+                Subjects.Add(new SubjectDefinition { Name = "地理", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = grade });
             }
-            Subjects.Add(new SubjectDefinition { Name = "历史", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = grade });
-            Subjects.Add(new SubjectDefinition { Name = "政治", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = grade });
-            Subjects.Add(new SubjectDefinition { Name = "体育", Category = "副科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = grade });
+            Subjects.Add(new SubjectDefinition { Name = "历史", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = grade });
+            Subjects.Add(new SubjectDefinition { Name = "政治", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = grade });
+            Subjects.Add(new SubjectDefinition { Name = "体育", Category = "副科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = grade });
         }
     }
 
     private void AddSubject()
     {
-        string? firstGrade = GradeInputs.FirstOrDefault()?.GradeName;
+        string grade = !string.IsNullOrWhiteSpace(CurrentSubjectGradeName) && CurrentSubjectGradeName != "全部"
+            ? CurrentSubjectGradeName
+            : GradeInputs.FirstOrDefault()?.GradeName ?? string.Empty;
         var subj = new SubjectDefinition
         {
             Name = "新科目",
             Category = "副科",
             DefaultWeeklyCount = 2,
-            GradeName = firstGrade ?? string.Empty
+            GradeName = grade
         };
         subj.DistributionRule = GetDefaultDistributionRule(subj.Category, subj.DefaultWeeklyCount);
         Subjects.Add(subj);
+        OnPropertyChanged(nameof(FilteredSubjects));
     }
 
     private static string GetDefaultDistributionRule(string category, int weeklyCount)
     {
-        if (category == "主科" && weeklyCount >= 4) return "均衡分布";
-        if (category == "主科") return "均衡分布";
-        if (weeklyCount >= 3) return "均衡分布";
-        return "集中安排";
+        if (category == "主科" && weeklyCount >= 4) return "每日至少一次";
+        if (category == "主科") return "每日至少一次";
+        if (weeklyCount >= 3) return "均匀分布";
+        return "均匀分布";
     }
 
     private void DeleteSubject()
@@ -899,7 +902,7 @@ public sealed class MainViewModel : ObservableObject
     public int TotalScheduleEntries => ScheduleEntries.Count;
     public int TotalConflicts => Conflicts.Count;
 
-    public List<string> DistributionRuleOptions { get; } = new() { "均衡分布", "每天一次", "集中安排" };
+    public List<string> DistributionRuleOptions { get; } = new() { "均匀分布", "每日至少一次", "集中安排" };
 
     public List<GradeInput> FilteredGrades => string.IsNullOrWhiteSpace(GradeFilterText)
         ? GradeInputs.ToList()
@@ -1027,43 +1030,43 @@ public sealed class MainViewModel : ObservableObject
         {
             ["初中标准"] = new()
             {
-                new() { Name = "语文", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次", GradeName = "七年级" },
-                new() { Name = "语文", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次", GradeName = "八年级" },
-                new() { Name = "语文", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次", GradeName = "九年级" },
-                new() { Name = "数学", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次", GradeName = "七年级" },
-                new() { Name = "数学", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次", GradeName = "八年级" },
-                new() { Name = "数学", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次", GradeName = "九年级" },
-                new() { Name = "英语", Category = "主科", DefaultWeeklyCount = 5, DistributionRule = "每天一次", GradeName = "七年级" },
-                new() { Name = "英语", Category = "主科", DefaultWeeklyCount = 5, DistributionRule = "每天一次", GradeName = "八年级" },
-                new() { Name = "英语", Category = "主科", DefaultWeeklyCount = 5, DistributionRule = "每天一次", GradeName = "九年级" },
+                new() { Name = "语文", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每日至少一次", GradeName = "七年级" },
+                new() { Name = "语文", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每日至少一次", GradeName = "八年级" },
+                new() { Name = "语文", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每日至少一次", GradeName = "九年级" },
+                new() { Name = "数学", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每日至少一次", GradeName = "七年级" },
+                new() { Name = "数学", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每日至少一次", GradeName = "八年级" },
+                new() { Name = "数学", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每日至少一次", GradeName = "九年级" },
+                new() { Name = "英语", Category = "主科", DefaultWeeklyCount = 5, DistributionRule = "每日至少一次", GradeName = "七年级" },
+                new() { Name = "英语", Category = "主科", DefaultWeeklyCount = 5, DistributionRule = "每日至少一次", GradeName = "八年级" },
+                new() { Name = "英语", Category = "主科", DefaultWeeklyCount = 5, DistributionRule = "每日至少一次", GradeName = "九年级" },
             },
             ["初中标准（含理科）"] = new()
             {
-                new() { Name = "语文", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次", GradeName = "七年级" },
-                new() { Name = "数学", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次", GradeName = "七年级" },
-                new() { Name = "英语", Category = "主科", DefaultWeeklyCount = 5, DistributionRule = "每天一次", GradeName = "七年级" },
-                new() { Name = "生物", Category = "理科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "七年级" },
-                new() { Name = "地理", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "七年级" },
-                new() { Name = "历史", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "七年级" },
-                new() { Name = "政治", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "七年级" },
-                new() { Name = "体育", Category = "副科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "七年级" },
-                new() { Name = "语文", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次", GradeName = "八年级" },
-                new() { Name = "数学", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次", GradeName = "八年级" },
-                new() { Name = "英语", Category = "主科", DefaultWeeklyCount = 5, DistributionRule = "每天一次", GradeName = "八年级" },
-                new() { Name = "物理", Category = "理科", DefaultWeeklyCount = 3, DistributionRule = "均衡分布", GradeName = "八年级" },
-                new() { Name = "生物", Category = "理科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "八年级" },
-                new() { Name = "地理", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "八年级" },
-                new() { Name = "历史", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "八年级" },
-                new() { Name = "政治", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "八年级" },
-                new() { Name = "体育", Category = "副科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "八年级" },
-                new() { Name = "语文", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次", GradeName = "九年级" },
-                new() { Name = "数学", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次", GradeName = "九年级" },
-                new() { Name = "英语", Category = "主科", DefaultWeeklyCount = 5, DistributionRule = "每天一次", GradeName = "九年级" },
-                new() { Name = "物理", Category = "理科", DefaultWeeklyCount = 3, DistributionRule = "均衡分布", GradeName = "九年级" },
-                new() { Name = "化学", Category = "理科", DefaultWeeklyCount = 3, DistributionRule = "均衡分布", GradeName = "九年级" },
-                new() { Name = "历史", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "九年级" },
-                new() { Name = "政治", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "九年级" },
-                new() { Name = "体育", Category = "副科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "九年级" },
+                new() { Name = "语文", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每日至少一次", GradeName = "七年级" },
+                new() { Name = "数学", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每日至少一次", GradeName = "七年级" },
+                new() { Name = "英语", Category = "主科", DefaultWeeklyCount = 5, DistributionRule = "每日至少一次", GradeName = "七年级" },
+                new() { Name = "生物", Category = "理科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "七年级" },
+                new() { Name = "地理", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "七年级" },
+                new() { Name = "历史", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "七年级" },
+                new() { Name = "政治", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "七年级" },
+                new() { Name = "体育", Category = "副科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "七年级" },
+                new() { Name = "语文", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每日至少一次", GradeName = "八年级" },
+                new() { Name = "数学", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每日至少一次", GradeName = "八年级" },
+                new() { Name = "英语", Category = "主科", DefaultWeeklyCount = 5, DistributionRule = "每日至少一次", GradeName = "八年级" },
+                new() { Name = "物理", Category = "理科", DefaultWeeklyCount = 3, DistributionRule = "均匀分布", GradeName = "八年级" },
+                new() { Name = "生物", Category = "理科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "八年级" },
+                new() { Name = "地理", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "八年级" },
+                new() { Name = "历史", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "八年级" },
+                new() { Name = "政治", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "八年级" },
+                new() { Name = "体育", Category = "副科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "八年级" },
+                new() { Name = "语文", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每日至少一次", GradeName = "九年级" },
+                new() { Name = "数学", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每日至少一次", GradeName = "九年级" },
+                new() { Name = "英语", Category = "主科", DefaultWeeklyCount = 5, DistributionRule = "每日至少一次", GradeName = "九年级" },
+                new() { Name = "物理", Category = "理科", DefaultWeeklyCount = 3, DistributionRule = "均匀分布", GradeName = "九年级" },
+                new() { Name = "化学", Category = "理科", DefaultWeeklyCount = 3, DistributionRule = "均匀分布", GradeName = "九年级" },
+                new() { Name = "历史", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "九年级" },
+                new() { Name = "政治", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "九年级" },
+                new() { Name = "体育", Category = "副科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "九年级" },
             },
         };
 
@@ -1173,16 +1176,20 @@ public sealed class MainViewModel : ObservableObject
         };
     }
 
-    public void SaveCourseTemplate()
+    public void SaveCourseTemplate(string? templateName = null)
     {
         string dir = Path.GetDirectoryName(AppPaths.TemplatesFile)!;
         if (!Directory.Exists(dir))
             Directory.CreateDirectory(dir);
 
-        // Prompt for name via dialog
-        var vm = this;
-        string name = $"自定义模板 {CourseTemplates.Count + 1}";
-        CourseTemplates.Add(name);
+        string name = string.IsNullOrWhiteSpace(templateName)
+            ? $"自定义模板 {CourseTemplates.Count + 1}"
+            : templateName.Trim();
+
+        // 如果同名模板已存在，覆盖
+        if (!CourseTemplates.Contains(name))
+            CourseTemplates.Add(name);
+
         string path = GetTemplateFilePath(name);
         var json = System.Text.Json.JsonSerializer.Serialize(Subjects.ToList(), new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
         File.WriteAllText(path, json);
@@ -1191,6 +1198,7 @@ public sealed class MainViewModel : ObservableObject
         _selectedCourseTemplate = name;
         OnPropertyChanged(nameof(SelectedCourseTemplate));
         Log($"已保存课程模板: {name}");
+        StatusMessage = $"已保存课程模板: {name}";
     }
 
     public void LoadCourseTemplate()
@@ -1212,6 +1220,7 @@ public sealed class MainViewModel : ObservableObject
             Subjects.Clear();
             foreach (var s in subjects)
                 Subjects.Add(s);
+            OnPropertyChanged(nameof(FilteredSubjects));
             StatusMessage = $"已载入模板: {_selectedCourseTemplate}";
         }
     }

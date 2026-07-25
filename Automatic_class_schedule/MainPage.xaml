@@ -14,6 +14,7 @@
         <infra:StringMatchToVisibilityConverter x:Key="StringMatchToVisibility" />
         <infra:BoolToBrushConverter x:Key="BoolToBrush" />
         <infra:BoolToForegroundConverter x:Key="BoolToForeground" />
+        <infra:DistributionRuleOptionsProvider x:Key="DistRuleProvider" />
 
         <Style x:Key="RoundButtonBase" TargetType="Button">
             <Setter Property="CornerRadius" Value="6" />
@@ -523,6 +524,18 @@
                     <StackPanel>
                         <TextBlock Text="课程配置" FontSize="18" Foreground="#FF214E78" />
                         <TextBlock Text="配置课程名称、类别、每周课时和分布规则。" Foreground="#FF5A6877" Margin="0,0,0,10" />
+
+                        <!-- 课程模板工具栏 -->
+                        <Border Style="{StaticResource SectionBorderStyle}" Margin="0,0,0,8">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="配置方案" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                <ComboBox ItemsSource="{Binding CourseTemplates}" SelectedItem="{Binding SelectedCourseTemplate, Mode=TwoWay}"
+                                          Width="180" Margin="0,0,8,0" />
+                                <Button Content="载入" Command="{Binding LoadCourseTemplateCommand}" Style="{StaticResource RoundButtonBase}" Background="#FF214E78" Foreground="White" Margin="0,0,6,0" />
+                                <Button Content="保存配置" Click="SaveTemplateButton_Click" Style="{StaticResource RoundButtonBase}" Background="#FFF0F5FF" Foreground="#FF214E78" Margin="0,0,6,0" />
+                                <Button Content="删除" Command="{Binding DeleteCourseTemplateCommand}" Style="{StaticResource RoundButtonBase}" Background="#FFF0F5FF" Foreground="#FFCC4444" />
+                            </StackPanel>
+                        </Border>
                         <!-- 年级子标签 -->
                         <ItemsControl ItemsSource="{Binding GradeInputs}" Margin="0,0,0,6">
                             <ItemsControl.ItemsPanel>
@@ -563,7 +576,7 @@
                                         <controls:DataGridTemplateColumn Header="分布规则" Width="*">
                                             <controls:DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <ComboBox ItemsSource="{Binding DataContext.DistributionRuleOptions, ElementName=SchedulePageRoot}"
+                                                    <ComboBox ItemsSource="{Binding Options, Source={StaticResource DistRuleProvider}}"
                                                               SelectedItem="{Binding DistributionRule, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                               BorderThickness="0" MinHeight="28" VerticalAlignment="Center" />
                                                 </DataTemplate>

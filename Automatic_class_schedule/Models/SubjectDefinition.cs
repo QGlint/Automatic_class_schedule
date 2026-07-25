@@ -31,7 +31,7 @@ public sealed class SubjectDefinition : Infrastructure.ObservableObject
         set => SetProperty(ref _defaultWeeklyCount, value);
     }
 
-    private string _distributionRule = "均衡分布";
+    private string _distributionRule = "均匀分布";
     private string _gradeName = string.Empty;
 
     public string DistributionRule
