@@ -1019,11 +1019,8 @@ public sealed class MainViewModel : ObservableObject
             }
         }
 
-        // Seed defaults if empty
-        if (CourseTemplates.Count == 0)
-        {
-            SeedDefaults();
-        }
+        // 始终确保默认模板存在且为最新版本
+        SeedDefaults();
 
         OnPropertyChanged(nameof(CourseTemplates));
         _selectedCourseTemplate = CourseTemplates.FirstOrDefault() ?? "";
@@ -1079,11 +1076,20 @@ public sealed class MainViewModel : ObservableObject
         foreach (var kv in defaults)
         {
             var json = System.Text.Json.JsonSerializer.Serialize(kv.Value, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
-            var dict = new Dictionary<string, string> { { kv.Key, json } };
-            CourseTemplates.Add(kv.Key);
+            // 直接写入模板文件（覆盖旧版本）
+            try
+            {
+                string dir = Path.GetDirectoryName(AppPaths.TemplatesFile)!;
+                if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+                string path = GetTemplateFilePath(kv.Key);
+                File.WriteAllText(path, json);
+            }
+            catch { /* 文件权限受限时静默跳过 */ }
+            if (!CourseTemplates.Contains(kv.Key))
+                CourseTemplates.Add(kv.Key);
         }
 
-        SaveTemplatesToDisk();
+        try { SaveTemplatesToDisk(); } catch { /* 文件权限受限时静默跳过 */ }
     }
 
     private void SaveTemplatesToDisk()

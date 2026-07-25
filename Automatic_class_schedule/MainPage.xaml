@@ -571,9 +571,16 @@
                                                    IsReadOnly="False" AutoGenerateColumns="False"
                                                    GridLinesVisibility="Horizontal" RowHeight="36">
                                     <controls:DataGrid.Columns>
-                                        <controls:DataGridTextColumn Header="年级" Binding="{Binding GradeName, UpdateSourceTrigger=PropertyChanged}" Width="80" IsReadOnly="True" />
-                                        <controls:DataGridTextColumn Header="课程" Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Width="100" />
-                                        <controls:DataGridTemplateColumn Header="类别" Width="90">
+                                        <controls:DataGridTextColumn Header="年级" Binding="{Binding GradeName}" Width="*" IsReadOnly="True" />
+                                        <controls:DataGridTemplateColumn Header="课程" Width="*">
+                                            <controls:DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBox Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                             BorderThickness="0" Background="Transparent" VerticalAlignment="Center" Padding="4,2" />
+                                                </DataTemplate>
+                                            </controls:DataGridTemplateColumn.CellTemplate>
+                                        </controls:DataGridTemplateColumn>
+                                        <controls:DataGridTemplateColumn Header="类别" Width="*">
                                             <controls:DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
                                                     <ComboBox ItemsSource="{Binding Options, Source={StaticResource CategoryProvider}}"
@@ -582,8 +589,15 @@
                                                 </DataTemplate>
                                             </controls:DataGridTemplateColumn.CellTemplate>
                                         </controls:DataGridTemplateColumn>
-                                        <controls:DataGridTextColumn Header="周课时" Binding="{Binding DefaultWeeklyCount, UpdateSourceTrigger=PropertyChanged}" Width="70" />
-                                        <controls:DataGridTemplateColumn Header="分布规则" Width="120">
+                                        <controls:DataGridTemplateColumn Header="周课时" Width="*">
+                                            <controls:DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBox Text="{Binding DefaultWeeklyCount, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                             BorderThickness="0" Background="Transparent" VerticalAlignment="Center" Padding="4,2" />
+                                                </DataTemplate>
+                                            </controls:DataGridTemplateColumn.CellTemplate>
+                                        </controls:DataGridTemplateColumn>
+                                        <controls:DataGridTemplateColumn Header="分布规则" Width="*">
                                             <controls:DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
                                                     <ComboBox ItemsSource="{Binding Options, Source={StaticResource DistRuleProvider}}"
@@ -625,11 +639,39 @@
                                                    IsReadOnly="False" AutoGenerateColumns="False"
                                                    GridLinesVisibility="Horizontal" RowHeight="40">
                                     <controls:DataGrid.Columns>
-                                        <controls:DataGridTextColumn Header="教师" Binding="{Binding TeacherName, UpdateSourceTrigger=PropertyChanged}" Width="90" />
-                                        <controls:DataGridTextColumn Header="科目" Binding="{Binding Subject, UpdateSourceTrigger=PropertyChanged}" Width="80" />
-                                        <controls:DataGridTextColumn Header="年级" Binding="{Binding GradeName, UpdateSourceTrigger=PropertyChanged}" Width="80" />
-                                        <controls:DataGridTextColumn Header="班级" Binding="{Binding ClassNames, UpdateSourceTrigger=PropertyChanged}" Width="200" />
-                                        <controls:DataGridTextColumn Header="周课时" Binding="{Binding WeeklyCount, UpdateSourceTrigger=PropertyChanged}" Width="70" />
+                                        <controls:DataGridTemplateColumn Header="教师" Width="*">
+                                            <controls:DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBox Text="{Binding TeacherName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                             BorderThickness="0" Background="Transparent" VerticalAlignment="Center" Padding="4,2" />
+                                                </DataTemplate>
+                                            </controls:DataGridTemplateColumn.CellTemplate>
+                                        </controls:DataGridTemplateColumn>
+                                        <controls:DataGridTemplateColumn Header="科目" Width="*">
+                                            <controls:DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBox Text="{Binding Subject, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                             BorderThickness="0" Background="Transparent" VerticalAlignment="Center" Padding="4,2" />
+                                                </DataTemplate>
+                                            </controls:DataGridTemplateColumn.CellTemplate>
+                                        </controls:DataGridTemplateColumn>
+                                        <controls:DataGridTemplateColumn Header="班级" Width="2*">
+                                            <controls:DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBox Text="{Binding ClassNames, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                             BorderThickness="0" Background="Transparent" VerticalAlignment="Center"
+                                                             TextWrapping="Wrap" AcceptsReturn="False" Padding="4,2" />
+                                                </DataTemplate>
+                                            </controls:DataGridTemplateColumn.CellTemplate>
+                                        </controls:DataGridTemplateColumn>
+                                        <controls:DataGridTemplateColumn Header="周课时" Width="*">
+                                            <controls:DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBox Text="{Binding WeeklyCount, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                             BorderThickness="0" Background="Transparent" VerticalAlignment="Center" Padding="4,2" />
+                                                </DataTemplate>
+                                            </controls:DataGridTemplateColumn.CellTemplate>
+                                        </controls:DataGridTemplateColumn>
                                     </controls:DataGrid.Columns>
                                 </controls:DataGrid>
                             </StackPanel>
