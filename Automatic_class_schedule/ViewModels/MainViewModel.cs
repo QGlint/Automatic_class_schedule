@@ -191,6 +191,28 @@ public sealed class MainViewModel : ObservableObject
     }
 
     public ObservableCollection<GradeInput> GradeInputs { get; }
+
+    /// <summary>七年级班级数（代理 GradeInputs[0]）</summary>
+    public int Grade7ClassCount
+    {
+        get => GradeInputs.Count > 0 ? GradeInputs[0].ClassCount : 0;
+        set { if (GradeInputs.Count > 0 && GradeInputs[0].ClassCount != value) { GradeInputs[0].ClassCount = value; OnPropertyChanged(); } }
+    }
+
+    /// <summary>八年级班级数（代理 GradeInputs[1]）</summary>
+    public int Grade8ClassCount
+    {
+        get => GradeInputs.Count > 1 ? GradeInputs[1].ClassCount : 0;
+        set { if (GradeInputs.Count > 1 && GradeInputs[1].ClassCount != value) { GradeInputs[1].ClassCount = value; OnPropertyChanged(); } }
+    }
+
+    /// <summary>九年级班级数（代理 GradeInputs[2]）</summary>
+    public int Grade9ClassCount
+    {
+        get => GradeInputs.Count > 2 ? GradeInputs[2].ClassCount : 0;
+        set { if (GradeInputs.Count > 2 && GradeInputs[2].ClassCount != value) { GradeInputs[2].ClassCount = value; OnPropertyChanged(); } }
+    }
+
     public ObservableCollection<GradeScheduleConfig> GradeConfigs { get; }
     public ObservableCollection<DayToggleItem> EveningDayItems { get; } = new();
     public ObservableCollection<DayToggleItem> GradeEveningDayItems { get; } = new();

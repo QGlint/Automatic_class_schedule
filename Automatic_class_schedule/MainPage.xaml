@@ -233,34 +233,28 @@
                         <Button Content="1. 基础设置" Command="{Binding SelectConfigPageCommand}" CommandParameter="基础设置"
                                 Style="{StaticResource NavActiveButtonStyle}"
                                 Visibility="{Binding SelectedConfigPage, Converter={StaticResource StringMatchToVisibility}, ConverterParameter=基础设置}" />
-                        <Button Content="2. 班级配置" Command="{Binding SelectConfigPageCommand}" CommandParameter="班级配置"
-                                Style="{StaticResource NavButtonStyle}"
-                                Visibility="{Binding SelectedConfigPage, Converter={StaticResource InverseBoolToVisibility}, ConverterParameter=班级配置}" />
-                        <Button Content="2. 班级配置" Command="{Binding SelectConfigPageCommand}" CommandParameter="班级配置"
-                                Style="{StaticResource NavActiveButtonStyle}"
-                                Visibility="{Binding SelectedConfigPage, Converter={StaticResource StringMatchToVisibility}, ConverterParameter=班级配置}" />
-                        <Button Content="3. 课程配置" Command="{Binding SelectConfigPageCommand}" CommandParameter="课程配置"
+                        <Button Content="2. 课程配置" Command="{Binding SelectConfigPageCommand}" CommandParameter="课程配置"
                                 Style="{StaticResource NavButtonStyle}"
                                 Visibility="{Binding SelectedConfigPage, Converter={StaticResource InverseBoolToVisibility}, ConverterParameter=课程配置}" />
-                        <Button Content="3. 课程配置" Command="{Binding SelectConfigPageCommand}" CommandParameter="课程配置"
+                        <Button Content="2. 课程配置" Command="{Binding SelectConfigPageCommand}" CommandParameter="课程配置"
                                 Style="{StaticResource NavActiveButtonStyle}"
                                 Visibility="{Binding SelectedConfigPage, Converter={StaticResource StringMatchToVisibility}, ConverterParameter=课程配置}" />
-                        <Button Content="4. 教师配置" Command="{Binding SelectConfigPageCommand}" CommandParameter="教师配置"
+                        <Button Content="3. 教师配置" Command="{Binding SelectConfigPageCommand}" CommandParameter="教师配置"
                                 Style="{StaticResource NavButtonStyle}"
                                 Visibility="{Binding SelectedConfigPage, Converter={StaticResource InverseBoolToVisibility}, ConverterParameter=教师配置}" />
-                        <Button Content="4. 教师配置" Command="{Binding SelectConfigPageCommand}" CommandParameter="教师配置"
+                        <Button Content="3. 教师配置" Command="{Binding SelectConfigPageCommand}" CommandParameter="教师配置"
                                 Style="{StaticResource NavActiveButtonStyle}"
                                 Visibility="{Binding SelectedConfigPage, Converter={StaticResource StringMatchToVisibility}, ConverterParameter=教师配置}" />
-                        <Button Content="5. 固定课程" Command="{Binding SelectConfigPageCommand}" CommandParameter="固定课程"
+                        <Button Content="4. 固定课程" Command="{Binding SelectConfigPageCommand}" CommandParameter="固定课程"
                                 Style="{StaticResource NavButtonStyle}"
                                 Visibility="{Binding SelectedConfigPage, Converter={StaticResource InverseBoolToVisibility}, ConverterParameter=固定课程}" />
-                        <Button Content="5. 固定课程" Command="{Binding SelectConfigPageCommand}" CommandParameter="固定课程"
+                        <Button Content="4. 固定课程" Command="{Binding SelectConfigPageCommand}" CommandParameter="固定课程"
                                 Style="{StaticResource NavActiveButtonStyle}"
                                 Visibility="{Binding SelectedConfigPage, Converter={StaticResource StringMatchToVisibility}, ConverterParameter=固定课程}" />
-                        <Button Content="6. 自动排课" Command="{Binding SelectConfigPageCommand}" CommandParameter="自动排课"
+                        <Button Content="5. 自动排课" Command="{Binding SelectConfigPageCommand}" CommandParameter="自动排课"
                                 Style="{StaticResource NavButtonStyle}"
                                 Visibility="{Binding SelectedConfigPage, Converter={StaticResource InverseBoolToVisibility}, ConverterParameter=自动排课}" />
-                        <Button Content="6. 自动排课" Command="{Binding SelectConfigPageCommand}" CommandParameter="自动排课"
+                        <Button Content="5. 自动排课" Command="{Binding SelectConfigPageCommand}" CommandParameter="自动排课"
                                 Style="{StaticResource NavActiveButtonStyle}"
                                 Visibility="{Binding SelectedConfigPage, Converter={StaticResource StringMatchToVisibility}, ConverterParameter=自动排课}" />
                         <Rectangle Height="1" Fill="#FFD9E1EC" Margin="0,6,0,8" />
@@ -404,6 +398,7 @@
                                         <RowDefinition Height="Auto" />
                                         <RowDefinition Height="Auto" />
                                         <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
                                     </Grid.RowDefinitions>
                                     <TextBlock Text="每周天数" VerticalAlignment="Center" />
                                     <ComboBox Grid.Column="1" SelectedValue="{Binding DaysPerWeek, Mode=TwoWay}" Margin="0,0,0,6" Width="100" HorizontalAlignment="Left">
@@ -438,6 +433,15 @@
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
+                                    <TextBlock Grid.Row="6" Text="班级数" VerticalAlignment="Center" />
+                                    <StackPanel Grid.Row="6" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6">
+                                        <TextBlock Text="七年级" VerticalAlignment="Center" Margin="0,0,4,0" />
+                                        <TextBox Text="{Binding Grade7ClassCount, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, FallbackValue=8}" Width="50" Margin="0,0,12,0" />
+                                        <TextBlock Text="八年级" VerticalAlignment="Center" Margin="0,0,4,0" />
+                                        <TextBox Text="{Binding Grade8ClassCount, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, FallbackValue=8}" Width="50" Margin="0,0,12,0" />
+                                        <TextBlock Text="九年级" VerticalAlignment="Center" Margin="0,0,4,0" />
+                                        <TextBox Text="{Binding Grade9ClassCount, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, FallbackValue=6}" Width="50" />
+                                    </StackPanel>
                                 </Grid>
                             </StackPanel>
                         </Border>
@@ -508,46 +512,6 @@
                         </Border>
 
                         <TextBlock Text="提示：上午节数 + 下午节数 + 晚自习节数 = 每天总节数。年级默认继承全局配置，可单独覆盖。" Foreground="#FF5A6877" TextWrapping="Wrap" FontSize="12" />
-                    </StackPanel>
-                </ScrollViewer>
-            </Border>
-
-            <!-- ===== 班级配置 ===== -->
-            <Border Grid.Column="1" Margin="0,0,8,0" Style="{StaticResource SectionBorderStyle}"
-                    Visibility="{Binding IsClassConfigVisible, Converter={StaticResource BoolToVisibility}}">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel>
-                        <TextBlock Text="班级配置" FontSize="18" Foreground="#FF214E78" />
-                        <TextBlock Text="确认年级和各年级班级数，系统自动生成班级。" Foreground="#FF5A6877" Margin="0,0,0,10" />
-                        <Border Style="{StaticResource SectionBorderStyle}">
-                            <StackPanel>
-                                <controls:DataGrid ItemsSource="{Binding GradeInputs}" SelectedItem="{Binding SelectedGradeInput, Mode=TwoWay}">
-                                    <controls:DataGrid.Columns>
-                                        <controls:DataGridTextColumn Header="年级" Binding="{Binding GradeName, UpdateSourceTrigger=PropertyChanged}" Width="*" />
-                                        <controls:DataGridTextColumn Header="班级数" Binding="{Binding ClassCount, UpdateSourceTrigger=PropertyChanged}" Width="100" />
-                                    </controls:DataGrid.Columns>
-                                </controls:DataGrid>
-                            </StackPanel>
-                        </Border>
-                        <Border Style="{StaticResource SectionBorderStyle}">
-                            <StackPanel>
-                                <TextBlock Text="班级列表" FontWeight="SemiBold" />
-                                <ItemsControl ItemsSource="{Binding Classes}" Margin="0,6,0,0">
-                                    <ItemsControl.ItemsPanel>
-                                        <ItemsPanelTemplate>
-                                            <ItemsWrapGrid Orientation="Horizontal" />
-                                        </ItemsPanelTemplate>
-                                    </ItemsControl.ItemsPanel>
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <Border Margin="3" Padding="8,5" Background="#FFF0F5FF" CornerRadius="5">
-                                                <TextBlock Text="{Binding DisplayName}" Foreground="#FF214E78" />
-                                            </Border>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </StackPanel>
-                        </Border>
                     </StackPanel>
                 </ScrollViewer>
             </Border>
