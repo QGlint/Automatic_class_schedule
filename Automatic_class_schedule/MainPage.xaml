@@ -295,7 +295,7 @@
                         <StackPanel Visibility="{Binding IsTeacherViewMode, Converter={StaticResource BoolToVisibility}}">
                             <TextBox PlaceholderText="搜索教师..." Text="{Binding TeacherSearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6" Padding="6,4" />
                             <TextBlock Text="教师" FontWeight="SemiBold" Margin="0,0,0,6" />
-                            <ItemsControl ItemsSource="{Binding FilteredTeachers}" MaxHeight="160">
+                            <ItemsControl ItemsSource="{Binding FilteredTeachers}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <Button Content="{Binding Name}" Click="TeacherButton_Click" Style="{StaticResource TagButtonStyle}" />
@@ -318,7 +318,7 @@
 
                         <StackPanel Visibility="{Binding IsClassViewMode, Converter={StaticResource BoolToVisibility}}">
                             <TextBlock Text="班级" FontWeight="SemiBold" Margin="0,8,0,6" />
-                            <ItemsControl ItemsSource="{Binding FilteredClasses}" MaxHeight="160">
+                            <ItemsControl ItemsSource="{Binding FilteredClasses}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <Button Content="{Binding DisplayName}" Click="ClassButton_Click" Style="{StaticResource TagButtonStyle}" />
@@ -326,10 +326,6 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
                         </StackPanel>
-
-                        <Rectangle Height="1" Fill="#FFD9E1EC" Margin="0,6,0,10" />
-                        <Button Content="5 天制" Command="{Binding UseFiveDayCommand}" Style="{StaticResource NavButtonStyle}" />
-                        <Button Content="7 天制" Command="{Binding UseSevenDayCommand}" Style="{StaticResource NavButtonStyle}" />
                     </StackPanel>
                 </ScrollViewer>
             </Border>
@@ -850,32 +846,20 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
 
-                    <!-- ===== 年级总表（合并节次标签 + 班级行 + 天列） ===== -->
+                    <!-- ===== 年级总表（班级行 × 天×节次列） ===== -->
                     <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
                                   Visibility="{Binding IsGradeViewMode, Converter={StaticResource BoolToVisibility}}">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="*" />
-                            </Grid.RowDefinitions>
-
-                            <!-- 表头行 -->
+                        <StackPanel>
+                            <!-- 双层表头 -->
                             <Border Background="#FFF0F5FF" BorderBrush="#FFD9E1EC" BorderThickness="1,1,1,0">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="60" />
-                                        <ColumnDefinition Width="80" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <Border BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,1" Padding="4">
-                                        <TextBlock Text="节次" FontSize="12" FontWeight="SemiBold"
-                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                    </Border>
-                                    <Border Grid.Column="1" BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,1" Padding="4">
+                                <StackPanel Orientation="Horizontal">
+                                    <!-- 班级列标题 -->
+                                    <Border Width="70" BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,1" Padding="4">
                                         <TextBlock Text="班级" FontSize="12" FontWeight="SemiBold"
                                                    HorizontalAlignment="Center" VerticalAlignment="Center" />
                                     </Border>
-                                    <ItemsControl Grid.Column="2" ItemsSource="{Binding DayTabs}">
+                                    <!-- 天列组 -->
+                                    <ItemsControl ItemsSource="{Binding GradeDayHeaders}">
                                         <ItemsControl.ItemsPanel>
                                             <ItemsPanelTemplate>
                                                 <StackPanel Orientation="Horizontal" />
@@ -883,96 +867,74 @@
                                         </ItemsControl.ItemsPanel>
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
-                                                <Border Width="Auto" MinWidth="100" BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,1" Padding="4"
-                                                    Background="#FFF0F5FF">
-                                                    <TextBlock Text="{Binding Name}" FontSize="12" FontWeight="SemiBold"
-                                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                                </Border>
+                                                <StackPanel>
+                                                    <!-- 第一行：天名称 -->
+                                                    <Border BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,1" Padding="4">
+                                                        <TextBlock Text="{Binding DayName}" FontSize="12" FontWeight="SemiBold"
+                                                                   HorizontalAlignment="Center" />
+                                                    </Border>
+                                                    <!-- 第二行：节次编号 -->
+                                                    <ItemsControl ItemsSource="{Binding PeriodNumbers}">
+                                                        <ItemsControl.ItemsPanel>
+                                                            <ItemsPanelTemplate>
+                                                                <StackPanel Orientation="Horizontal" />
+                                                            </ItemsPanelTemplate>
+                                                        </ItemsControl.ItemsPanel>
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Border MinWidth="72" BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,1" Padding="2">
+                                                                    <TextBlock Text="{Binding}" FontSize="11"
+                                                                               HorizontalAlignment="Center" Foreground="#FF5A6877" />
+                                                                </Border>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </StackPanel>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
-                                </Grid>
+                                </StackPanel>
                             </Border>
 
-                            <!-- 数据行：PeriodGroup 分组 -->
-                            <ItemsControl Grid.Row="1" ItemsSource="{Binding GradePeriodGroups}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <StackPanel />
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
+                            <!-- 班级数据行 -->
+                            <ItemsControl ItemsSource="{Binding GradeClassRows}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border BorderBrush="#FFD9E1EC" BorderThickness="1,0,1,0">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="60" />
-                                                    <ColumnDefinition Width="*" />
-                                                </Grid.ColumnDefinitions>
-                                                <!-- 合并的节次标签，自动撑满全高 -->
-                                                <Border Background="#FFF0F5FF" BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,1" Padding="4">
-                                                    <TextBlock Text="{Binding PeriodLabel}" FontSize="12"
+                                        <Border BorderBrush="#FFD9E1EC" BorderThickness="1,0,1,1" Background="#FFFAFBFC">
+                                            <StackPanel Orientation="Horizontal">
+                                                <!-- 班级名称 -->
+                                                <Border Width="70" BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,0" Padding="4">
+                                                    <TextBlock Text="{Binding ClassName}" FontSize="12"
                                                                HorizontalAlignment="Center" VerticalAlignment="Center" />
                                                 </Border>
-                                                <!-- 班级子行 -->
-                                                <ItemsControl Grid.Column="1" ItemsSource="{Binding ClassRows}">
+                                                <!-- 单元格 -->
+                                                <ItemsControl ItemsSource="{Binding Cells}">
                                                     <ItemsControl.ItemsPanel>
                                                         <ItemsPanelTemplate>
-                                                            <StackPanel />
+                                                            <StackPanel Orientation="Horizontal" />
                                                         </ItemsPanelTemplate>
                                                     </ItemsControl.ItemsPanel>
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate>
-                                                            <Border BorderBrush="#FFD9E1EC" BorderThickness="0,0,0,1" Background="#FFFAFBFC">
-                                                                <Grid>
-                                                                    <Grid.ColumnDefinitions>
-                                                                        <ColumnDefinition Width="80" />
-                                                                        <ColumnDefinition Width="*" />
-                                                                    </Grid.ColumnDefinitions>
-                                                                    <!-- 班级名称 -->
-                                                                    <Border BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,0" Padding="4">
-                                                                        <TextBlock Text="{Binding ClassName}" FontSize="12"
-                                                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                                                    </Border>
-                                                                    <!-- 天列 -->
-                                                                    <ItemsControl Grid.Column="1" ItemsSource="{Binding Cells}">
-                                                                        <ItemsControl.ItemsPanel>
-                                                                            <ItemsPanelTemplate>
-                                                                                <StackPanel Orientation="Horizontal" />
-                                                                            </ItemsPanelTemplate>
-                                                                        </ItemsControl.ItemsPanel>
-                                                                        <ItemsControl.ItemTemplate>
-                                                                            <DataTemplate>
-                                                                                <Border Width="Auto" MinWidth="100" MinHeight="36" BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,0" Padding="4"
-                                                                                CanDrag="True" AllowDrop="True"
-                                                                                DragStarting="GridCell_DragStarting"
-                                                                                DragOver="GridCell_DragOver"
-                                                                                Drop="GridCell_Drop">
-                                                                                    <Grid>
-                                                                                        <Border Background="#FFF5F5F5"
-                                                                                                Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibility}}" />
-                                                                                        <TextBlock VerticalAlignment="Center" FontSize="12" TextWrapping="NoWrap"
-                                                                                                   Visibility="{Binding IsEmpty, Converter={StaticResource InverseBoolToVisibility}}">
-                                                                                            <Run Text="{Binding Subject}" />
-                                                                                            <Run Text=" " />
-                                                                                            <Run Text="{Binding TeacherName}" Foreground="#FF556070" />
-                                                                                        </TextBlock>
-                                                                                    </Grid>
-                                                                                </Border>
-                                                                            </DataTemplate>
-                                                                        </ItemsControl.ItemTemplate>
-                                                                    </ItemsControl>
-                                                                </Grid>
+                                                            <Border MinWidth="72" MinHeight="40" BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,0" Padding="4,2"
+                                                                    CanDrag="True" AllowDrop="True"
+                                                                    DragStarting="GridCell_DragStarting"
+                                                                    DragOver="GridCell_DragOver"
+                                                                    Drop="GridCell_Drop">
+                                                                <StackPanel Visibility="{Binding IsEmpty, Converter={StaticResource InverseBoolToVisibility}}">
+                                                                    <TextBlock Text="{Binding Subject}" FontSize="12" TextWrapping="NoWrap" />
+                                                                    <TextBlock Text="{Binding TeacherName}" FontSize="11" Foreground="#FF556070" TextWrapping="NoWrap" />
+                                                                </StackPanel>
                                                             </Border>
                                                         </DataTemplate>
                                                     </ItemsControl.ItemTemplate>
                                                 </ItemsControl>
-                                            </Grid>
+                                            </StackPanel>
                                         </Border>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
-                        </Grid>
+                        </StackPanel>
                     </ScrollViewer>
 
                     <!-- ===== 班级课表（扁平节次行 × 天列） ===== -->

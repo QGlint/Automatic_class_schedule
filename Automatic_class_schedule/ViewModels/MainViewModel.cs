@@ -237,6 +237,8 @@ public sealed class MainViewModel : ObservableObject
     public ObservableCollection<ScheduleDayViewModel> TimetableDays { get; private set; }
     public ObservableCollection<SchedulePeriodRowViewModel> TimetableRows { get; private set; }
     public ObservableCollection<PeriodGroup> GradePeriodGroups { get; private set; } = new();
+        public ObservableCollection<GradeDayHeader> GradeDayHeaders { get; private set; } = new();
+        public ObservableCollection<GradeClassRow> GradeClassRows { get; private set; } = new();
     public ObservableCollection<ScheduleGridRow> MatrixRows { get; private set; } = new();
     public ObservableCollection<SchoolClass> AvailableClasses { get; private set; } = new();
     public ObservableCollection<DayTabItem> DayTabs { get; private set; } = new();
@@ -1889,10 +1891,7 @@ public sealed class MainViewModel : ObservableObject
 
         if (SelectedViewMode == "年级总表")
         {
-            var groups = new ObservableCollection<PeriodGroup>();
-            BuildGradeMatrix(groups, classes, periodsPerDay, daysPerWeek);
-            GradePeriodGroups = groups;
-            OnPropertyChanged(nameof(GradePeriodGroups));
+            BuildGradeMatrix(classes, periodsPerDay, daysPerWeek);
         }
         else if (SelectedViewMode == "班级课表" && SelectedClass is not null)
         {
@@ -1912,34 +1911,35 @@ public sealed class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(DayNames));
     }
 
-    private void BuildGradeMatrix(ObservableCollection<PeriodGroup> groups, List<SchoolClass> classes, int periodsPerDay, int daysPerWeek)
+    private void BuildGradeMatrix(List<SchoolClass> classes, int periodsPerDay, int daysPerWeek)
     {
-        for (int period = 1; period <= periodsPerDay; period++)
+        // 构建双层表头
+        var dayHeaders = new ObservableCollection<GradeDayHeader>();
+        for (int day = 0; day < daysPerWeek; day++)
         {
-            var group = new PeriodGroup
-            {
-                PeriodLabel = $"第{period}节",
-                PeriodIndex = period,
-            };
+            var header = new GradeDayHeader { DayName = GetDayName(day), DayIndex = day };
+            for (int p = 1; p <= periodsPerDay; p++)
+                header.PeriodNumbers.Add(p);
+            dayHeaders.Add(header);
+        }
+        GradeDayHeaders = dayHeaders;
+        OnPropertyChanged(nameof(GradeDayHeaders));
 
-            foreach (var cls in classes)
+        // 构建班级行，每行 Cells 按 day×period 平铺
+        var classRows = new ObservableCollection<GradeClassRow>();
+        foreach (var cls in classes)
+        {
+            var row = new GradeClassRow { ClassName = cls.DisplayName, ClassId = cls.Id };
+            for (int day = 0; day < daysPerWeek; day++)
             {
-                var row = new ScheduleGridRow
-                {
-                    PeriodLabel = "",
-                    PeriodIndex = period,
-                    ClassName = cls.DisplayName,
-                    ClassId = cls.Id,
-                };
-
-                for (int day = 0; day < daysPerWeek; day++)
+                for (int period = 1; period <= periodsPerDay; period++)
                 {
                     var entry = VisibleScheduleEntries
                         .FirstOrDefault(e => e.DayIndex == day && e.PeriodIndex == period && e.ClassId == cls.Id);
-
                     row.Cells.Add(new ScheduleGridCell
                     {
                         DayIndex = day,
+                        PeriodIndex = period,
                         Subject = entry?.Subject ?? "",
                         TeacherName = entry?.TeacherName ?? "",
                         ClassName = cls.DisplayName,
@@ -1947,12 +1947,11 @@ public sealed class MainViewModel : ObservableObject
                         Entry = entry,
                     });
                 }
-
-                group.ClassRows.Add(row);
             }
-
-            groups.Add(group);
+            classRows.Add(row);
         }
+        GradeClassRows = classRows;
+        OnPropertyChanged(nameof(GradeClassRows));
     }
 
     private void BuildSingleClassMatrix(ObservableCollection<ScheduleGridRow> rows, SchoolClass cls, int periodsPerDay, int daysPerWeek)
