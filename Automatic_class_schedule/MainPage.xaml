@@ -1129,11 +1129,13 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel>
                         <TextBlock Text="导出" FontSize="18" Foreground="#FF214E78" />
-                        <TextBlock Text="导出课表到 Excel 文件。" Foreground="#FF5A6877" Margin="0,0,0,10" />
+                        <TextBlock Text="导出课表到 Excel 文件（可选择导出位置）。" Foreground="#FF5A6877" Margin="0,0,0,10" />
                         <Border Style="{StaticResource SectionBorderStyle}">
-                            <StackPanel>
+                            <StackPanel Spacing="8">
                                 <TextBlock Text="导出操作" FontWeight="SemiBold" />
-                                <Button Content="导出课表" Command="{Binding ExportCommand}" Style="{StaticResource RoundButtonBase}" Background="#FF214E78" Foreground="White" HorizontalAlignment="Left" Margin="0,8,0,0" />
+                                <TextBlock Text="导出内容包括：年级总表(简)、年级总表、各年级分表、班级课表、教师课表" FontSize="12" Foreground="#FF5A6877" TextWrapping="Wrap" />
+                                <Button Content="📤 导出课表" Command="{Binding ExportCommand}" Style="{StaticResource RoundButtonBase}" Background="#FF214E78" Foreground="White" HorizontalAlignment="Left" />
+                                <TextBlock Text="点击导出后可选择保存位置，取消则使用默认目录" FontSize="11" Foreground="#FF8899AA" />
                             </StackPanel>
                         </Border>
                         <Border Style="{StaticResource SectionBorderStyle}">

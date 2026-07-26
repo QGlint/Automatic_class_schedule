@@ -1,3 +1,5 @@
+using System.IO;
+using System.Linq;
 using Automatic_class_schedule.Models;
 using Automatic_class_schedule.Services;
 using Automatic_class_schedule.Solver;
@@ -423,6 +425,103 @@ public sealed class NewFeatureTests
             }
 
         _output.WriteLine("非体育教师严格互斥（同时段≤1班） ✓");
+    }
+
+    #endregion
+
+    #region 导出功能
+
+    [Fact]
+    public void ExportAll_CreatesWorkbookWithMultipleSheets()
+    {
+        // 使用示例数据测试导出
+        var data = SampleDataFactory.Create();
+        var solver = new CpSatScheduleSolver();
+        var service = new ScheduleService(solver, new ConflictService());
+        var result = service.Generate(data);
+        data.ScheduleEntries.AddRange(result.Entries);
+
+        string tempDir = Path.Combine(Path.GetTempPath(), $"acs_export_test_{Guid.NewGuid():N}");
+        try
+        {
+            var excelService = new ExcelScheduleService();
+            excelService.ExportAll(data, tempDir);
+
+            string filePath = Path.Combine(tempDir, "课表导出.xlsx");
+            Assert.True(File.Exists(filePath), "导出文件应存在");
+
+            // 验证工作簿内容
+            using var workbook = new ClosedXML.Excel.XLWorkbook(filePath);
+            var sheetNames = workbook.Worksheets.Select(ws => ws.Name).ToList();
+
+            _output.WriteLine($"导出分表数: {sheetNames.Count}");
+            foreach (var name in sheetNames)
+                _output.WriteLine($"  - {name}");
+
+            // 应包含: 总表(简), 总表, 七年级, 八年级, 九年级, 各班, 各教师
+            Assert.Contains("总表(简)", sheetNames);
+            Assert.Contains("总表", sheetNames);
+            Assert.Contains("七年级", sheetNames);
+            Assert.Contains("八年级", sheetNames);
+            Assert.Contains("九年级", sheetNames);
+
+            // 班级分表数应等于班级总数
+            int classCount = data.Classes.Count;
+            int teacherCount = data.ScheduleEntries
+                .Where(e => !string.IsNullOrEmpty(e.TeacherName))
+                .Select(e => e.TeacherName).Distinct().Count();
+
+            // 总分表数 = 5(年级表) + 班级数 + 教师数
+            Assert.Equal(5 + classCount + teacherCount, sheetNames.Count);
+            _output.WriteLine($"\n年级表:5 + 班级表:{classCount} + 教师表:{teacherCount} = {sheetNames.Count} ✓");
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir))
+                Directory.Delete(tempDir, true);
+        }
+    }
+
+    [Fact]
+    public void ExportAll_SimplifiedSheet_ShowsFirstCharOnly()
+    {
+        var data = SampleDataFactory.Create();
+        var solver = new CpSatScheduleSolver();
+        var service = new ScheduleService(solver, new ConflictService());
+        var result = service.Generate(data);
+        data.ScheduleEntries.AddRange(result.Entries);
+
+        string tempDir = Path.Combine(Path.GetTempPath(), $"acs_export_test_{Guid.NewGuid():N}");
+        try
+        {
+            var excelService = new ExcelScheduleService();
+            excelService.ExportAll(data, tempDir);
+
+            using var workbook = new ClosedXML.Excel.XLWorkbook(Path.Combine(tempDir, "课表导出.xlsx"));
+            var simpleSheet = workbook.Worksheet("总表(简)");
+
+            // 检查数据行中的内容都是单字
+            int checkedCells = 0;
+            for (int row = 3; row <= 10; row++)
+            {
+                for (int col = 2; col <= 20; col++)
+                {
+                    string val = simpleSheet.Cell(row, col).GetString();
+                    if (!string.IsNullOrWhiteSpace(val))
+                    {
+                        Assert.True(val.Length <= 2, $"简化表单元格应为1字，实际='{val}'");
+                        checkedCells++;
+                    }
+                }
+            }
+            Assert.True(checkedCells > 0, "简化表应有内容");
+            _output.WriteLine($"简化表检查了 {checkedCells} 个单元格，均为单字 ✓");
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir))
+                Directory.Delete(tempDir, true);
+        }
     }
 
     #endregion

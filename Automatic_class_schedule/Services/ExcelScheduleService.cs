@@ -128,10 +128,268 @@ public sealed class ExcelScheduleService
     public void ExportAll(SchoolData data, string folder)
     {
         Directory.CreateDirectory(folder);
-        ExportWorkbook(Path.Combine(folder, "总课表.xlsx"), "总课表", data.ScheduleEntries);
-        ExportWorkbook(Path.Combine(folder, "班级课表.xlsx"), "班级课表", data.ScheduleEntries);
-        ExportWorkbook(Path.Combine(folder, "教师课表.xlsx"), "教师课表", data.ScheduleEntries);
-        ExportWorkbook(Path.Combine(folder, "年级课表.xlsx"), "年级课表", data.ScheduleEntries);
+        string filePath = Path.Combine(folder, "课表导出.xlsx");
+        using XLWorkbook workbook = new();
+
+        int days = data.Settings.DaysPerWeek;
+        int periods = data.Settings.PeriodsPerDay;
+        var entries = data.ScheduleEntries;
+        var grades = data.Classes.GroupBy(c => c.GradeName).OrderBy(g => g.Key).ToList();
+
+        // ===== Sheet 1: 总表(简) — 全年级拼接，只显示科目第一个字 =====
+        WriteGradeOverviewSheet(workbook, "总表(简)", grades, entries, days, periods, simplified: true);
+
+        // ===== Sheet 2: 总表 — 全年级拼接，显示科目+教师 =====
+        WriteGradeOverviewSheet(workbook, "总表", grades, entries, days, periods, simplified: false);
+
+        // ===== Sheet 3-5: 各年级 =====
+        foreach (var gradeGroup in grades)
+        {
+            string shortName = gradeGroup.Key.Replace("年级", "");
+            WriteGradeOverviewSheet(workbook, $"{shortName}年级", new[] { gradeGroup }, entries, days, periods, simplified: false);
+        }
+
+        // ===== 班级课表: 每班一个分表 =====
+        foreach (var cls in data.Classes.OrderBy(c => c.GradeName).ThenBy(c => c.ClassNumber))
+        {
+            string sheetName = SanitizeSheetName(cls.Name);
+            WriteClassSheet(workbook, sheetName, cls.Name, entries, days, periods);
+        }
+
+        // ===== 教师课表: 每位教师一个分表 =====
+        var teachers = entries.Where(e => !string.IsNullOrEmpty(e.TeacherName))
+            .GroupBy(e => e.TeacherName).OrderBy(g => g.Key).ToList();
+        foreach (var teacherGroup in teachers)
+        {
+            string sheetName = SanitizeSheetName(teacherGroup.Key);
+            WriteTeacherSheet(workbook, sheetName, teacherGroup.Key, teacherGroup.ToList(), days, periods);
+        }
+
+        workbook.SaveAs(filePath);
+    }
+
+    /// <summary>年级总表格式：班级为行，天×节次为列</summary>
+    private static void WriteGradeOverviewSheet(XLWorkbook workbook, string sheetName,
+        IEnumerable<IGrouping<string, SchoolClass>> gradeGroups, IEnumerable<ScheduleEntry> allEntries,
+        int days, int periods, bool simplified)
+    {
+        IXLWorksheet sheet = workbook.AddWorksheet(SanitizeSheetName(sheetName));
+        var entryList = allEntries.ToList();
+        string[] dayNames = { "周一", "周二", "周三", "周四", "周五", "周六", "周日" };
+
+        // 双层表头
+        // Row 1: 空 | 天名称（合并每天的所有节次列）
+        // Row 2: 班级 | 第1节 | 第2节 | ... 重复每天
+        sheet.Cell(1, 1).Value = "班级";
+        sheet.Range(1, 1, 2, 1).Merge();
+
+        int col = 2;
+        for (int d = 0; d < days; d++)
+        {
+            sheet.Cell(1, col).Value = dayNames[d];
+            sheet.Range(1, col, 1, col + periods - 1).Merge();
+            for (int p = 1; p <= periods; p++)
+            {
+                sheet.Cell(2, col).Value = $"第{p}节";
+                col++;
+            }
+        }
+
+        // 数据行
+        int row = 3;
+        foreach (var gradeGroup in gradeGroups)
+        {
+            foreach (var cls in gradeGroup.OrderBy(c => c.ClassNumber))
+            {
+                sheet.Cell(row, 1).Value = cls.Name;
+                col = 2;
+                for (int d = 0; d < days; d++)
+                {
+                    for (int p = 1; p <= periods; p++)
+                    {
+                        var entry = entryList.FirstOrDefault(e =>
+                            e.ClassName == cls.Name && e.DayIndex == d && e.PeriodIndex == p);
+                        if (entry != null)
+                        {
+                            string text = simplified
+                                ? entry.Subject[..1]  // 只显示第一个字
+                                : $"{entry.Subject}\n{entry.TeacherName}";
+                            sheet.Cell(row, col).Value = text;
+                        }
+                        col++;
+                    }
+                }
+                row++;
+            }
+        }
+
+        // 样式
+        StyleHeaderRow(sheet, 1, 1, 1, col - 1);
+        StyleHeaderRow(sheet, 2, 1, 2, col - 1);
+        sheet.Column(1).Width = 10;
+        for (int c = 2; c < col; c++)
+            sheet.Column(c).Width = simplified ? 5 : 9;
+        sheet.Rows().Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+        sheet.Rows().Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        sheet.Rows().Style.Font.FontSize = 10;
+        sheet.Row(1).Style.Font.Bold = true;
+        sheet.Row(2).Style.Font.Bold = true;
+    }
+
+    /// <summary>班级课表格式：节次为行，天为列，固定课纵向合并</summary>
+    private static void WriteClassSheet(XLWorkbook workbook, string sheetName, string className,
+        IEnumerable<ScheduleEntry> allEntries, int days, int periods)
+    {
+        IXLWorksheet sheet = workbook.AddWorksheet(sheetName);
+        var entries = allEntries.Where(e => e.ClassName == className).ToList();
+        string[] dayNames = { "周一", "周二", "周三", "周四", "周五", "周六", "周日" };
+
+        // 标题行
+        sheet.Cell(1, 1).Value = $"{className} 课程表";
+        sheet.Range(1, 1, 1, days + 1).Merge();
+        sheet.Cell(1, 1).Style.Font.Bold = true;
+        sheet.Cell(1, 1).Style.Font.FontSize = 14;
+        sheet.Cell(1, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+        // 表头: 节次 | 周一 | 周二 | ...
+        sheet.Cell(2, 1).Value = "节次";
+        for (int d = 0; d < days; d++)
+            sheet.Cell(2, d + 2).Value = dayNames[d];
+        StyleHeaderRow(sheet, 2, 1, 2, days + 1);
+
+        // 数据行
+        for (int p = 1; p <= periods; p++)
+        {
+            int row = p + 2;
+            sheet.Cell(row, 1).Value = $"第{p}节";
+            sheet.Cell(row, 1).Style.Font.Bold = true;
+
+            for (int d = 0; d < days; d++)
+            {
+                var entry = entries.FirstOrDefault(e => e.DayIndex == d && e.PeriodIndex == p);
+                if (entry != null)
+                    sheet.Cell(row, d + 2).Value = $"{entry.Subject}\n{entry.TeacherName}";
+            }
+        }
+
+        // 固定课纵向合并
+        MergeFixedLessons(sheet, entries, days, periods);
+
+        // 列宽自适应
+        sheet.Column(1).Width = 8;
+        for (int d = 0; d < days; d++)
+            sheet.Column(d + 2).Width = 12;
+        sheet.Rows().Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+        sheet.Rows().Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        sheet.Rows().Style.Font.FontSize = 11;
+        sheet.Rows().Style.Alignment.WrapText = true;
+    }
+
+    /// <summary>教师课表格式：节次为行，天为列，显示班级名</summary>
+    private static void WriteTeacherSheet(XLWorkbook workbook, string sheetName, string teacherName,
+        List<ScheduleEntry> entries, int days, int periods)
+    {
+        IXLWorksheet sheet = workbook.AddWorksheet(sheetName);
+        string[] dayNames = { "周一", "周二", "周三", "周四", "周五", "周六", "周日" };
+
+        // 标题行
+        sheet.Cell(1, 1).Value = $"{teacherName} 课程表";
+        sheet.Range(1, 1, 1, days + 1).Merge();
+        sheet.Cell(1, 1).Style.Font.Bold = true;
+        sheet.Cell(1, 1).Style.Font.FontSize = 14;
+        sheet.Cell(1, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+        // 表头
+        sheet.Cell(2, 1).Value = "节次";
+        for (int d = 0; d < days; d++)
+            sheet.Cell(2, d + 2).Value = dayNames[d];
+        StyleHeaderRow(sheet, 2, 1, 2, days + 1);
+
+        // 数据行
+        for (int p = 1; p <= periods; p++)
+        {
+            int row = p + 2;
+            sheet.Cell(row, 1).Value = $"第{p}节";
+            sheet.Cell(row, 1).Style.Font.Bold = true;
+
+            for (int d = 0; d < days; d++)
+            {
+                // 教师同一时段可能有多个班（体育连班）
+                var slotEntries = entries.Where(e => e.DayIndex == d && e.PeriodIndex == p).ToList();
+                if (slotEntries.Count > 0)
+                {
+                    string text = string.Join("\n", slotEntries.Select(e => $"{e.Subject} {e.ClassName}"));
+                    sheet.Cell(row, d + 2).Value = text;
+                }
+            }
+        }
+
+        // 固定课纵向合并
+        MergeFixedLessons(sheet, entries, days, periods);
+
+        // 列宽
+        sheet.Column(1).Width = 8;
+        for (int d = 0; d < days; d++)
+            sheet.Column(d + 2).Width = 14;
+        sheet.Rows().Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+        sheet.Rows().Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        sheet.Rows().Style.Font.FontSize = 11;
+        sheet.Rows().Style.Alignment.WrapText = true;
+    }
+
+    /// <summary>固定课程纵向合并单元格</summary>
+    private static void MergeFixedLessons(IXLWorksheet sheet, List<ScheduleEntry> entries, int days, int periods)
+    {
+        // 找出固定课（IsFixed=true）的连续同科目段，纵向合并
+        for (int d = 0; d < days; d++)
+        {
+            int p = 1;
+            while (p <= periods)
+            {
+                var entry = entries.FirstOrDefault(e => e.DayIndex == d && e.PeriodIndex == p && e.IsFixed);
+                if (entry != null)
+                {
+                    // 找连续同科目固定课
+                    int startP = p;
+                    while (p + 1 <= periods &&
+                           entries.Any(e => e.DayIndex == d && e.PeriodIndex == p + 1 && e.IsFixed && e.Subject == entry.Subject))
+                    {
+                        p++;
+                    }
+
+                    if (p > startP)
+                    {
+                        // 合并单元格 (startP+2 到 p+2 行, d+2 列)
+                        int startRow = startP + 2;
+                        int endRow = p + 2;
+                        int colIdx = d + 2;
+                        sheet.Range(startRow, colIdx, endRow, colIdx).Merge();
+                        sheet.Cell(startRow, colIdx).Value = $"{entry.Subject}\n{entry.TeacherName}";
+                        sheet.Cell(startRow, colIdx).Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+                    }
+                }
+                p++;
+            }
+        }
+    }
+
+    private static void StyleHeaderRow(IXLWorksheet sheet, int row, int colStart, int rowEnd, int colEnd)
+    {
+        var range = sheet.Range(row, colStart, rowEnd, colEnd);
+        range.Style.Font.Bold = true;
+        range.Style.Fill.BackgroundColor = XLColor.LightSteelBlue;
+        range.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        range.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+        range.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+    }
+
+    /// <summary>Excel sheet名最长31字符，去除非法字符</summary>
+    private static string SanitizeSheetName(string name)
+    {
+        char[] invalid = { '\\', '/', '?', '*', '[', ']', ':' };
+        foreach (char c in invalid)
+            name = name.Replace(c, '_');
+        return name.Length > 31 ? name[..31] : name;
     }
 
     /// <summary>从 xlsx 导入教师配置（读取"教师信息" sheet）</summary>
@@ -221,32 +479,6 @@ public sealed class ExcelScheduleService
         workbook.SaveAs(filePath);
     }
 
-    private static void ExportWorkbook(string filePath, string sheetName, IEnumerable<ScheduleEntry> entries)
-    {
-        using XLWorkbook workbook = new();
-        IXLWorksheet sheet = workbook.AddWorksheet(sheetName);
-        sheet.Cell(1, 1).Value = "班级";
-        sheet.Cell(1, 2).Value = "科目";
-        sheet.Cell(1, 3).Value = "教师";
-        sheet.Cell(1, 4).Value = "星期";
-        sheet.Cell(1, 5).Value = "节次";
-        sheet.Cell(1, 6).Value = "备注";
-
-        int row = 2;
-        foreach (ScheduleEntry entry in entries.OrderBy(x => x.ClassName).ThenBy(x => x.DayIndex).ThenBy(x => x.PeriodIndex))
-        {
-            sheet.Cell(row, 1).Value = entry.ClassName;
-            sheet.Cell(row, 2).Value = entry.Subject;
-            sheet.Cell(row, 3).Value = entry.TeacherName;
-            sheet.Cell(row, 4).Value = $"周{entry.DayIndex + 1}";
-            sheet.Cell(row, 5).Value = entry.PeriodIndex;
-            sheet.Cell(row, 6).Value = entry.Note;
-            row++;
-        }
-
-        sheet.Columns().AdjustToContents();
-        workbook.SaveAs(filePath);
-    }
 
     private static IEnumerable<SchoolClass> ResolveClasses(string classRange, List<SchoolClass> classes)
     {

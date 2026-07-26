@@ -91,7 +91,7 @@ public sealed class MainViewModel : ObservableObject
         SaveCommand = new RelayCommand(SaveData);
         LoadCommand = new RelayCommand(LoadData);
         NewProjectCommand = new RelayCommand(NewProject);
-        ExportCommand = new RelayCommand(ExportExcel);
+        ExportCommand = new RelayCommand(() => _ = ExportExcelAsync());
         ImportCommand = new RelayCommand(() => _ = ImportExcelAsync());
         CancelCommand = new RelayCommand(CancelOperation, () => IsBusy);
         UseFiveDayCommand = new RelayCommand(() => SetDaysPerWeek(5));
@@ -1968,12 +1968,40 @@ public sealed class MainViewModel : ObservableObject
         RefreshViews();
     }
 
-    private void ExportExcel()
+    private async Task ExportExcelAsync()
     {
-        string folder = EnsureExportFolder();
-        _excelService.ExportAll(BuildSchoolData(), folder);
-        StatusMessage = $"已导出到 {folder}";
-        Log("导出 Excel");
+        // 默认导出路径
+        string defaultFolder = EnsureExportFolder();
+
+        // 弹出文件夹选择器，允许用户选择导出位置
+        var folderPicker = new Windows.Storage.Pickers.FolderPicker
+        {
+            SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary
+        };
+        folderPicker.FileTypeFilter.Add("*");
+
+        var hwnd = WindowHandle != 0 ? WindowHandle : WinRT.Interop.WindowNative.GetWindowHandle(App.CurrentWindow!);
+        WinRT.Interop.InitializeWithWindow.Initialize(folderPicker, hwnd);
+
+        var folder = await folderPicker.PickSingleFolderAsync();
+        string exportPath = folder != null ? folder.Path : defaultFolder;
+
+        try
+        {
+            IsBusy = true;
+            StatusMessage = "正在导出...";
+            await Task.Run(() => _excelService.ExportAll(BuildSchoolData(), exportPath));
+            StatusMessage = $"已导出到 {exportPath}";
+            Log($"导出 Excel: {exportPath}");
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"导出失败: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
     }
 
     private async Task ImportExcelAsync()
