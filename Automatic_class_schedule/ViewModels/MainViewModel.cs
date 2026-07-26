@@ -46,6 +46,12 @@ public sealed class MainViewModel : ObservableObject
     private readonly RecentProjectsService _recentProjects;
     private bool[] _eveningStudyDays = { true, true, true, true, true, false, false };
     private int _selectedSettingsTabIndex;
+    private double _dialogProgress;
+    private string _dialogProgressText = string.Empty;
+    private bool _dialogIsComplete;
+    private string _dialogTitle = "自动排课";
+    private System.Threading.Timer? _progressSmoothTimer;
+    private Microsoft.UI.Dispatching.DispatcherQueue? _dispatcherQueue;
 
     public MainViewModel()
     {
@@ -579,6 +585,96 @@ public sealed class MainViewModel : ObservableObject
     {
         get => _progressMessage;
         set => SetProperty(ref _progressMessage, value);
+    }
+
+    // ===== 排课进度弹窗属性 =====
+    public double DialogProgress
+    {
+        get => _dialogProgress;
+        set => SetProperty(ref _dialogProgress, value);
+    }
+
+    public string DialogProgressText
+    {
+        get => _dialogProgressText;
+        set => SetProperty(ref _dialogProgressText, value);
+    }
+
+    public bool DialogIsComplete
+    {
+        get => _dialogIsComplete;
+        set
+        {
+            if (SetProperty(ref _dialogIsComplete, value))
+                OnPropertyChanged(nameof(DialogIsRunning));
+        }
+    }
+
+    public bool DialogIsRunning => !DialogIsComplete;
+
+    public string DialogTitle
+    {
+        get => _dialogTitle;
+        set => SetProperty(ref _dialogTitle, value);
+    }
+
+    /// <summary>弹窗是否应显示（由View绑定控制ContentDialog显示）</summary>
+    public bool IsScheduleDialogOpen { get; set; }
+
+    /// <summary>请求打开进度弹窗（View订阅）</summary>
+    public event Action? RequestOpenProgressDialog;
+    /// <summary>请求关闭进度弹窗（View订阅）</summary>
+    public event Action? RequestCloseProgressDialog;
+
+    /// <summary>打开进度弹窗</summary>
+    private void OpenProgressDialog(string title)
+    {
+        DialogTitle = title;
+        DialogProgress = 0;
+        DialogProgressText = "正在准备...";
+        DialogIsComplete = false;
+        IsScheduleDialogOpen = true;
+        RequestOpenProgressDialog?.Invoke();
+    }
+
+    /// <summary>关闭进度弹窗</summary>
+    private void CloseProgressDialog()
+    {
+        StopSmoothProgress();
+        IsScheduleDialogOpen = false;
+        RequestCloseProgressDialog?.Invoke();
+    }
+
+    /// <summary>更新弹窗进度</summary>
+    private void UpdateDialogProgress(double value, string? text = null)
+    {
+        DialogProgress = Math.Clamp(value, 0, 1);
+        DialogProgressText = text ?? $"正在排课... {DialogProgress * 100:F0}%";
+    }
+
+    /// <summary>启动平滑进度定时器（求解阶段用）</summary>
+    private void StartSmoothProgress(double from, double to)
+    {
+        StopSmoothProgress();
+        _dispatcherQueue ??= Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
+        double current = from;
+        double step = (to - from) / 60; // 约30秒内平滑到目标
+        var dispatcher = _dispatcherQueue;
+        _progressSmoothTimer = new System.Threading.Timer(_ =>
+        {
+            if (current < to - step)
+            {
+                current += step;
+                dispatcher?.TryEnqueue(() => UpdateDialogProgress(current));
+            }
+        }, null, 500, 500);
+    }
+
+    /// <summary>停止平滑进度定时器</summary>
+    private void StopSmoothProgress()
+    {
+        _progressSmoothTimer?.Dispose();
+        _progressSmoothTimer = null;
     }
 
     public string TeacherSearchText
@@ -1331,6 +1427,113 @@ public sealed class MainViewModel : ObservableObject
         StatusMessage = "换课失败：存在冲突";
     }
 
+    /// <summary>拖拽后最小变化重排</summary>
+    public async Task DragRescheduleAsync(ScheduleEntry draggedEntry, int targetDay, int targetPeriod, ScheduleEntry? targetEntry)
+    {
+        if (IsBusy) return;
+        IsBusy = true;
+
+        try
+        {
+            _cts = new CancellationTokenSource();
+            OpenProgressDialog("重新排课");
+
+            // 执行移动/交换
+            if (targetEntry != null)
+            {
+                // 交换位置
+                int srcDay = draggedEntry.DayIndex, srcPeriod = draggedEntry.PeriodIndex;
+                draggedEntry.DayIndex = targetEntry.DayIndex;
+                draggedEntry.PeriodIndex = targetEntry.PeriodIndex;
+                targetEntry.DayIndex = srcDay;
+                targetEntry.PeriodIndex = srcPeriod;
+                draggedEntry.Locked = true;
+                targetEntry.Locked = true;
+            }
+            else
+            {
+                // 移动到空位
+                draggedEntry.DayIndex = targetDay;
+                draggedEntry.PeriodIndex = targetPeriod;
+                draggedEntry.Locked = true;
+            }
+
+            UpdateDialogProgress(0.05, "正在准备重新排课...");
+
+            // 收集所有锁定课程
+            var locks = ScheduleEntries
+                .Where(e => e.Locked)
+                .Select(e => new LockedLesson
+                {
+                    RequirementId = e.RequirementId,
+                    EntryId = e.Id,
+                    DayIndex = e.DayIndex,
+                    PeriodIndex = e.PeriodIndex
+                }).ToList();
+
+            UpdateDialogProgress(0.15, "正在求解...");
+            SchoolData data = BuildSchoolData();
+
+            // 求解阶段平滑进度
+            StartSmoothProgress(0.15, 0.85);
+            IProgress<double> progress = new Progress<double>(v =>
+            {
+                double mapped = 0.15 + v * 0.70;
+                StopSmoothProgress();
+                UpdateDialogProgress(mapped);
+                StartSmoothProgress(mapped, 0.85);
+            });
+
+            ScheduleResult result = await Task.Run(
+                () => _scheduleService.GenerateWithLocks(data, locks, progress, _cts.Token, relaxConsecutiveDays: true),
+                _cts.Token);
+
+            StopSmoothProgress();
+            UpdateDialogProgress(0.90, "正在整理结果...");
+
+            // 更新课表
+            ScheduleEntries.Clear();
+            foreach (ScheduleEntry entry in result.Entries.OrderBy(x => x.DayIndex).ThenBy(x => x.PeriodIndex))
+            {
+                ScheduleEntries.Add(entry);
+            }
+
+            Conflicts.Clear();
+            foreach (ScheduleConflict conflict in result.Conflicts)
+            {
+                Conflicts.Add(conflict);
+            }
+
+            OnPropertyChanged(nameof(TotalScheduleEntries));
+            OnPropertyChanged(nameof(TotalConflicts));
+
+            UpdateDialogProgress(1.0, "重新排课完成！");
+            DialogIsComplete = true;
+
+            StatusMessage = $"重新排课完成：{ScheduleEntries.Count} 节课";
+            Log($"拖拽重排：{ScheduleEntries.Count} 节课");
+            RefreshViews();
+        }
+        catch (OperationCanceledException)
+        {
+            StopSmoothProgress();
+            CloseProgressDialog();
+            StatusMessage = "重新排课已取消";
+            RefreshViews();
+        }
+        finally
+        {
+            IsBusy = false;
+            _cts = null;
+        }
+    }
+
+    /// <summary>弹窗完成后点击确认关闭</summary>
+    public void ConfirmProgressDialog()
+    {
+        CloseProgressDialog();
+    }
+
     private void CancelOperation()
     {
         _cts?.Cancel();
@@ -1656,25 +1859,41 @@ public sealed class MainViewModel : ObservableObject
     {
         if (IsBusy) return;
         IsBusy = true;
-        ProgressMessage = "正在生成需求...";
-        ProgressValue = 0;
 
         try
         {
             _cts = new CancellationTokenSource();
+            OpenProgressDialog("自动排课");
+
+            // 阶段1: 生成需求 (0-5%)
+            UpdateDialogProgress(0.02, "正在生成需求...");
+            GenerateRequirements();
+            UpdateDialogProgress(0.05, "正在生成需求... 5%");
+
+            // 阶段2: 构建数据 (5-15%)
+            UpdateDialogProgress(0.10, "正在构建模型...");
+            SchoolData data = BuildSchoolData();
+            UpdateDialogProgress(0.15, "正在构建模型... 15%");
+
+            // 阶段3: 求解 (15-85%) — 启动平滑进度
+            StartSmoothProgress(0.15, 0.85);
             IProgress<double> progress = new Progress<double>(v =>
             {
-                ProgressValue = v;
-                ProgressMessage = $"正在自动排课... {v * 100:F0}%";
+                // 求解器报告 0-1 映射到 UI 15-85%
+                double mapped = 0.15 + v * 0.70;
+                StopSmoothProgress();
+                UpdateDialogProgress(mapped);
+                // 重新启动平滑（下次回调前继续平滑）
+                StartSmoothProgress(mapped, 0.85);
             });
 
-            GenerateRequirements();
-            ProgressValue = 0.05;
-            ProgressMessage = "正在自动排课... 5%";
-
-            SchoolData data = BuildSchoolData();
             ScheduleResult result = await Task.Run(
                 () => _scheduleService.Generate(data, progress, _cts.Token), _cts.Token);
+
+            StopSmoothProgress();
+
+            // 阶段4: 输出结果 (85-100%)
+            UpdateDialogProgress(0.90, "正在整理结果...");
 
             ScheduleEntries.Clear();
             foreach (ScheduleEntry entry in result.Entries.OrderBy(x => x.DayIndex).ThenBy(x => x.PeriodIndex))
@@ -1691,20 +1910,23 @@ public sealed class MainViewModel : ObservableObject
             OnPropertyChanged(nameof(TotalScheduleEntries));
             OnPropertyChanged(nameof(TotalConflicts));
 
+            UpdateDialogProgress(1.0, "排课完成！");
+            DialogIsComplete = true;
+
             StatusMessage = $"排课完成：{ScheduleEntries.Count} 节课，{Conflicts.Count} 条提示";
             Log($"自动排课：{ScheduleEntries.Count} 节课");
             RefreshViews();
         }
         catch (OperationCanceledException)
         {
+            StopSmoothProgress();
+            CloseProgressDialog();
             StatusMessage = "排课已取消";
         }
         finally
         {
             IsBusy = false;
             _cts = null;
-            ProgressValue = 0;
-            ProgressMessage = string.Empty;
         }
     }
 
@@ -2179,8 +2401,12 @@ public sealed class MainViewModel : ObservableObject
 
             for (int day = 0; day < daysPerWeek; day++)
             {
-                var entry = VisibleScheduleEntries
-                    .FirstOrDefault(e => e.DayIndex == day && e.PeriodIndex == period);
+                // 取同时段所有条目（体育连班可能有多个）
+                var entries = VisibleScheduleEntries
+                    .Where(e => e.DayIndex == day && e.PeriodIndex == period)
+                    .OrderBy(e => e.ClassName)
+                    .ToList();
+                var entry = entries.FirstOrDefault();
 
                 row.Cells.Add(new ScheduleGridCell
                 {
@@ -2190,6 +2416,7 @@ public sealed class MainViewModel : ObservableObject
                     ClassName = entry?.ClassName ?? "",
                     EntryId = entry?.Id ?? Guid.Empty,
                     Entry = entry,
+                    AllEntries = entries,
                 });
             }
 

@@ -28,12 +28,12 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
         return SolveInternal(problem, Array.Empty<LockedLesson>(), progress, ct);
     }
 
-    public ScheduleResult SolveWithLocks(ScheduleProblem problem, List<LockedLesson> locks, IProgress<double>? progress = null, CancellationToken ct = default)
+    public ScheduleResult SolveWithLocks(ScheduleProblem problem, List<LockedLesson> locks, IProgress<double>? progress = null, CancellationToken ct = default, bool relaxConsecutiveDays = false)
     {
-        return SolveInternal(problem, locks, progress, ct);
+        return SolveInternal(problem, locks, progress, ct, relaxConsecutiveDays);
     }
 
-    private ScheduleResult SolveInternal(ScheduleProblem problem, IReadOnlyCollection<LockedLesson> locks, IProgress<double>? progress, CancellationToken ct)
+    private ScheduleResult SolveInternal(ScheduleProblem problem, IReadOnlyCollection<LockedLesson> locks, IProgress<double>? progress, CancellationToken ct, bool relaxConsecutiveDays = false)
     {
         progress?.Report(0.05);
 
@@ -63,6 +63,10 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
                     x[r, d, p] = model.NewBoolVar($"x_{r}_{d}_{p}");
 
         progress?.Report(0.15);
+
+        // 软约束目标（提前声明，C9放松模式需要）
+        List<LinearExpr> objTerms = new();
+        List<int> objWeights = new();
 
         // ==================== 硬约束 ====================
 
@@ -97,7 +101,7 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
                     model.AddAtMostOne(indices.Select(i => (ILiteral)x[i, d, p]).ToList());
         }
 
-        // H3: 教师时间槽互斥（体育教师跳过，支持合班）
+        // H3: 教师时间槽互斥（体育教师允许连班但最多2班）
         var teacherGroups = requirements
             .Select((req, idx) => (req, idx))
             .Where(t => t.req.TeacherId != Guid.Empty)
@@ -106,11 +110,16 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
 
         foreach (var group in teacherGroups)
         {
-            if (group.All(t => t.req.Subject == "体育")) continue;
             var indices = group.Select(t => t.idx).ToList();
+            bool isPE = group.All(t => t.req.Subject == "体育");
             for (int d = 0; d < days; d++)
                 for (int p = 1; p <= periods; p++)
-                    model.AddAtMostOne(indices.Select(i => (ILiteral)x[i, d, p]).ToList());
+                {
+                    if (isPE)
+                        model.Add(LinearExpr.Sum(indices.Select(i => (ILiteral)x[i, d, p]).ToList()) <= 2);
+                    else
+                        model.AddAtMostOne(indices.Select(i => (ILiteral)x[i, d, p]).ToList());
+                }
         }
 
         // H4: 固定课程占位
@@ -219,7 +228,7 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
                                 model.Add(x[idx, d, p] == 0);
                 }
 
-                // C9: 连天约束
+                // C9: 连天约束（relaxConsecutiveDays时降级为软约束）
                 if (totalWeekly == 2 && days >= 3)
                 {
                     // 每周2节的科目不能出现在连续两天
@@ -235,8 +244,23 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
                         model.Add(LinearExpr.Sum(dayVars) == 0).OnlyEnforceIf(hasDay.Not());
                         dayHasSubj.Add(hasDay);
                     }
-                    for (int d = 0; d < days - 1; d++)
-                        model.Add(LinearExpr.Sum(new ILiteral[] { dayHasSubj[d], dayHasSubj[d + 1] }) <= 1);
+                    if (relaxConsecutiveDays)
+                    {
+                        // 软约束：违反时惩罚
+                        for (int d = 0; d < days - 1; d++)
+                        {
+                            var viol = model.NewBoolVar($"viol2_{subject}_{group.Key}_{d}");
+                            model.Add(LinearExpr.Sum(new ILiteral[] { dayHasSubj[d], dayHasSubj[d + 1] }) == 2).OnlyEnforceIf(viol);
+                            model.Add(LinearExpr.Sum(new ILiteral[] { dayHasSubj[d], dayHasSubj[d + 1] }) <= 1).OnlyEnforceIf(viol.Not());
+                            objTerms.Add(viol);
+                            objWeights.Add(-5);
+                        }
+                    }
+                    else
+                    {
+                        for (int d = 0; d < days - 1; d++)
+                            model.Add(LinearExpr.Sum(new ILiteral[] { dayHasSubj[d], dayHasSubj[d + 1] }) <= 1);
+                    }
                 }
                 else if (totalWeekly == 3 && days >= 4)
                 {
@@ -261,7 +285,18 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
                         model.Add(LinearExpr.Sum(new ILiteral[] { dayHasSubj3[d], dayHasSubj3[d + 1] }) <= 1).OnlyEnforceIf(pair.Not());
                         consecutivePairs.Add(pair);
                     }
-                    model.Add(LinearExpr.Sum(consecutivePairs) <= 1);
+                    if (relaxConsecutiveDays)
+                    {
+                        // 软约束：允许超过1对但惩罚
+                        var excess = model.NewIntVar(0, days, $"excess3_{subject}_{group.Key}");
+                        model.Add(LinearExpr.Sum(consecutivePairs) <= 1 + excess);
+                        objTerms.Add(excess);
+                        objWeights.Add(-5);
+                    }
+                    else
+                    {
+                        model.Add(LinearExpr.Sum(consecutivePairs) <= 1);
+                    }
                 }
             }
 
@@ -318,8 +353,6 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
         progress?.Report(0.4);
 
         // ==================== 软约束（优化目标） ====================
-        List<LinearExpr> objTerms = new();
-        List<int> objWeights = new();
 
         foreach (var group in classGroups)
         {
@@ -451,7 +484,8 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
         model.Maximize(LinearExpr.WeightedSum(objTerms.ToArray(), objWeights.ToArray()));
 
         CpSolver solver = new();
-        solver.StringParameters = "max_time_in_seconds:30;num_workers:4;random_seed:42;";
+        int timeLimit = relaxConsecutiveDays ? 10 : 30;
+        solver.StringParameters = $"max_time_in_seconds:{timeLimit};num_workers:4;random_seed:42;";
 
         progress?.Report(0.6);
         var callback = new ProgressCallback(progress, ct);

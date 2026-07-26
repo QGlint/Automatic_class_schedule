@@ -29,6 +29,21 @@ public sealed class ScheduleGridCell
     public Guid EntryId { get; set; }
     public ScheduleEntry? Entry { get; set; }
     public bool IsEmpty => string.IsNullOrWhiteSpace(Subject);
+
+    /// <summary>同时段所有条目（教师课表连班用）</summary>
+    public List<ScheduleEntry> AllEntries { get; set; } = new();
+
+    /// <summary>显示文本（连班时显示 "体育 七1+七2"）</summary>
+    public string DisplayText
+    {
+        get
+        {
+            if (IsEmpty) return string.Empty;
+            if (AllEntries.Count <= 1) return $"{Subject} {ClassName}";
+            var classes = string.Join("+", AllEntries.Select(e => e.ClassName).Distinct().Take(2));
+            return $"{Subject} {classes}";
+        }
+    }
 }
 
 public sealed class DayTabItem

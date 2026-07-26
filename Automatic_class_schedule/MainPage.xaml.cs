@@ -18,6 +18,13 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
         InitializeComponent();
         DataContext = new MainViewModel();
         Loaded += (_, _) => InitWindowHandle();
+
+        // 订阅进度弹窗事件
+        if (DataContext is MainViewModel vm)
+        {
+            vm.RequestOpenProgressDialog += OnRequestOpenProgressDialog;
+            vm.RequestCloseProgressDialog += OnRequestCloseProgressDialog;
+        }
     }
 
     private void InitWindowHandle()
@@ -551,12 +558,20 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
 
     private void GridCell_Drop(object sender, DragEventArgs e)
     {
-        if (sender is FrameworkElement element && element.DataContext is ScheduleGridCell targetCell && targetCell.Entry != null)
+        if (sender is FrameworkElement element && element.DataContext is ScheduleGridCell targetCell)
         {
-            if (e.DataView.Properties.TryGetValue("ScheduleEntry", out object value) && value is ScheduleEntry source && source.Id != targetCell.Entry.Id)
+            if (e.DataView.Properties.TryGetValue("ScheduleEntry", out object value) && value is ScheduleEntry source)
             {
-                ((MainViewModel)DataContext).SwapEntries(source, targetCell.Entry);
-                e.Handled = true;
+                var vm = (MainViewModel)DataContext;
+                ScheduleEntry? targetEntry = targetCell.Entry != null && targetCell.Entry.Id != source.Id
+                    ? targetCell.Entry
+                    : null;
+
+                if (targetEntry != null || targetCell.IsEmpty)
+                {
+                    _ = vm.DragRescheduleAsync(source, targetCell.DayIndex, targetCell.PeriodIndex, targetEntry);
+                    e.Handled = true;
+                }
             }
         }
     }
@@ -610,6 +625,40 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
                 tabs[i].Background = lightBrush;
                 tabs[i].Foreground = darkBrush;
             }
+        }
+    }
+
+    // ===== 排课进度弹窗事件 =====
+
+    private async void OnRequestOpenProgressDialog()
+    {
+        ScheduleProgressDialog.PrimaryButtonClick -= OnProgressDialogCancel;
+        ScheduleProgressDialog.CloseButtonClick -= OnProgressDialogConfirm;
+        ScheduleProgressDialog.PrimaryButtonClick += OnProgressDialogCancel;
+        ScheduleProgressDialog.CloseButtonClick += OnProgressDialogConfirm;
+        await ScheduleProgressDialog.ShowAsync();
+    }
+
+    private void OnRequestCloseProgressDialog()
+    {
+        ScheduleProgressDialog.Hide();
+    }
+
+    private void OnProgressDialogCancel(ContentDialog sender, ContentDialogButtonClickEventArgs args)
+    {
+        // 取消排课
+        if (DataContext is MainViewModel vm)
+        {
+            vm.CancelCommand.Execute(null);
+        }
+    }
+
+    private void OnProgressDialogConfirm(ContentDialog sender, ContentDialogButtonClickEventArgs args)
+    {
+        // 完成后确认关闭
+        if (DataContext is MainViewModel vm)
+        {
+            vm.ConfirmProgressDialog();
         }
     }
 }
