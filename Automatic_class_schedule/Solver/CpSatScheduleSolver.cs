@@ -5,22 +5,21 @@ using Google.OrTools.Sat;
 namespace Automatic_class_schedule.Solver;
 
 /// <summary>
-/// 基于 Google OR-Tools CP-SAT 的排课求解器。
-/// 硬约束：班级/教师时间冲突、固定课程占位、每周课时数满足。
-/// 软约束（优化目标）：均匀分布、上午偏好、首节多样性、避免连排、下午体育等。
+/// 基于 Google OR-Tools CP-SAT 的整体式排课求解器。
+/// 设计思路：以班级课表为整体建模，而非逐课程独立放置。
+/// 核心约束来自人工课表分析：
+///   - 主科(语数英)每天上午最多1节，多出排下午
+///   - 同科目绝不连排（相邻节次不同科）
+///   - 第1节在一周内轮换（语/数/英交替）
+///   - 体育/副科尽量排下午
+///   - 教师时间不冲突
 /// </summary>
 public sealed class CpSatScheduleSolver : IScheduleSolver
 {
     private readonly ConflictService _conflictService = new();
 
-    // 主科集合：允许偶尔连排
     private static readonly HashSet<string> MainSubjects = new() { "语文", "数学", "英语" };
-    // 绝不连排的科目
-    private static readonly HashSet<string> NoConsecutiveSubjects = new() { "物理", "化学", "体育", "生物" };
-    // 下午优先科目
-    private static readonly HashSet<string> AfternoonSubjects = new() { "体育" };
-    // 偏周五/下午的副科
-    private static readonly HashSet<string> PreferFridaySubjects = new() { "美术", "音乐", "信息" };
+    private static readonly HashSet<string> AfternoonSubjects = new() { "体育", "音乐", "美术", "信息" };
 
     public ScheduleResult Solve(ScheduleProblem problem, IProgress<double>? progress = null, CancellationToken ct = default)
     {
@@ -38,54 +37,51 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
 
         int days = problem.Settings.DaysPerWeek;
         int periods = problem.Settings.PeriodsPerDay;
-        int morningPeriods = problem.Settings.MorningPeriods;
+        int morning = problem.Settings.MorningPeriods; // 上午节次数(通常4)
 
-        // 预放置固定课程，构建被占用的时间槽
         var fixedSlots = BuildFixedSlots(problem);
-        var lockedMap = BuildLockedMap(locks, problem);
-
-        // 需要排课的需求列表（排除已被锁定完全覆盖的）
+        var lockedMap = locks.GroupBy(x => x.RequirementId).ToDictionary(x => x.Key, x => x.Count());
         var requirements = problem.Requirements.ToList();
+
+        // ========== 容量预检 ==========
+        var preConflicts = ValidateCapacity(problem, requirements, fixedSlots, days, periods);
+        bool hasOverflow = preConflicts.Any(c => c.Severity == ScheduleConflictSeverity.Hard);
 
         progress?.Report(0.1);
 
         // ========== 构建 CP-SAT 模型 ==========
         CpModel model = new();
 
-        // 决策变量: x[r, d, p] = 1 表示需求 r 在周 d 第 p 节有一节课
-        // r: requirement index, d: 0-based day, p: 1-based period
-        var x = new BoolVar[requirements.Count, days, periods + 1];
-        for (int r = 0; r < requirements.Count; r++)
-        {
+        // 决策变量: x[r, d, p] = 1 表示需求 r 在第 d 天第 p 节上课
+        int reqCount = requirements.Count;
+        var x = new BoolVar[reqCount, days, periods + 1]; // period 1-based
+        for (int r = 0; r < reqCount; r++)
             for (int d = 0; d < days; d++)
-            {
                 for (int p = 1; p <= periods; p++)
-                {
                     x[r, d, p] = model.NewBoolVar($"x_{r}_{d}_{p}");
-                }
-            }
-        }
 
         progress?.Report(0.15);
 
-        // ========== 硬约束 ==========
+        // ==================== 硬约束 ====================
 
-        // H1: 每个需求的总课时 == WeeklyCount（减去已锁定数量）
-        for (int r = 0; r < requirements.Count; r++)
+        // H1: 课时数约束
+        for (int r = 0; r < reqCount; r++)
         {
-            LessonRequirement req = requirements[r];
-            int lockedCount = lockedMap.TryGetValue(req.Id, out int lc) ? lc : 0;
-            int needed = Math.Max(0, req.WeeklyCount - lockedCount);
+            int lockedCount = lockedMap.TryGetValue(requirements[r].Id, out int lc) ? lc : 0;
+            int needed = Math.Max(0, requirements[r].WeeklyCount - lockedCount);
 
-            List<ILiteral> allSlots = new();
+            List<ILiteral> all = new();
             for (int d = 0; d < days; d++)
                 for (int p = 1; p <= periods; p++)
-                    allSlots.Add(x[r, d, p]);
+                    all.Add(x[r, d, p]);
 
-            model.Add(LinearExpr.Sum(allSlots) == needed);
+            if (hasOverflow)
+                model.Add(LinearExpr.Sum(all) <= needed);
+            else
+                model.Add(LinearExpr.Sum(all) == needed);
         }
 
-        // H2: 每个班级在每个时间槽最多一节课
+        // H2: 班级时间槽互斥 — 每个班级每个时间槽最多1节课
         var classGroups = requirements
             .Select((req, idx) => (req, idx))
             .GroupBy(t => t.req.ClassId)
@@ -95,16 +91,11 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
         {
             var indices = group.Select(t => t.idx).ToList();
             for (int d = 0; d < days; d++)
-            {
                 for (int p = 1; p <= periods; p++)
-                {
-                    List<ILiteral> slotVars = indices.Select(i => (ILiteral)x[i, d, p]).ToList();
-                    model.AddAtMostOne(slotVars);
-                }
-            }
+                    model.AddAtMostOne(indices.Select(i => (ILiteral)x[i, d, p]).ToList());
         }
 
-        // H3: 每个教师在每个时间槽最多一节课（体育教师除外——支持合班上课）
+        // H3: 教师时间槽互斥（体育教师跳过，支持合班）
         var teacherGroups = requirements
             .Select((req, idx) => (req, idx))
             .Where(t => t.req.TeacherId != Guid.Empty)
@@ -113,294 +104,240 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
 
         foreach (var group in teacherGroups)
         {
-            // 如果该教师所有课都是体育，则跳过教师冲突约束（允许合班）
-            bool isPeTeacher = group.All(t => t.req.Subject == "体育");
-            if (isPeTeacher) continue;
-
+            if (group.All(t => t.req.Subject == "体育")) continue;
             var indices = group.Select(t => t.idx).ToList();
             for (int d = 0; d < days; d++)
-            {
                 for (int p = 1; p <= periods; p++)
-                {
-                    List<ILiteral> slotVars = indices.Select(i => (ILiteral)x[i, d, p]).ToList();
-                    model.AddAtMostOne(slotVars);
-                }
-            }
+                    model.AddAtMostOne(indices.Select(i => (ILiteral)x[i, d, p]).ToList());
         }
 
-        // H4: 固定课程/锁定课程占位 → 禁止冲突
-        for (int r = 0; r < requirements.Count; r++)
-        {
-            LessonRequirement req = requirements[r];
+        // H4: 固定课程占位
+        for (int r = 0; r < reqCount; r++)
             for (int d = 0; d < days; d++)
-            {
                 for (int p = 1; p <= periods; p++)
-                {
-                    if (IsSlotBlocked(fixedSlots, req, d, p))
-                    {
+                    if (IsSlotBlocked(fixedSlots, requirements[r], d, p))
                         model.Add(x[r, d, p] == 0);
-                    }
-                }
-            }
-        }
 
         // H5: 锁定课程强制放置
-        foreach (var (reqId, slots) in lockedMap)
+        foreach (var locked in locks)
         {
-            int rIdx = requirements.FindIndex(rq => rq.Id == reqId);
+            int rIdx = requirements.FindIndex(rq => rq.Id == locked.RequirementId);
             if (rIdx < 0) continue;
-            foreach (var (ld, lp) in GetLockedSlots(locks, reqId))
-            {
-                if (ld >= 0 && ld < days && lp >= 1 && lp <= periods)
-                    model.Add(x[rIdx, ld, lp] == 1);
-            }
+            if (locked.DayIndex >= 0 && locked.DayIndex < days && locked.PeriodIndex >= 1 && locked.PeriodIndex <= periods)
+                model.Add(x[rIdx, locked.DayIndex, locked.PeriodIndex] == 1);
         }
 
         progress?.Report(0.25);
 
-        // ========== 分布约束（硬/软结合） ==========
+        // ==================== 整体式分布约束（以班级为单位） ====================
 
-        // D1: 每天每科最多 N 节（防止同一天堆太多）
-        for (int r = 0; r < requirements.Count; r++)
+        foreach (var group in classGroups)
         {
-            LessonRequirement req = requirements[r];
-            int maxPerDay = GetMaxPerDay(req.WeeklyCount, days);
+            var classReqs = group.ToList();
 
-            for (int d = 0; d < days; d++)
+            // 按科目分组（整体视角）
+            var bySubject = classReqs.GroupBy(t => t.req.Subject).ToList();
+
+            foreach (var subjGroup in bySubject)
             {
-                List<ILiteral> dayVars = new();
-                for (int p = 1; p <= periods; p++)
-                    dayVars.Add(x[r, d, p]);
+                string subject = subjGroup.Key;
+                var subjIndices = subjGroup.Select(t => t.idx).ToList();
+                int totalWeekly = subjGroup.Sum(t => t.req.WeeklyCount);
+                bool isMain = MainSubjects.Contains(subject);
 
-                model.Add(LinearExpr.Sum(dayVars) <= maxPerDay);
-            }
-        }
-
-        // D2: 周课时 <= 天数的科目，强制每天最多1节（硬约束保证散开）
-        for (int r = 0; r < requirements.Count; r++)
-        {
-            LessonRequirement req = requirements[r];
-            if (req.WeeklyCount <= days && req.WeeklyCount >= 2)
-            {
                 for (int d = 0; d < days; d++)
                 {
-                    List<ILiteral> dayVars = new();
+                    // 收集该班级该科目当天所有时间槽的变量
+                    List<ILiteral> morningVars = new();
+                    List<ILiteral> afternoonVars = new();
+                    List<ILiteral> allDayVars = new();
+
                     for (int p = 1; p <= periods; p++)
-                        dayVars.Add(x[r, d, p]);
-                    model.Add(LinearExpr.Sum(dayVars) <= 1);
+                    {
+                        foreach (int idx in subjIndices)
+                        {
+                            allDayVars.Add(x[idx, d, p]);
+                            if (p <= morning)
+                                morningVars.Add(x[idx, d, p]);
+                            else
+                                afternoonVars.Add(x[idx, d, p]);
+                        }
+                    }
+
+                    // C1: 主科每天上午最多1节（核心约束！）
+                    if (isMain)
+                    {
+                        model.Add(LinearExpr.Sum(morningVars) <= 1);
+                    }
+
+                    // C2: 每天每科最多2节（任何科目都不应在同一天出现3+次）
+                    model.Add(LinearExpr.Sum(allDayVars) <= 2);
+
+                    // C3: 周课时<=天数的科目，每天最多1节（强制散开）
+                    if (totalWeekly <= days && totalWeekly >= 2)
+                    {
+                        model.Add(LinearExpr.Sum(allDayVars) <= 1);
+                    }
                 }
-            }
-        }
 
-        progress?.Report(0.35);
-
-        // ========== 软约束（优化目标） ==========
-        List<LinearExpr> objectiveTerms = new();
-        List<int> objectiveWeights = new();
-
-        // S1: 上午偏好 — PreferMorning 的科目排在上午加分
-        for (int r = 0; r < requirements.Count; r++)
-        {
-            LessonRequirement req = requirements[r];
-            if (!req.PreferMorning) continue;
-
-            for (int d = 0; d < days; d++)
-            {
-                for (int p = 1; p <= Math.Min(morningPeriods, periods); p++)
+                // C4: 同科目绝不连排（对ALL科目生效）
+                // 同一天相邻节次不能都是同一科目
+                for (int d = 0; d < days; d++)
                 {
-                    objectiveTerms.Add(x[r, d, p]);
-                    objectiveWeights.Add(8); // 上午加分
+                    for (int p = 1; p < periods; p++)
+                    {
+                        // 收集 p 和 p+1 节中属于该科目的所有变量
+                        List<ILiteral> slotP = subjIndices.Select(idx => (ILiteral)x[idx, d, p]).ToList();
+                        List<ILiteral> slotP1 = subjIndices.Select(idx => (ILiteral)x[idx, d, p + 1]).ToList();
+
+                        // 如果 p 节有该科目 且 p+1 节也有该科目 → 禁止
+                        // 即: sum(slotP) + sum(slotP1) <= 1
+                        List<ILiteral> combined = new();
+                        combined.AddRange(slotP);
+                        combined.AddRange(slotP1);
+                        model.Add(LinearExpr.Sum(combined) <= 1);
+                    }
                 }
             }
-        }
 
-        // S2: 避免最后一节
-        for (int r = 0; r < requirements.Count; r++)
-        {
-            LessonRequirement req = requirements[r];
-            if (!req.AvoidLastPeriod) continue;
-
-            for (int d = 0; d < days; d++)
+            // C5: 第1节多样性 — 一周内第1节不应全是同一科目
+            // 对主科: 一周内第1节最多出现3次（5天中最多3天）
+            foreach (var subjGroup in bySubject.Where(g => MainSubjects.Contains(g.Key)))
             {
-                objectiveTerms.Add(x[r, d, periods]);
-                objectiveWeights.Add(-20); // 末节惩罚
+                var subjIndices = subjGroup.Select(t => t.idx).ToList();
+                List<ILiteral> firstPeriodVars = new();
+                for (int d = 0; d < days; d++)
+                    foreach (int idx in subjIndices)
+                        firstPeriodVars.Add(x[idx, d, 1]);
+
+                // 一周内第1节最多出现 ceil(days*0.6) 次
+                model.Add(LinearExpr.Sum(firstPeriodVars) <= (int)Math.Ceiling(days * 0.6));
             }
         }
 
-        // S3: 体育/副科下午优先
-        for (int r = 0; r < requirements.Count; r++)
-        {
-            LessonRequirement req = requirements[r];
-            if (!AfternoonSubjects.Contains(req.Subject)) continue;
+        progress?.Report(0.4);
 
-            for (int d = 0; d < days; d++)
+        // ==================== 软约束（优化目标） ====================
+        List<LinearExpr> objTerms = new();
+        List<int> objWeights = new();
+
+        foreach (var group in classGroups)
+        {
+            var classReqs = group.ToList();
+            var bySubject = classReqs.GroupBy(t => t.req.Subject).ToList();
+
+            foreach (var subjGroup in bySubject)
             {
-                for (int p = morningPeriods + 1; p <= periods; p++)
+                string subject = subjGroup.Key;
+                var subjIndices = subjGroup.Select(t => t.idx).ToList();
+                bool isMain = MainSubjects.Contains(subject);
+                bool isAfternoon = AfternoonSubjects.Contains(subject);
+
+                foreach (int idx in subjIndices)
                 {
-                    objectiveTerms.Add(x[r, d, p]);
-                    objectiveWeights.Add(12); // 下午加分
+                    for (int d = 0; d < days; d++)
+                    {
+                        for (int p = 1; p <= periods; p++)
+                        {
+                            if (isMain)
+                            {
+                                // 主科：上午前3节高分，第4节中分，下午低分
+                                if (p <= 3)
+                                {
+                                    objTerms.Add(x[idx, d, p]);
+                                    objWeights.Add(10);
+                                }
+                                else if (p <= morning)
+                                {
+                                    objTerms.Add(x[idx, d, p]);
+                                    objWeights.Add(6);
+                                }
+                                else
+                                {
+                                    // 主科下午：小正分（因为多出的主科必须排下午，不应惩罚太重）
+                                    objTerms.Add(x[idx, d, p]);
+                                    objWeights.Add(2);
+                                }
+                            }
+                            else if (isAfternoon)
+                            {
+                                // 体育/音/美/信息：强下午偏好
+                                if (p > morning)
+                                {
+                                    objTerms.Add(x[idx, d, p]);
+                                    objWeights.Add(15);
+                                }
+                                else
+                                {
+                                    objTerms.Add(x[idx, d, p]);
+                                    objWeights.Add(-12);
+                                }
+                            }
+                            else
+                            {
+                                // 其他副科（道/历/地/生/物/化/劳）：上午中性，下午微偏好
+                                // 不惩罚上午，避免第4节出现空洞
+                                if (p > morning)
+                                {
+                                    objTerms.Add(x[idx, d, p]);
+                                    objWeights.Add(2);
+                                }
+                                else if (p == morning)
+                                {
+                                    // 第4节（上午最后一节）小奖励，鼓励填满
+                                    objTerms.Add(x[idx, d, p]);
+                                    objWeights.Add(4);
+                                }
+                            }
+                        }
+                    }
                 }
-                // 上午惩罚
-                for (int p = 1; p <= morningPeriods; p++)
+
+                // 主科第1节轮换奖励：不同天主科第1节加分（鼓励多样性）
+                if (isMain)
                 {
-                    objectiveTerms.Add(x[r, d, p]);
-                    objectiveWeights.Add(-10);
+                    foreach (int idx in subjIndices)
+                        for (int d = 0; d < days; d++)
+                        {
+                            objTerms.Add(x[idx, d, 1]);
+                            objWeights.Add(2); // 小奖励，配合硬约束C5
+                        }
                 }
             }
         }
 
-        // S4: 美术/音乐/信息 偏周五下午
-        for (int r = 0; r < requirements.Count; r++)
+        // 避免最后一节：所有科目轻微惩罚
+        for (int r = 0; r < reqCount; r++)
         {
-            LessonRequirement req = requirements[r];
-            if (!PreferFridaySubjects.Contains(req.Subject)) continue;
-
-            int friday = days - 1; // 最后一天
-            for (int p = morningPeriods + 1; p <= periods; p++)
-            {
-                objectiveTerms.Add(x[r, friday, p]);
-                objectiveWeights.Add(10);
-            }
-        }
-
-        progress?.Report(0.45);
-
-        // S5: 首节多样性 — 同一科目在第1节出现次数过多则惩罚
-        // 按科目分组，对每个科目在 period=1 的使用总数施加惩罚
-        var subjectGroups = requirements
-            .Select((req, idx) => (req, idx))
-            .GroupBy(t => t.req.Subject)
-            .ToList();
-
-        foreach (var group in subjectGroups)
-        {
-            var indices = group.Select(t => t.idx).ToList();
-            // 对每个班级-科目组合，如果在第1节排了课，给一个小惩罚以鼓励多样性
-            // 但如果该科目是主科且preferMorning，则不惩罚（主科本身适合第1节）
-            if (group.Key is "语文" or "数学" or "英语") continue;
-
-            foreach (int idx in indices)
+            if (requirements[r].AvoidLastPeriod)
             {
                 for (int d = 0; d < days; d++)
                 {
-                    objectiveTerms.Add(x[idx, d, 1]);
-                    objectiveWeights.Add(-3); // 非主科排第1节小惩罚
-                }
-            }
-        }
-
-        // S6: 避免连排（非主科）— 同一天相邻节次不能都是同一需求
-        for (int r = 0; r < requirements.Count; r++)
-        {
-            LessonRequirement req = requirements[r];
-            if (!NoConsecutiveSubjects.Contains(req.Subject)) continue;
-
-            for (int d = 0; d < days; d++)
-            {
-                for (int p = 1; p < periods; p++)
-                {
-                    // x[r,d,p] + x[r,d,p+1] <= 1
-                    model.Add(x[r, d, p] + x[r, d, p + 1] <= 1);
-                }
-            }
-        }
-
-        // S7: 主科偶尔连排奖励（语数英允许2节连上，给小奖励）
-        for (int r = 0; r < requirements.Count; r++)
-        {
-            LessonRequirement req = requirements[r];
-            if (!MainSubjects.Contains(req.Subject)) continue;
-            if (req.WeeklyCount < 6) continue; // 只有课时多的主科才考虑连排
-
-            for (int d = 0; d < days; d++)
-            {
-                for (int p = 1; p < periods; p++)
-                {
-                    // 连排奖励（很小，只是轻微鼓励）
-                    BoolVar bothVar = model.NewBoolVar($"consec_{r}_{d}_{p}");
-                    model.AddBoolAnd(new ILiteral[] { x[r, d, p], x[r, d, p + 1] }).OnlyEnforceIf(bothVar);
-                    model.AddBoolOr(new ILiteral[] { x[r, d, p].Not(), x[r, d, p + 1].Not() }).OnlyEnforceIf(bothVar.Not());
-                    objectiveTerms.Add(bothVar);
-                    objectiveWeights.Add(2);
+                    objTerms.Add(x[r, d, periods]);
+                    objWeights.Add(-15);
                 }
             }
         }
 
         progress?.Report(0.55);
 
-        // S8: 同一天课程多样性 — 同一班级同一天同一科目最多出现次数限制（软）
-        // 对于课时数>天数的科目（如语7），允许一天2节但惩罚第2节
-        foreach (var group in classGroups)
-        {
-            var classReqs = group.ToList();
-            // 按科目分组
-            var bySubject = classReqs.GroupBy(t => t.req.Subject).ToList();
-            foreach (var subjGroup in bySubject)
-            {
-                var subjIndices = subjGroup.Select(t => t.idx).ToList();
-                if (subjIndices.Count == 0) continue;
-
-                for (int d = 0; d < days; d++)
-                {
-                    // 统计该班级该科目这天的总节数
-                    List<ILiteral> daySubjectVars = new();
-                    foreach (int idx in subjIndices)
-                        for (int p = 1; p <= periods; p++)
-                            daySubjectVars.Add(x[idx, d, p]);
-
-                    // 如果超过1节，给惩罚（鼓励分散）
-                    if (daySubjectVars.Count > 1)
-                    {
-                        // overflow >= sum - 1, overflow >= 0 → 最小化时 overflow = max(0, sum-1)
-                        IntVar overflow = model.NewIntVar(0, daySubjectVars.Count - 1, $"ov_{subjGroup.Key}_{d}_{group.Key}");
-                        model.Add(overflow >= LinearExpr.Sum(daySubjectVars) - 1);
-                        objectiveTerms.Add(overflow);
-                        objectiveWeights.Add(-6); // 同天同科目多余惩罚
-                    }
-                }
-            }
-        }
-
-        progress?.Report(0.65);
-
-        // S9: 主科上午前2节优先（第1、2节额外加分）
-        for (int r = 0; r < requirements.Count; r++)
-        {
-            LessonRequirement req = requirements[r];
-            if (!MainSubjects.Contains(req.Subject) || !req.PreferMorning) continue;
-
-            for (int d = 0; d < days; d++)
-            {
-                for (int p = 1; p <= Math.Min(2, periods); p++)
-                {
-                    objectiveTerms.Add(x[r, d, p]);
-                    objectiveWeights.Add(5); // 前2节额外加分
-                }
-            }
-        }
-
-        // ========== 求解 ==========
-        model.Maximize(LinearExpr.WeightedSum(objectiveTerms.ToArray(), objectiveWeights.ToArray()));
+        // ==================== 求解 ====================
+        model.Maximize(LinearExpr.WeightedSum(objTerms.ToArray(), objWeights.ToArray()));
 
         CpSolver solver = new();
         solver.StringParameters = "max_time_in_seconds:30;num_workers:4;random_seed:42;";
 
-        progress?.Report(0.7);
-
-        // 使用回调报告进度
-        var solutionCallback = new ProgressCallback(progress, ct);
-        CpSolverStatus status = solver.Solve(model, solutionCallback);
+        progress?.Report(0.6);
+        var callback = new ProgressCallback(progress, ct);
+        CpSolverStatus status = solver.Solve(model, callback);
 
         ct.ThrowIfCancellationRequested();
         progress?.Report(0.9);
 
-        // ========== 提取结果 ==========
+        // ==================== 提取结果 ====================
         ScheduleResult result = new();
-
-        // 先放入固定课程
         PlaceFixedLessons(problem, result);
 
-        // 放入锁定课程
         foreach (var locked in locks)
         {
             LessonRequirement? req = requirements.FirstOrDefault(rq => rq.Id == locked.RequirementId);
@@ -410,29 +347,27 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
 
         if (status is CpSolverStatus.Optimal or CpSolverStatus.Feasible)
         {
-            for (int r = 0; r < requirements.Count; r++)
-            {
-                LessonRequirement req = requirements[r];
+            for (int r = 0; r < reqCount; r++)
                 for (int d = 0; d < days; d++)
-                {
                     for (int p = 1; p <= periods; p++)
-                    {
                         if (solver.BooleanValue(x[r, d, p]))
-                        {
-                            result.Entries.Add(CreateEntry(req, d, p, Guid.NewGuid(), false, null));
-                        }
-                    }
-                }
-            }
+                            result.Entries.Add(CreateEntry(requirements[r], d, p, Guid.NewGuid(), false, null));
         }
         else
         {
-            // 求解失败，回退到贪心
-            var greedy = new GreedyScheduleSolver();
-            return greedy.SolveWithLocks(problem, locks.ToList(), progress, ct);
+            result.Conflicts.AddRange(preConflicts);
+            result.Conflicts.Add(new ScheduleConflict
+            {
+                Severity = ScheduleConflictSeverity.Warning,
+                Type = ScheduleConflictType.UnscheduledLesson,
+                Message = "CP-SAT 未找到可行解，请调整约束或手动排课",
+                Scope = "全局"
+            });
+            progress?.Report(1.0);
+            return result;
         }
 
-        // 冲突分析
+        result.Conflicts.AddRange(preConflicts);
         result.Conflicts.AddRange(_conflictService.Analyze(problem, result.Entries));
         progress?.Report(1.0);
         return result;
@@ -440,14 +375,73 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
 
     #region 辅助方法
 
-    /// <summary>计算每天最大课时数</summary>
-    private static int GetMaxPerDay(int weeklyCount, int days)
+    private static List<ScheduleConflict> ValidateCapacity(
+        ScheduleProblem problem, List<LessonRequirement> requirements,
+        HashSet<(int Day, int Period, string Scope)> fixedSlots, int days, int periods)
     {
-        if (weeklyCount <= days) return 1;
-        return (int)Math.Ceiling((double)weeklyCount / days);
+        List<ScheduleConflict> conflicts = new();
+        int totalSlots = days * periods;
+
+        // 班级容量检查
+        foreach (var group in requirements.GroupBy(r => r.ClassId))
+        {
+            string className = group.First().ClassName;
+            int requiredLessons = group.Sum(r => r.WeeklyCount);
+            int fixedOccupied = CountFixedSlotsForClass(fixedSlots, className, days, periods);
+            int available = totalSlots - fixedOccupied;
+
+            if (requiredLessons > available)
+            {
+                conflicts.Add(new ScheduleConflict
+                {
+                    Severity = ScheduleConflictSeverity.Hard,
+                    Type = ScheduleConflictType.UnscheduledLesson,
+                    Message = $"{className} 课程超出：需要 {requiredLessons} 节，可用槽位仅 {available} 节（总{totalSlots} - 固定课{fixedOccupied}），超出 {requiredLessons - available} 节",
+                    Scope = className
+                });
+            }
+        }
+
+        // 教师负荷检查
+        foreach (var group in requirements.Where(r => r.TeacherId != Guid.Empty).GroupBy(r => r.TeacherId))
+        {
+            string teacherName = group.First().TeacherName;
+            int totalLoad = group.Sum(r => r.WeeklyCount);
+
+            if (totalLoad > totalSlots)
+            {
+                string classes = string.Join("、", group.Select(r => r.ClassName).Distinct());
+                conflicts.Add(new ScheduleConflict
+                {
+                    Severity = ScheduleConflictSeverity.Hard,
+                    Type = ScheduleConflictType.TeacherConflict,
+                    Message = $"{teacherName} 课程冲突：周课时总量 {totalLoad} 节超过可用时间槽 {totalSlots} 节（涉及班级：{classes}）",
+                    Scope = teacherName
+                });
+            }
+        }
+
+        return conflicts;
     }
 
-    /// <summary>构建固定课程占用表: (dayIndex0Based, periodIndex, className/gradeScope)</summary>
+    private static int CountFixedSlotsForClass(HashSet<(int Day, int Period, string Scope)> fixedSlots, string className, int days, int periods)
+    {
+        int count = 0;
+        foreach (var (day, period, scope) in fixedSlots)
+        {
+            if (day < 0 || day >= days || period < 1 || period > periods) continue;
+            if (string.IsNullOrWhiteSpace(scope) || scope == "全校") { count++; continue; }
+
+            string[] parts = scope.Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            foreach (string part in parts)
+            {
+                string grade = part.EndsWith("年级") ? part : part + "年级";
+                if (className.StartsWith(grade, StringComparison.OrdinalIgnoreCase)) { count++; break; }
+            }
+        }
+        return count;
+    }
+
     private static HashSet<(int Day, int Period, string Scope)> BuildFixedSlots(ScheduleProblem problem)
     {
         var slots = new HashSet<(int, int, string)>();
@@ -459,7 +453,6 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
         return slots;
     }
 
-    /// <summary>判断某需求在某时间槽是否被固定课程阻挡</summary>
     private static bool IsSlotBlocked(HashSet<(int Day, int Period, string Scope)> fixedSlots, LessonRequirement req, int day, int period)
     {
         foreach (var (fd, fp, scope) in fixedSlots)
@@ -467,37 +460,22 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
             if (fd != day || fp != period) continue;
             if (string.IsNullOrWhiteSpace(scope) || scope == "全校") return true;
 
-            // 支持 "七+八年级" 格式
             string[] parts = scope.Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             foreach (string part in parts)
             {
                 string grade = part.EndsWith("年级") ? part : part + "年级";
-                if (req.ClassName.StartsWith(grade, StringComparison.OrdinalIgnoreCase))
-                    return true;
+                if (req.ClassName.StartsWith(grade, StringComparison.OrdinalIgnoreCase)) return true;
             }
         }
         return false;
     }
 
-    /// <summary>构建锁定课程映射: requirementId -> lockedCount</summary>
-    private static Dictionary<Guid, int> BuildLockedMap(IReadOnlyCollection<LockedLesson> locks, ScheduleProblem problem)
-    {
-        return locks.GroupBy(x => x.RequirementId).ToDictionary(x => x.Key, x => x.Count());
-    }
-
-    /// <summary>获取某需求的所有锁定时间槽</summary>
-    private static IEnumerable<(int Day, int Period)> GetLockedSlots(IReadOnlyCollection<LockedLesson> locks, Guid requirementId)
-    {
-        return locks.Where(l => l.RequirementId == requirementId).Select(l => (l.DayIndex, l.PeriodIndex));
-    }
-
-    /// <summary>将固定课程转化为 ScheduleEntry</summary>
     private static void PlaceFixedLessons(ScheduleProblem problem, ScheduleResult result)
     {
         foreach (FixedLesson fl in problem.FixedLessons)
         {
-            IEnumerable<SchoolClass> affectedClasses = GetAffectedClasses(problem.Classes, fl.ScopeValue);
-            foreach (SchoolClass cls in affectedClasses)
+            IEnumerable<SchoolClass> affected = GetAffectedClasses(problem.Classes, fl.ScopeValue);
+            foreach (SchoolClass cls in affected)
             {
                 result.Entries.Add(new ScheduleEntry
                 {
@@ -520,30 +498,25 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
 
     private static IEnumerable<SchoolClass> GetAffectedClasses(IReadOnlyList<SchoolClass> classes, string scopeValue)
     {
-        if (string.IsNullOrWhiteSpace(scopeValue) || scopeValue == "全校")
-            return classes;
-
-        string[] gradeParts = scopeValue.Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        HashSet<string> gradeNames = new();
-        foreach (string part in gradeParts)
-        {
-            string grade = part.EndsWith("年级") ? part : part + "年级";
-            gradeNames.Add(grade);
-        }
-        return classes.Where(c => gradeNames.Contains(c.GradeName));
+        if (string.IsNullOrWhiteSpace(scopeValue) || scopeValue == "全校") return classes;
+        string[] parts = scopeValue.Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        HashSet<string> grades = new();
+        foreach (string part in parts)
+            grades.Add(part.EndsWith("年级") ? part : part + "年级");
+        return classes.Where(c => grades.Contains(c.GradeName));
     }
 
-    private static ScheduleEntry CreateEntry(LessonRequirement requirement, int dayIndex, int periodIndex, Guid id, bool locked, string? note)
+    private static ScheduleEntry CreateEntry(LessonRequirement req, int dayIndex, int periodIndex, Guid id, bool locked, string? note)
     {
         return new ScheduleEntry
         {
             Id = id,
-            RequirementId = requirement.Id,
-            ClassId = requirement.ClassId,
-            TeacherId = requirement.TeacherId,
-            ClassName = requirement.ClassName,
-            TeacherName = requirement.TeacherName,
-            Subject = requirement.Subject,
+            RequirementId = req.Id,
+            ClassId = req.ClassId,
+            TeacherId = req.TeacherId,
+            ClassName = req.ClassName,
+            TeacherName = req.TeacherName,
+            Subject = req.Subject,
             DayIndex = dayIndex,
             PeriodIndex = periodIndex,
             Locked = locked,
@@ -554,12 +527,11 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
 
     #endregion
 
-    /// <summary>CP-SAT 求解进度回调</summary>
     private sealed class ProgressCallback : CpSolverSolutionCallback
     {
         private readonly IProgress<double>? _progress;
         private readonly CancellationToken _ct;
-        private int _solutionCount;
+        private int _count;
 
         public ProgressCallback(IProgress<double>? progress, CancellationToken ct)
         {
@@ -569,15 +541,9 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
 
         public override void OnSolutionCallback()
         {
-            _solutionCount++;
-            // 在 0.7 ~ 0.9 之间报告进度
-            double p = 0.7 + Math.Min(0.2, _solutionCount * 0.02);
-            _progress?.Report(p);
-
-            if (_ct.IsCancellationRequested)
-            {
-                StopSearch();
-            }
+            _count++;
+            _progress?.Report(0.6 + Math.Min(0.3, _count * 0.03));
+            if (_ct.IsCancellationRequested) StopSearch();
         }
     }
 }

@@ -10,7 +10,7 @@ public sealed class ScheduleIntegrationTests
     public void FullWorkflow_GenerateAndValidate_NoHardConflicts()
     {
         var data = SampleDataFactory.Create();
-        var service = new ScheduleService(new GreedyScheduleSolver(), new ConflictService());
+        var service = new ScheduleService(new CpSatScheduleSolver(), new ConflictService());
 
         var result = service.Generate(data);
         Assert.NotEmpty(result.Entries);

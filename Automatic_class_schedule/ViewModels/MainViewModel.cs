@@ -50,7 +50,7 @@ public sealed class MainViewModel : ObservableObject
     public MainViewModel()
     {
         _recentProjects = new RecentProjectsService();
-        _scheduleService = new ScheduleService(new GreedyScheduleSolver(), new ConflictService());
+        _scheduleService = new ScheduleService(new CpSatScheduleSolver(), new ConflictService());
         _store = new SchoolDataStore();
         _excelService = new ExcelScheduleService();
 

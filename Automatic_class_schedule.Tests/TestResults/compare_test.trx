@@ -1,0 +1,68 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="4427ff34-29fe-4f3c-9b30-49f4130d313f" name="EGlint@QGLINT-E 2026-07-26 16:01:49" runUser="QGLINT-E\EGlint" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-07-26T16:01:49.4215911+08:00" queuing="2026-07-26T16:01:49.4215915+08:00" start="2026-07-26T16:01:37.5204389+08:00" finish="2026-07-26T16:01:49.4270512+08:00" />
+  <TestSettings name="default" id="3524e395-ffb8-48d0-81e2-f73f3d4b7af9">
+    <Deployment runDeploymentRoot="EGlint_QGLINT-E_2026-07-26_16_01_49" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="3a25d3ba-0a2f-4914-b89a-bb0888b1958a" testId="2df69e1c-878d-bbb1-9d4c-8edfedd2d7f4" testName="Automatic_class_schedule.Tests.ExcelAnalysisTests.CompareSolverOutput_WithHumanSchedule" computerName="QGLINT-E" duration="00:00:11.2397928" startTime="2026-07-26T16:01:38.0887472+08:00" endTime="2026-07-26T16:01:49.3349501+08:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="3a25d3ba-0a2f-4914-b89a-bb0888b1958a">
+      <Output>
+        <StdOut>=== 算法输出: 726 节课 ===&#xD;
+硬冲突: 7&#xD;
+警告: 0&#xD;
+  [硬] 同教师同一时间存在多节课&#xD;
+  [硬] 同教师同一时间存在多节课&#xD;
+  [硬] 同教师同一时间存在多节课&#xD;
+  [硬] 同教师同一时间存在多节课&#xD;
+  [硬] 同教师同一时间存在多节课&#xD;
+
+=== 七1班 课表 ===&#xD;
+周一: 1:英语 2:数学 3:语文 5:地理 6:物理 7:历史 8:语文&#xD;
+周二: 1:数学 2:语文 3:英语 5:地理 6:生物 7:物理 8:化学&#xD;
+周三: 1:语文 2:英语 3:数学 5:历史 6:道德 8:生物&#xD;
+周四: 1:语文 2:数学 3:英语 5:化学 6:体育 8:物理&#xD;
+周五: 1:英语 2:语文 3:数学 5:数学 6:化学 7:体育 8:道德&#xD;
+
+=== 主科分布统计 ===&#xD;
+语文: 总6节, 上午5/下午1, 上午最大/天=1, 连排=0&#xD;
+数学: 总6节, 上午5/下午1, 上午最大/天=1, 连排=0&#xD;
+英语: 总5节, 上午5/下午0, 上午最大/天=1, 连排=0&#xD;
+
+=== 第1节分布 ===&#xD;
+周一第1节: 英语&#xD;
+周二第1节: 数学&#xD;
+周三第1节: 语文&#xD;
+周四第1节: 语文&#xD;
+周五第1节: 英语&#xD;
+
+=== 体育课位置 ===&#xD;
+  周4 第6节 下午&#xD;
+  周5 第7节 下午</StdOut>
+      </Output>
+    </UnitTestResult>
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="Automatic_class_schedule.Tests.ExcelAnalysisTests.CompareSolverOutput_WithHumanSchedule" storage="c:\project_repository\winproject\automatic_class_schedule\automatic_class_schedule.tests\bin\debug\net10.0-windows10.0.26100.0\automatic_class_schedule.tests.dll" id="2df69e1c-878d-bbb1-9d4c-8edfedd2d7f4">
+      <Execution id="3a25d3ba-0a2f-4914-b89a-bb0888b1958a" />
+      <TestMethod codeBase="C:\Project_Repository\winproject\Automatic_class_schedule\Automatic_class_schedule.Tests\bin\Debug\net10.0-windows10.0.26100.0\Automatic_class_schedule.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Automatic_class_schedule.Tests.ExcelAnalysisTests" name="CompareSolverOutput_WithHumanSchedule" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="2df69e1c-878d-bbb1-9d4c-8edfedd2d7f4" executionId="3a25d3ba-0a2f-4914-b89a-bb0888b1958a" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="列表中未列出的结果" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="所有已加载的结果" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Completed">
+    <Counters total="1" executed="1" passed="1" failed="0" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v3.1.4+50e68bbb8b (64-bit .NET 10.0.0)&#xD;
+[xUnit.net 00:00:00.08]   Discovering: Automatic_class_schedule.Tests&#xD;
+[xUnit.net 00:00:00.11]   Discovered:  Automatic_class_schedule.Tests&#xD;
+[xUnit.net 00:00:00.13]   Starting:    Automatic_class_schedule.Tests&#xD;
+[xUnit.net 00:00:11.41]   Finished:    Automatic_class_schedule.Tests&#xD;
+</StdOut>
+    </Output>
+  </ResultSummary>
+</TestRun>
