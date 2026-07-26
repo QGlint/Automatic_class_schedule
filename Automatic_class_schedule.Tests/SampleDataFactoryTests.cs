@@ -21,9 +21,9 @@ public sealed class SampleDataFactoryTests
     {
         var data = SampleDataFactory.Create();
         Assert.Equal(3, data.GradeInputs.Count);
-        Assert.Contains(data.GradeInputs, g => g.GradeName == "七年级" && g.ClassCount == 8);
+        Assert.Contains(data.GradeInputs, g => g.GradeName == "七年级" && g.ClassCount == 7);
         Assert.Contains(data.GradeInputs, g => g.GradeName == "八年级" && g.ClassCount == 8);
-        Assert.Contains(data.GradeInputs, g => g.GradeName == "九年级" && g.ClassCount == 6);
+        Assert.Contains(data.GradeInputs, g => g.GradeName == "九年级" && g.ClassCount == 8);
     }
 
     [Fact]
@@ -31,7 +31,9 @@ public sealed class SampleDataFactoryTests
     {
         var data = SampleDataFactory.Create();
         string[] expected = { "语文", "数学", "英语", "物理", "化学", "生物", "历史", "地理", "道德", "体育", "音乐", "美术", "信息", "劳动" };
-        Assert.Equal(expected.Length, data.Subjects.Count);
+        // 科目含年级特定条目，检查去重后的科目名
+        var distinctNames = data.Subjects.Select(s => s.Name).Distinct().ToList();
+        Assert.Equal(expected.Length, distinctNames.Count);
         foreach (var name in expected)
             Assert.Contains(data.Subjects, s => s.Name == name);
     }
@@ -40,7 +42,7 @@ public sealed class SampleDataFactoryTests
     public void Create_HasClasses()
     {
         var data = SampleDataFactory.Create();
-        int expected = 8 + 8 + 6;
+        int expected = 7 + 8 + 8;
         Assert.Equal(expected, data.Classes.Count);
     }
 

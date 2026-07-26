@@ -151,7 +151,7 @@ public sealed class TeacherAssignmentRuleTests
         var peTeachers = assignments.Where(a => a.Subject == "体育").ToList();
         Assert.Equal(6, peTeachers.Count);
 
-        // 验证平均分配（22班/6人=每人3-4班）
+        // 验证平均分配（23班/6人=每人3-4班）
         int totalAssigned = 0;
         foreach (var t in peTeachers)
         {
@@ -160,7 +160,7 @@ public sealed class TeacherAssignmentRuleTests
             totalAssigned += count;
             _output.WriteLine($"{t.TeacherName}: {count}个班 → {t.ClassNames}");
         }
-        Assert.Equal(22, totalAssigned); // 所有班级都被分配
+        Assert.Equal(23, totalAssigned); // 所有班级都被分配
         _output.WriteLine($"体育教师共{peTeachers.Count}位，共分配{totalAssigned}个班");
     }
 

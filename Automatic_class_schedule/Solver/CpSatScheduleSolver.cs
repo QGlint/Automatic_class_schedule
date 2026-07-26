@@ -209,20 +209,109 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
                             foreach (int idx in subjIndices)
                                 model.Add(x[idx, d, p] == 0);
                 }
+
+                // C8: 前两节只排主科（硬约束）— 非主科不能出现在P1-P2
+                if (!isMain)
+                {
+                    for (int d = 0; d < days; d++)
+                        for (int p = 1; p <= Math.Min(2, periods); p++)
+                            foreach (int idx in subjIndices)
+                                model.Add(x[idx, d, p] == 0);
+                }
+
+                // C9: 连天约束
+                if (totalWeekly == 2 && days >= 3)
+                {
+                    // 每周2节的科目不能出现在连续两天
+                    List<ILiteral> dayHasSubj = new();
+                    for (int d = 0; d < days; d++)
+                    {
+                        List<ILiteral> dayVars = new();
+                        foreach (int idx in subjIndices)
+                            for (int p = 1; p <= periods; p++)
+                                dayVars.Add(x[idx, d, p]);
+                        var hasDay = model.NewBoolVar($"day_{subject}_{group.Key}_{d}");
+                        model.Add(LinearExpr.Sum(dayVars) >= 1).OnlyEnforceIf(hasDay);
+                        model.Add(LinearExpr.Sum(dayVars) == 0).OnlyEnforceIf(hasDay.Not());
+                        dayHasSubj.Add(hasDay);
+                    }
+                    for (int d = 0; d < days - 1; d++)
+                        model.Add(LinearExpr.Sum(new ILiteral[] { dayHasSubj[d], dayHasSubj[d + 1] }) <= 1);
+                }
+                else if (totalWeekly == 3 && days >= 4)
+                {
+                    // 每周3节的科目最多1对连天（即最多2天连续）
+                    List<ILiteral> dayHasSubj3 = new();
+                    for (int d = 0; d < days; d++)
+                    {
+                        List<ILiteral> dayVars = new();
+                        foreach (int idx in subjIndices)
+                            for (int p = 1; p <= periods; p++)
+                                dayVars.Add(x[idx, d, p]);
+                        var hasDay = model.NewBoolVar($"day3_{subject}_{group.Key}_{d}");
+                        model.Add(LinearExpr.Sum(dayVars) >= 1).OnlyEnforceIf(hasDay);
+                        model.Add(LinearExpr.Sum(dayVars) == 0).OnlyEnforceIf(hasDay.Not());
+                        dayHasSubj3.Add(hasDay);
+                    }
+                    List<ILiteral> consecutivePairs = new();
+                    for (int d = 0; d < days - 1; d++)
+                    {
+                        var pair = model.NewBoolVar($"pair3_{subject}_{group.Key}_{d}");
+                        model.Add(LinearExpr.Sum(new ILiteral[] { dayHasSubj3[d], dayHasSubj3[d + 1] }) == 2).OnlyEnforceIf(pair);
+                        model.Add(LinearExpr.Sum(new ILiteral[] { dayHasSubj3[d], dayHasSubj3[d + 1] }) <= 1).OnlyEnforceIf(pair.Not());
+                        consecutivePairs.Add(pair);
+                    }
+                    model.Add(LinearExpr.Sum(consecutivePairs) <= 1);
+                }
             }
 
-            // C5: 第1节多样性 — 一周内第1节不应全是同一科目
-            // 对主科: 一周内第1节最多出现3次（5天中最多3天）
+            // C5: 前三节多样性 — 一周内同一节次不应全是同一科目
+            // 对主科: 一周内P1/P2/P3各最多出现 ceil(days*0.6) 次
             foreach (var subjGroup in bySubject.Where(g => MainSubjects.Contains(g.Key)))
             {
                 var subjIndices = subjGroup.Select(t => t.idx).ToList();
-                List<ILiteral> firstPeriodVars = new();
+
+                // P1多样性
+                List<ILiteral> p1Vars = new();
                 for (int d = 0; d < days; d++)
                     foreach (int idx in subjIndices)
-                        firstPeriodVars.Add(x[idx, d, 1]);
+                        p1Vars.Add(x[idx, d, 1]);
+                model.Add(LinearExpr.Sum(p1Vars) <= (int)Math.Ceiling(days * 0.6));
 
-                // 一周内第1节最多出现 ceil(days*0.6) 次
-                model.Add(LinearExpr.Sum(firstPeriodVars) <= (int)Math.Ceiling(days * 0.6));
+                // P2多样性
+                List<ILiteral> p2Vars = new();
+                for (int d = 0; d < days; d++)
+                    foreach (int idx in subjIndices)
+                        p2Vars.Add(x[idx, d, 2]);
+                model.Add(LinearExpr.Sum(p2Vars) <= (int)Math.Ceiling(days * 0.6));
+
+                // P3多样性
+                if (periods >= 3)
+                {
+                    List<ILiteral> p3Vars = new();
+                    for (int d = 0; d < days; d++)
+                        foreach (int idx in subjIndices)
+                            p3Vars.Add(x[idx, d, 3]);
+                    model.Add(LinearExpr.Sum(p3Vars) <= (int)Math.Ceiling(days * 0.6));
+                }
+
+                // C7: 第1-2节多样性 — 同一主科不应每天都占据1-2节
+                // 一周内第1-2节最多出现 ceil(days*0.8) 天（5天中最多4天）
+                List<ILiteral> top2Vars = new();
+                for (int d = 0; d < days; d++)
+                {
+                    List<ILiteral> dayTop2 = new();
+                    foreach (int idx in subjIndices)
+                    {
+                        dayTop2.Add(x[idx, d, 1]);
+                        dayTop2.Add(x[idx, d, 2]);
+                    }
+                    var dayHasTop2 = model.NewBoolVar($"top2_{subjGroup.Key}_{d}");
+                    model.Add(LinearExpr.Sum(dayTop2) >= 1).OnlyEnforceIf(dayHasTop2);
+                    model.Add(LinearExpr.Sum(dayTop2) == 0).OnlyEnforceIf(dayHasTop2.Not());
+                    top2Vars.Add(dayHasTop2);
+                }
+                model.Add(LinearExpr.Sum(top2Vars) <= (int)Math.Ceiling(days * 0.8));
             }
         }
 
@@ -256,18 +345,18 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
                                 if (p <= 2)
                                 {
                                     objTerms.Add(x[idx, d, p]);
-                                    objWeights.Add(10);
+                                    objWeights.Add(8);
                                 }
                                 else if (p == 3)
                                 {
-                                    // 第3节主科略低，鼓励部分副科排第3节
+                                    // 第3节主科保持较高奖励，避免全被副科占据
                                     objTerms.Add(x[idx, d, p]);
-                                    objWeights.Add(7);
+                                    objWeights.Add(8);
                                 }
                                 else if (p <= morning)
                                 {
                                     objTerms.Add(x[idx, d, p]);
-                                    objWeights.Add(6);
+                                    objWeights.Add(7);
                                 }
                                 else
                                 {
@@ -300,9 +389,9 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
                                 }
                                 else if (p == 3 && Period3Allowed.Contains(subject))
                                 {
-                                    // 信息可排第3节
+                                    // 信息可排第3节（低奖励，自然只有0-2天）
                                     objTerms.Add(x[idx, d, p]);
-                                    objWeights.Add(6);
+                                    objWeights.Add(2);
                                 }
                             }
                             else
@@ -321,9 +410,9 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
                                 }
                                 else if (p == 3 && Period3Allowed.Contains(subject))
                                 {
-                                    // 第3节文科/理科奖励
+                                    // 第3节文科/理科低奖励（自然只有0-2天）
                                     objTerms.Add(x[idx, d, p]);
-                                    objWeights.Add(6);
+                                    objWeights.Add(2);
                                 }
                             }
                         }
