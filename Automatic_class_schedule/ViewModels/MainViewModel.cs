@@ -139,34 +139,72 @@ public sealed class MainViewModel : ObservableObject
         GradeInputs.Add(new GradeInput { GradeName = "九年级", ClassCount = 6 });
     }
 
-    private void InitDefaultSubjects()
+    /// <summary>内置初中标准课程配置（随软件打包，不依赖文件）</summary>
+    private static CourseTemplateData GetBuiltInTemplate()
     {
-        string[] allGrades = GradeInputs.Select(g => g.GradeName).ToArray();
-        foreach (string grade in allGrades)
+        return new CourseTemplateData
         {
-            Subjects.Add(new SubjectDefinition { Name = "语文", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每日至少一次", GradeName = grade });
-            Subjects.Add(new SubjectDefinition { Name = "数学", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每日至少一次", GradeName = grade });
-            Subjects.Add(new SubjectDefinition { Name = "英语", Category = "主科", DefaultWeeklyCount = 5, DistributionRule = "每日至少一次", GradeName = grade });
-            if (grade != "七年级")
+            Subjects = new List<SubjectDefinition>
             {
-                Subjects.Add(new SubjectDefinition { Name = "物理", Category = "理科", DefaultWeeklyCount = 3, DistributionRule = "均匀分布", GradeName = grade });
-            }
-            if (grade != "七年级" && grade != "八年级")
+                // 七年级: 语7+数7+英7+地2+生2+体3+美1+音1+信1+道2+历2+劳1=36
+                new() { Name = "语文", Category = "主科", DefaultWeeklyCount = 7, DistributionRule = "每日至少一次", GradeName = "七年级" },
+                new() { Name = "数学", Category = "主科", DefaultWeeklyCount = 7, DistributionRule = "每日至少一次", GradeName = "七年级" },
+                new() { Name = "英语", Category = "主科", DefaultWeeklyCount = 7, DistributionRule = "每日至少一次", GradeName = "七年级" },
+                new() { Name = "地理", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "七年级" },
+                new() { Name = "生物", Category = "理科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "七年级" },
+                new() { Name = "体育", Category = "副科", DefaultWeeklyCount = 3, DistributionRule = "均匀分布", GradeName = "七年级" },
+                new() { Name = "美术", Category = "副科", DefaultWeeklyCount = 1, DistributionRule = "均匀分布", GradeName = "七年级" },
+                new() { Name = "音乐", Category = "副科", DefaultWeeklyCount = 1, DistributionRule = "均匀分布", GradeName = "七年级" },
+                new() { Name = "信息", Category = "副科", DefaultWeeklyCount = 1, DistributionRule = "均匀分布", GradeName = "七年级" },
+                new() { Name = "道德", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "七年级" },
+                new() { Name = "历史", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "七年级" },
+                new() { Name = "劳动", Category = "副科", DefaultWeeklyCount = 1, DistributionRule = "均匀分布", GradeName = "七年级" },
+                // 八年级: 语6+数6+英6+物3+地2+生2+体3+美1+音1+信1+道2+历2+劳1=36
+                new() { Name = "语文", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每日至少一次", GradeName = "八年级" },
+                new() { Name = "数学", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每日至少一次", GradeName = "八年级" },
+                new() { Name = "英语", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每日至少一次", GradeName = "八年级" },
+                new() { Name = "物理", Category = "理科", DefaultWeeklyCount = 3, DistributionRule = "均匀分布", GradeName = "八年级" },
+                new() { Name = "地理", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "八年级" },
+                new() { Name = "生物", Category = "理科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "八年级" },
+                new() { Name = "体育", Category = "副科", DefaultWeeklyCount = 3, DistributionRule = "均匀分布", GradeName = "八年级" },
+                new() { Name = "美术", Category = "副科", DefaultWeeklyCount = 1, DistributionRule = "均匀分布", GradeName = "八年级" },
+                new() { Name = "音乐", Category = "副科", DefaultWeeklyCount = 1, DistributionRule = "均匀分布", GradeName = "八年级" },
+                new() { Name = "信息", Category = "副科", DefaultWeeklyCount = 1, DistributionRule = "均匀分布", GradeName = "八年级" },
+                new() { Name = "道德", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "八年级" },
+                new() { Name = "历史", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "八年级" },
+                new() { Name = "劳动", Category = "副科", DefaultWeeklyCount = 1, DistributionRule = "均匀分布", GradeName = "八年级" },
+                // 九年级: 语7+数6+英6+物4+化4+体3+美1+音1+道2+历2=36
+                new() { Name = "语文", Category = "主科", DefaultWeeklyCount = 7, DistributionRule = "每日至少一次", GradeName = "九年级" },
+                new() { Name = "数学", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每日至少一次", GradeName = "九年级" },
+                new() { Name = "英语", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每日至少一次", GradeName = "九年级" },
+                new() { Name = "物理", Category = "理科", DefaultWeeklyCount = 4, DistributionRule = "均匀分布", GradeName = "九年级" },
+                new() { Name = "化学", Category = "理科", DefaultWeeklyCount = 4, DistributionRule = "均匀分布", GradeName = "九年级" },
+                new() { Name = "体育", Category = "副科", DefaultWeeklyCount = 3, DistributionRule = "均匀分布", GradeName = "九年级" },
+                new() { Name = "美术", Category = "副科", DefaultWeeklyCount = 1, DistributionRule = "均匀分布", GradeName = "九年级" },
+                new() { Name = "音乐", Category = "副科", DefaultWeeklyCount = 1, DistributionRule = "均匀分布", GradeName = "九年级" },
+                new() { Name = "道德", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "九年级" },
+                new() { Name = "历史", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "九年级" },
+            },
+            FixedLessons = new List<FixedLesson>
             {
-                Subjects.Add(new SubjectDefinition { Name = "化学", Category = "理科", DefaultWeeklyCount = 3, DistributionRule = "均匀分布", GradeName = grade });
+                new() { ScopeValue = "全校", DayIndex = 1, PeriodIndex = 8, Subject = "周会", Reason = "固定课程" },
+                new() { ScopeValue = "全校", DayIndex = 5, PeriodIndex = 6, Subject = "社团", Reason = "固定课程" },
+                new() { ScopeValue = "全校", DayIndex = 5, PeriodIndex = 7, Subject = "活动", Reason = "固定课程" },
+                new() { ScopeValue = "全校", DayIndex = 5, PeriodIndex = 8, Subject = "教育", Reason = "固定课程" },
             }
-            if (grade != "九年级")
-            {
-                Subjects.Add(new SubjectDefinition { Name = "生物", Category = "理科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = grade });
-            }
-            if (grade != "九年级")
-            {
-                Subjects.Add(new SubjectDefinition { Name = "地理", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = grade });
-            }
-            Subjects.Add(new SubjectDefinition { Name = "历史", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = grade });
-            Subjects.Add(new SubjectDefinition { Name = "道德", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = grade });
-            Subjects.Add(new SubjectDefinition { Name = "体育", Category = "副科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = grade });
-        }
+        };
+    }
+
+    /// <summary>新建项目时加载内置初中标准配置</summary>
+    private void InitDefaultSubjectsFromTemplate()
+    {
+        var builtIn = GetBuiltInTemplate();
+        Subjects.Clear();
+        foreach (var s in builtIn.Subjects)
+            Subjects.Add(s);
+        FixedLessons.Clear();
+        foreach (var fl in builtIn.FixedLessons)
+            FixedLessons.Add(fl);
     }
 
     private void AddSubject()
@@ -708,16 +746,16 @@ public sealed class MainViewModel : ObservableObject
 
 
         DaysPerWeek = 5;
-        PeriodsPerDay = 7;
+        PeriodsPerDay = 8;
         MorningPeriods = 4;
-        AfternoonPeriods = 3;
+        AfternoonPeriods = 4;
         IncludeEveningSelfStudy = false;
         EveningPeriods = 2;
         EveningStudyDays = new[] { true, true, true, true, true, false, false };
         SelectedSettingsTabIndex = 0;
         InitDefaultGrades();
         InitDefaultGradeConfigs();
-        InitDefaultSubjects();
+        InitDefaultSubjectsFromTemplate();
         GenerateClasses();
         _currentSubjectGradeName = GradeInputs.FirstOrDefault()?.GradeName ?? "";
         OnPropertyChanged(nameof(CurrentSubjectGradeName));
@@ -1063,78 +1101,20 @@ public sealed class MainViewModel : ObservableObject
 
     private void SeedDefaults()
     {
-        var defaults = new Dictionary<string, List<SubjectDefinition>>
+        // 将内置初中标准配置写入模板文件，使其可在模板下拉列表中载入
+        const string name = "初中标准";
+        var templateData = GetBuiltInTemplate();
+        var json = System.Text.Json.JsonSerializer.Serialize(templateData, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+        try
         {
-            ["初中标准"] = new()
-            {
-                // 七年级: 语7+数7+英7+地2+生2+体3+美1+音1+信1+道2+历2+劳1=36
-                new() { Name = "语文", Category = "主科", DefaultWeeklyCount = 7, DistributionRule = "每日至少一次", GradeName = "七年级" },
-                new() { Name = "数学", Category = "主科", DefaultWeeklyCount = 7, DistributionRule = "每日至少一次", GradeName = "七年级" },
-                new() { Name = "英语", Category = "主科", DefaultWeeklyCount = 7, DistributionRule = "每日至少一次", GradeName = "七年级" },
-                new() { Name = "地理", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "七年级" },
-                new() { Name = "生物", Category = "理科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "七年级" },
-                new() { Name = "体育", Category = "副科", DefaultWeeklyCount = 3, DistributionRule = "均匀分布", GradeName = "七年级" },
-                new() { Name = "美术", Category = "副科", DefaultWeeklyCount = 1, DistributionRule = "均匀分布", GradeName = "七年级" },
-                new() { Name = "音乐", Category = "副科", DefaultWeeklyCount = 1, DistributionRule = "均匀分布", GradeName = "七年级" },
-                new() { Name = "信息", Category = "副科", DefaultWeeklyCount = 1, DistributionRule = "均匀分布", GradeName = "七年级" },
-                new() { Name = "道德", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "七年级" },
-                new() { Name = "历史", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "七年级" },
-                new() { Name = "劳动", Category = "副科", DefaultWeeklyCount = 1, DistributionRule = "均匀分布", GradeName = "七年级" },
-                // 八年级: 语6+数6+英6+物3+地2+生2+体3+美1+音1+信1+道2+历2+劳1=36
-                new() { Name = "语文", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每日至少一次", GradeName = "八年级" },
-                new() { Name = "数学", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每日至少一次", GradeName = "八年级" },
-                new() { Name = "英语", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每日至少一次", GradeName = "八年级" },
-                new() { Name = "物理", Category = "理科", DefaultWeeklyCount = 3, DistributionRule = "均匀分布", GradeName = "八年级" },
-                new() { Name = "地理", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "八年级" },
-                new() { Name = "生物", Category = "理科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "八年级" },
-                new() { Name = "体育", Category = "副科", DefaultWeeklyCount = 3, DistributionRule = "均匀分布", GradeName = "八年级" },
-                new() { Name = "美术", Category = "副科", DefaultWeeklyCount = 1, DistributionRule = "均匀分布", GradeName = "八年级" },
-                new() { Name = "音乐", Category = "副科", DefaultWeeklyCount = 1, DistributionRule = "均匀分布", GradeName = "八年级" },
-                new() { Name = "信息", Category = "副科", DefaultWeeklyCount = 1, DistributionRule = "均匀分布", GradeName = "八年级" },
-                new() { Name = "道德", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "八年级" },
-                new() { Name = "历史", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "八年级" },
-                new() { Name = "劳动", Category = "副科", DefaultWeeklyCount = 1, DistributionRule = "均匀分布", GradeName = "八年级" },
-                // 九年级: 语7+数6+英6+物4+化4+体3+美1+音1+道2+历2=36
-                new() { Name = "语文", Category = "主科", DefaultWeeklyCount = 7, DistributionRule = "每日至少一次", GradeName = "九年级" },
-                new() { Name = "数学", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每日至少一次", GradeName = "九年级" },
-                new() { Name = "英语", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每日至少一次", GradeName = "九年级" },
-                new() { Name = "物理", Category = "理科", DefaultWeeklyCount = 4, DistributionRule = "均匀分布", GradeName = "九年级" },
-                new() { Name = "化学", Category = "理科", DefaultWeeklyCount = 4, DistributionRule = "均匀分布", GradeName = "九年级" },
-                new() { Name = "体育", Category = "副科", DefaultWeeklyCount = 3, DistributionRule = "均匀分布", GradeName = "九年级" },
-                new() { Name = "美术", Category = "副科", DefaultWeeklyCount = 1, DistributionRule = "均匀分布", GradeName = "九年级" },
-                new() { Name = "音乐", Category = "副科", DefaultWeeklyCount = 1, DistributionRule = "均匀分布", GradeName = "九年级" },
-                new() { Name = "道德", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "九年级" },
-                new() { Name = "历史", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "九年级" },
-            },
-        };
-
-        foreach (var kv in defaults)
-        {
-            var json = System.Text.Json.JsonSerializer.Serialize(kv.Value, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
-            // 直接写入模板文件（覆盖旧版本）
-            try
-            {
-                string dir = Path.GetDirectoryName(AppPaths.TemplatesFile)!;
-                if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
-                string path = GetTemplateFilePath(kv.Key);
-                File.WriteAllText(path, json);
-
-                // 默认固定课程: 周会1+社团1+活动1+教育1=4
-                var defaultFixed = new List<FixedLesson>
-                {
-                    new() { ScopeValue = "全校", DayIndex = 1, PeriodIndex = 8, Subject = "周会", Reason = "固定课程" },
-                    new() { ScopeValue = "全校", DayIndex = 5, PeriodIndex = 6, Subject = "社团", Reason = "固定课程" },
-                    new() { ScopeValue = "全校", DayIndex = 5, PeriodIndex = 7, Subject = "活动", Reason = "固定课程" },
-                    new() { ScopeValue = "全校", DayIndex = 5, PeriodIndex = 8, Subject = "教育", Reason = "固定课程" },
-                };
-                string fixedPath = GetFixedTemplateFilePath(kv.Key);
-                var fixedJson = System.Text.Json.JsonSerializer.Serialize(defaultFixed, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
-                File.WriteAllText(fixedPath, fixedJson);
-            }
-            catch { /* 文件权限受限时静默跳过 */ }
-            if (!CourseTemplates.Contains(kv.Key))
-                CourseTemplates.Add(kv.Key);
+            string dir = Path.GetDirectoryName(AppPaths.TemplatesFile)!;
+            if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+            string path = GetTemplateFilePath(name);
+            File.WriteAllText(path, json);
         }
+        catch { /* 文件权限受限时静默跳过 */ }
+        if (!CourseTemplates.Contains(name))
+            CourseTemplates.Add(name);
 
         try { SaveTemplatesToDisk(); } catch { /* 文件权限受限时静默跳过 */ }
     }
@@ -1160,12 +1140,6 @@ public sealed class MainViewModel : ObservableObject
     {
         string safe = string.Join("_", name.Split(Path.GetInvalidFileNameChars()));
         return Path.Combine(Path.GetDirectoryName(AppPaths.TemplatesFile)!, $"template_{safe}.json");
-    }
-
-    private string GetFixedTemplateFilePath(string name)
-    {
-        string safe = string.Join("_", name.Split(Path.GetInvalidFileNameChars()));
-        return Path.Combine(Path.GetDirectoryName(AppPaths.TemplatesFile)!, $"template_{safe}_fixed.json");
     }
 
     private string LoadTemplateContent(string name)
@@ -1257,13 +1231,13 @@ public sealed class MainViewModel : ObservableObject
 
         var options = new System.Text.Json.JsonSerializerOptions { WriteIndented = true };
         string path = GetTemplateFilePath(name);
-        var json = System.Text.Json.JsonSerializer.Serialize(Subjects.ToList(), options);
+        var templateData = new CourseTemplateData
+        {
+            Subjects = Subjects.ToList(),
+            FixedLessons = FixedLessons.ToList()
+        };
+        var json = System.Text.Json.JsonSerializer.Serialize(templateData, options);
         File.WriteAllText(path, json);
-
-        // 保存固定课程
-        string fixedPath = GetFixedTemplateFilePath(name);
-        var fixedJson = System.Text.Json.JsonSerializer.Serialize(FixedLessons.ToList(), options);
-        File.WriteAllText(fixedPath, fixedJson);
 
         SaveTemplatesToDisk();
         OnPropertyChanged(nameof(CourseTemplates));
@@ -1286,30 +1260,24 @@ public sealed class MainViewModel : ObservableObject
         }
 
         var json = File.ReadAllText(path);
-        var subjects = System.Text.Json.JsonSerializer.Deserialize<List<SubjectDefinition>>(json);
-        if (subjects != null)
+        LoadTemplateFromJson(json);
+        StatusMessage = $"已载入模板: {_selectedCourseTemplate}";
+    }
+
+    /// <summary>从 JSON 加载模板数据</summary>
+    private void LoadTemplateFromJson(string json)
+    {
+        var templateData = System.Text.Json.JsonSerializer.Deserialize<CourseTemplateData>(json);
+        if (templateData != null)
         {
             Subjects.Clear();
-            foreach (var s in subjects)
+            foreach (var s in templateData.Subjects)
                 Subjects.Add(s);
-            OnPropertyChanged(nameof(FilteredSubjects));
+            FixedLessons.Clear();
+            foreach (var fl in templateData.FixedLessons)
+                FixedLessons.Add(fl);
         }
-
-        // 加载固定课程
-        string fixedPath = GetFixedTemplateFilePath(_selectedCourseTemplate);
-        if (File.Exists(fixedPath))
-        {
-            var fixedJson = File.ReadAllText(fixedPath);
-            var fixedLessons = System.Text.Json.JsonSerializer.Deserialize<List<FixedLesson>>(fixedJson);
-            if (fixedLessons != null)
-            {
-                FixedLessons.Clear();
-                foreach (var fl in fixedLessons)
-                    FixedLessons.Add(fl);
-            }
-        }
-
-        StatusMessage = $"已载入模板: {_selectedCourseTemplate}";
+        OnPropertyChanged(nameof(FilteredSubjects));
     }
 
     public void DeleteCourseTemplate()
@@ -1320,9 +1288,6 @@ public sealed class MainViewModel : ObservableObject
         string path = GetTemplateFilePath(_selectedCourseTemplate);
         if (File.Exists(path))
             File.Delete(path);
-        string fixedPath = GetFixedTemplateFilePath(_selectedCourseTemplate);
-        if (File.Exists(fixedPath))
-            File.Delete(fixedPath);
 
         CourseTemplates.Remove(_selectedCourseTemplate);
         SaveTemplatesToDisk();
@@ -1422,31 +1387,12 @@ public sealed class MainViewModel : ObservableObject
             IProgress<double> progress = new Progress<double>(v => ProgressValue = v);
             SchoolData data = await Task.Run(() => SampleDataFactory.Create(progress, _cts.Token), _cts.Token);
 
-            // 使用初中标准模板的课程配置替换示例数据中的课程
-            string templatePath = GetTemplateFilePath("初中标准");
-            if (File.Exists(templatePath))
-            {
-                var json = File.ReadAllText(templatePath);
-                var templateSubjects = System.Text.Json.JsonSerializer.Deserialize<List<SubjectDefinition>>(json);
-                if (templateSubjects is { Count: > 0 })
-                {
-                    data.Subjects.Clear();
-                    data.Subjects.AddRange(templateSubjects);
-                }
-            }
-
-            // 加载固定课程
-            string fixedPath = GetFixedTemplateFilePath("初中标准");
-            if (File.Exists(fixedPath))
-            {
-                var fixedJson = File.ReadAllText(fixedPath);
-                var fixedLessons = System.Text.Json.JsonSerializer.Deserialize<List<FixedLesson>>(fixedJson);
-                if (fixedLessons is { Count: > 0 })
-                {
-                    data.FixedLessons.Clear();
-                    data.FixedLessons.AddRange(fixedLessons);
-                }
-            }
+            // 使用内置初中标准配置替换示例数据中的课程
+            var builtIn = GetBuiltInTemplate();
+            data.Subjects.Clear();
+            data.Subjects.AddRange(builtIn.Subjects);
+            data.FixedLessons.Clear();
+            data.FixedLessons.AddRange(builtIn.FixedLessons);
 
             // 重新生成教师配置和需求
             var service = new ScheduleService();
