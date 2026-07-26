@@ -157,7 +157,7 @@ public sealed class ScheduleService
                     {
                         TeacherName = teacherName,
                         Subject = subDef.Name,
-                        WeeklyCount = weeklyCount,
+                        WeeklyCount = 0, // 0=继承年级课程配置的默认周课时
                         GradeName = gradeName,
                         ClassNumbers = string.Join(",", numbers),
                         DistributionRule = distributionRule,

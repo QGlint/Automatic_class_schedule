@@ -2,6 +2,9 @@ namespace Automatic_class_schedule.Models;
 
 public sealed class TeacherAssignment : Infrastructure.ObservableObject
 {
+    /// <summary>用于解析默认周课时的委托（由ViewModel设置）</summary>
+    public static Func<string, string, int>? DefaultWeeklyCountResolver { get; set; }
+
     private Guid _id = Guid.NewGuid();
     private string _teacherName = string.Empty;
     private string _subject = string.Empty;
@@ -28,13 +31,46 @@ public sealed class TeacherAssignment : Infrastructure.ObservableObject
     public string Subject
     {
         get => _subject;
-        set => SetProperty(ref _subject, value);
+        set
+        {
+            if (SetProperty(ref _subject, value))
+            {
+                OnPropertyChanged(nameof(WeeklyCountInput));
+                OnPropertyChanged(nameof(WeeklyCountPlaceholder));
+            }
+        }
     }
 
+    /// <summary>周课时（0=继承年级默认值）</summary>
     public int WeeklyCount
     {
         get => _weeklyCount;
-        set => SetProperty(ref _weeklyCount, value);
+        set
+        {
+            if (SetProperty(ref _weeklyCount, value))
+                OnPropertyChanged(nameof(WeeklyCountInput));
+        }
+    }
+
+    /// <summary>UI编辑用字符串属性（空=继承默认）</summary>
+    public string WeeklyCountInput
+    {
+        get => _weeklyCount > 0 ? _weeklyCount.ToString() : string.Empty;
+        set
+        {
+            int parsed = int.TryParse(value?.Trim(), out int v) && v > 0 ? v : 0;
+            WeeklyCount = parsed;
+        }
+    }
+
+    /// <summary>PlaceholderText：灰色显示继承的默认值</summary>
+    public string WeeklyCountPlaceholder
+    {
+        get
+        {
+            int defaultCount = DefaultWeeklyCountResolver?.Invoke(_subject, _gradeName) ?? 0;
+            return defaultCount > 0 ? $"·{defaultCount}（默认）" : "";
+        }
     }
 
     public string GradeName
@@ -43,7 +79,10 @@ public sealed class TeacherAssignment : Infrastructure.ObservableObject
         set
         {
             if (SetProperty(ref _gradeName, value))
+            {
                 UpdateClassNames();
+                OnPropertyChanged(nameof(WeeklyCountPlaceholder));
+            }
         }
     }
 

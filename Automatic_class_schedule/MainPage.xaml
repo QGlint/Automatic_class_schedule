@@ -249,16 +249,10 @@
                         <Button Content="3. 教师配置" Command="{Binding SelectConfigPageCommand}" CommandParameter="教师配置"
                                 Style="{StaticResource NavActiveButtonStyle}"
                                 Visibility="{Binding SelectedConfigPage, Converter={StaticResource StringMatchToVisibility}, ConverterParameter=教师配置}" />
-                        <Button Content="4. 固定课程" Command="{Binding SelectConfigPageCommand}" CommandParameter="固定课程"
-                                Style="{StaticResource NavButtonStyle}"
-                                Visibility="{Binding SelectedConfigPage, Converter={StaticResource InverseBoolToVisibility}, ConverterParameter=固定课程}" />
-                        <Button Content="4. 固定课程" Command="{Binding SelectConfigPageCommand}" CommandParameter="固定课程"
-                                Style="{StaticResource NavActiveButtonStyle}"
-                                Visibility="{Binding SelectedConfigPage, Converter={StaticResource StringMatchToVisibility}, ConverterParameter=固定课程}" />
-                        <Button Content="5. 自动排课" Command="{Binding SelectConfigPageCommand}" CommandParameter="自动排课"
+                        <Button Content="4. 自动排课" Command="{Binding SelectConfigPageCommand}" CommandParameter="自动排课"
                                 Style="{StaticResource NavButtonStyle}"
                                 Visibility="{Binding SelectedConfigPage, Converter={StaticResource InverseBoolToVisibility}, ConverterParameter=自动排课}" />
-                        <Button Content="5. 自动排课" Command="{Binding SelectConfigPageCommand}" CommandParameter="自动排课"
+                        <Button Content="4. 自动排课" Command="{Binding SelectConfigPageCommand}" CommandParameter="自动排课"
                                 Style="{StaticResource NavActiveButtonStyle}"
                                 Visibility="{Binding SelectedConfigPage, Converter={StaticResource StringMatchToVisibility}, ConverterParameter=自动排课}" />
                         <Rectangle Height="1" Fill="#FFD9E1EC" Margin="0,6,0,8" />
@@ -534,26 +528,34 @@
                                 <Button Content="删除" Command="{Binding DeleteCourseTemplateCommand}" Style="{StaticResource RoundButtonBase}" Background="#FFF0F5FF" Foreground="#FFCC4444" />
                             </StackPanel>
                         </Border>
-                        <!-- 年级子标签 -->
-                        <ItemsControl ItemsSource="{Binding GradeInputs}" Margin="0,0,0,6">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <StackPanel Orientation="Horizontal" />
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Grid>
+                        <!-- 年级子标签 + 固定时间标签 -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                            <ItemsControl ItemsSource="{Binding GradeInputs}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
                                         <Button Content="{Binding GradeName}" Click="SubjectGradeTabButton_Click"
                                                 Height="36" MinWidth="80" Margin="0,0,6,0" Padding="12,4"
                                                 CornerRadius="6" FontSize="14" FontWeight="SemiBold"
                                                 BorderThickness="0"
                                                 Background="#FFF0F5FF" Foreground="#FF214E78" />
-                                    </Grid>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                        <Border Style="{StaticResource SectionBorderStyle}">
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <Button Content="固定时间" Click="FixedTimeTabButton_Click"
+                                    Height="36" MinWidth="80" Margin="0,0,6,0" Padding="12,4"
+                                    CornerRadius="6" FontSize="14" FontWeight="SemiBold"
+                                    BorderThickness="0"
+                                    Background="#FFF0F5FF" Foreground="#FF214E78" />
+                        </StackPanel>
+
+                        <!-- 课程列表（年级标签时显示） -->
+                        <Border Style="{StaticResource SectionBorderStyle}"
+                                Visibility="{Binding IsSubjectGridVisible, Converter={StaticResource BoolToVisibility}}">
                             <StackPanel>
                                 <Grid>
                                     <Grid.ColumnDefinitions>
@@ -601,6 +603,62 @@
                                                     <ComboBox ItemsSource="{Binding Options, Source={StaticResource DistRuleProvider}}"
                                                               SelectedItem="{Binding DistributionRule, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                               BorderThickness="0" MinHeight="28" VerticalAlignment="Center" />
+                                                </DataTemplate>
+                                            </controls:DataGridTemplateColumn.CellTemplate>
+                                        </controls:DataGridTemplateColumn>
+                                    </controls:DataGrid.Columns>
+                                </controls:DataGrid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- 固定课程列表（固定时间标签时显示） -->
+                        <Border Style="{StaticResource SectionBorderStyle}"
+                                Visibility="{Binding IsFixedTimeTabSelected, Converter={StaticResource BoolToVisibility}}">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="固定课程列表" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    <Button Grid.Column="1" Content="添加" Command="{Binding AddFixedLessonCommand}" Style="{StaticResource RoundButtonBase}" Background="#FF214E78" Foreground="White" Margin="0,0,6,0" />
+                                    <Button Grid.Column="2" Content="删除" Command="{Binding DeleteFixedLessonCommand}" Style="{StaticResource RoundButtonBase}" Background="#FFF0F5FF" Foreground="#FFCC4444" />
+                                </Grid>
+                                <controls:DataGrid ItemsSource="{Binding FixedLessons}" SelectedItem="{Binding SelectedFixedLesson, Mode=TwoWay}"
+                                                   IsReadOnly="False" AutoGenerateColumns="False"
+                                                   GridLinesVisibility="Horizontal" RowHeight="36">
+                                    <controls:DataGrid.Columns>
+                                        <controls:DataGridTemplateColumn Header="范围" Width="*">
+                                            <controls:DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <ComboBox ItemsSource="{Binding Options, Source={StaticResource ScopeProvider}}"
+                                                              SelectedItem="{Binding ScopeValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                              BorderThickness="0" MinHeight="28" VerticalAlignment="Center" />
+                                                </DataTemplate>
+                                            </controls:DataGridTemplateColumn.CellTemplate>
+                                        </controls:DataGridTemplateColumn>
+                                        <controls:DataGridTemplateColumn Header="星期" Width="*">
+                                            <controls:DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBox Text="{Binding DayIndex, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                             BorderThickness="0" Background="Transparent" VerticalAlignment="Center" Padding="4,2" />
+                                                </DataTemplate>
+                                            </controls:DataGridTemplateColumn.CellTemplate>
+                                        </controls:DataGridTemplateColumn>
+                                        <controls:DataGridTemplateColumn Header="第几节" Width="*">
+                                            <controls:DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBox Text="{Binding PeriodIndex, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                             BorderThickness="0" Background="Transparent" VerticalAlignment="Center" Padding="4,2" />
+                                                </DataTemplate>
+                                            </controls:DataGridTemplateColumn.CellTemplate>
+                                        </controls:DataGridTemplateColumn>
+                                        <controls:DataGridTemplateColumn Header="课程名称" Width="*">
+                                            <controls:DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBox Text="{Binding Subject, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                             BorderThickness="0" Background="Transparent" VerticalAlignment="Center" Padding="4,2" />
                                                 </DataTemplate>
                                             </controls:DataGridTemplateColumn.CellTemplate>
                                         </controls:DataGridTemplateColumn>
@@ -665,71 +723,8 @@
                                         <controls:DataGridTemplateColumn Header="周课时" Width="*">
                                             <controls:DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <TextBox Text="{Binding WeeklyCount, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                             BorderThickness="0" Background="Transparent" VerticalAlignment="Center" Padding="4,2" />
-                                                </DataTemplate>
-                                            </controls:DataGridTemplateColumn.CellTemplate>
-                                        </controls:DataGridTemplateColumn>
-                                    </controls:DataGrid.Columns>
-                                </controls:DataGrid>
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                </ScrollViewer>
-            </Border>
-
-            <!-- ===== 固定课程 ===== -->
-            <Border Grid.Column="1" Margin="0,0,8,0" Style="{StaticResource SectionBorderStyle}"
-                    Visibility="{Binding IsFixedLessonConfigVisible, Converter={StaticResource BoolToVisibility}}">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel>
-                        <TextBlock Text="固定课程" FontSize="18" Foreground="#FF214E78" />
-                        <TextBlock Text="配置全校、年级级别的固定课程。" Foreground="#FF5A6877" Margin="0,0,0,10" />
-                        <Border Style="{StaticResource SectionBorderStyle}">
-                            <StackPanel>
-                                <Grid Margin="0,0,0,8">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="固定课程列表" FontWeight="SemiBold" VerticalAlignment="Center" />
-                                    <Button Grid.Column="1" Content="添加" Command="{Binding AddFixedLessonCommand}" Style="{StaticResource RoundButtonBase}" Background="#FF214E78" Foreground="White" Margin="0,0,6,0" />
-                                    <Button Grid.Column="2" Content="删除" Command="{Binding DeleteFixedLessonCommand}" Style="{StaticResource RoundButtonBase}" Background="#FFF0F5FF" Foreground="#FFCC4444" />
-                                </Grid>
-                                <controls:DataGrid ItemsSource="{Binding FixedLessons}" SelectedItem="{Binding SelectedFixedLesson, Mode=TwoWay}"
-                                                   IsReadOnly="False" AutoGenerateColumns="False"
-                                                   GridLinesVisibility="Horizontal" RowHeight="36">
-                                    <controls:DataGrid.Columns>
-                                        <controls:DataGridTemplateColumn Header="范围" Width="*">
-                                            <controls:DataGridTemplateColumn.CellTemplate>
-                                                <DataTemplate>
-                                                    <ComboBox ItemsSource="{Binding Options, Source={StaticResource ScopeProvider}}"
-                                                              SelectedItem="{Binding ScopeValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                              BorderThickness="0" MinHeight="28" VerticalAlignment="Center" />
-                                                </DataTemplate>
-                                            </controls:DataGridTemplateColumn.CellTemplate>
-                                        </controls:DataGridTemplateColumn>
-                                        <controls:DataGridTemplateColumn Header="星期" Width="*">
-                                            <controls:DataGridTemplateColumn.CellTemplate>
-                                                <DataTemplate>
-                                                    <TextBox Text="{Binding DayIndex, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                             BorderThickness="0" Background="Transparent" VerticalAlignment="Center" Padding="4,2" />
-                                                </DataTemplate>
-                                            </controls:DataGridTemplateColumn.CellTemplate>
-                                        </controls:DataGridTemplateColumn>
-                                        <controls:DataGridTemplateColumn Header="第几节" Width="*">
-                                            <controls:DataGridTemplateColumn.CellTemplate>
-                                                <DataTemplate>
-                                                    <TextBox Text="{Binding PeriodIndex, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                             BorderThickness="0" Background="Transparent" VerticalAlignment="Center" Padding="4,2" />
-                                                </DataTemplate>
-                                            </controls:DataGridTemplateColumn.CellTemplate>
-                                        </controls:DataGridTemplateColumn>
-                                        <controls:DataGridTemplateColumn Header="课程名称" Width="*">
-                                            <controls:DataGridTemplateColumn.CellTemplate>
-                                                <DataTemplate>
-                                                    <TextBox Text="{Binding Subject, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                    <TextBox Text="{Binding WeeklyCountInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                             PlaceholderText="{Binding WeeklyCountPlaceholder}"
                                                              BorderThickness="0" Background="Transparent" VerticalAlignment="Center" Padding="4,2" />
                                                 </DataTemplate>
                                             </controls:DataGridTemplateColumn.CellTemplate>

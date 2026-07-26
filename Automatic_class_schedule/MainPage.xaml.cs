@@ -103,6 +103,11 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
         }
     }
 
+    private void FixedTimeTabButton_Click(object sender, RoutedEventArgs e)
+    {
+        ((MainViewModel)DataContext).SelectSubjectGradeCommand.Execute("固定时间");
+    }
+
     private async void SaveTemplateButton_Click(object sender, RoutedEventArgs e)
     {
         var vm = (MainViewModel)DataContext;
