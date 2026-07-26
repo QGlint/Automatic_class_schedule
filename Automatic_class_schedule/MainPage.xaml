@@ -923,7 +923,7 @@
                                                                     DragOver="GridCell_DragOver"
                                                                     Drop="GridCell_Drop">
                                                                 <StackPanel Visibility="{Binding IsEmpty, Converter={StaticResource InverseBoolToVisibility}}">
-                                                                    <TextBlock Text="{Binding Subject}" FontSize="22" TextWrapping="Wrap" />
+                                                                    <TextBlock Text="{Binding Subject}" FontSize="18" TextWrapping="Wrap" />
                                                                     <TextBlock Text="{Binding TeacherName}" FontSize="14" Foreground="#FF556070" TextWrapping="Wrap" />
                                                                 </StackPanel>
                                                             </Border>
@@ -1012,7 +1012,7 @@
                                                                             Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibility}}" />
                                                                     <TextBlock VerticalAlignment="Center" FontSize="14" TextWrapping="NoWrap"
                                                                                Visibility="{Binding IsEmpty, Converter={StaticResource InverseBoolToVisibility}}">
-                                                                        <Run Text="{Binding Subject}" FontSize="22" />
+                                                                        <Run Text="{Binding Subject}" FontSize="18" />
                                                                         <Run Text=" " />
                                                                         <Run Text="{Binding TeacherName}" Foreground="#FF556070" />
                                                                     </TextBlock>
@@ -1103,7 +1103,7 @@
                                                                             Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibility}}" />
                                                                     <TextBlock VerticalAlignment="Center" FontSize="14" TextWrapping="NoWrap"
                                                                                Visibility="{Binding IsEmpty, Converter={StaticResource InverseBoolToVisibility}}">
-                                                                        <Run Text="{Binding Subject}" FontSize="22" />
+                                                                        <Run Text="{Binding Subject}" FontSize="18" />
                                                                         <Run Text=" " />
                                                                         <Run Text="{Binding ClassName}" Foreground="#FF556070" />
                                                                     </TextBlock>
