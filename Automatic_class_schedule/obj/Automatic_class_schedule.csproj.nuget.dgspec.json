@@ -53,6 +53,10 @@
               "target": "Package",
               "version": "[7.1.2, )"
             },
+            "Google.OrTools": {
+              "target": "Package",
+              "version": "[9.14.6206, )"
+            },
             "Microsoft.Windows.SDK.BuildTools": {
               "target": "Package",
               "version": "[10.0.28000.2270, )"

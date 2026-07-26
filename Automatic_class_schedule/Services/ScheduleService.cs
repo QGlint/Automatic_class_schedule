@@ -10,7 +10,7 @@ public sealed class ScheduleService
 
     public ScheduleService(IScheduleSolver? solver = null, ConflictService? conflictService = null)
     {
-        _solver = solver ?? new GreedyScheduleSolver();
+        _solver = solver ?? new CpSatScheduleSolver();
         _conflictService = conflictService ?? new ConflictService();
     }
 

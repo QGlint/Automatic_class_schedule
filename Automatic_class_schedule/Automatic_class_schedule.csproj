@@ -31,6 +31,7 @@
 
   <ItemGroup>
     <PackageReference Include="ClosedXML" Version="0.104.2" />
+    <PackageReference Include="Google.OrTools" Version="9.14.6206" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2270" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.3.1" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools.WinApp" Version="0.5.0" />
