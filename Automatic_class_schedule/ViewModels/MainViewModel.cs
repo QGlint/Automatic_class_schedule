@@ -88,6 +88,7 @@ public sealed class MainViewModel : ObservableObject
         DeleteFixedLessonCommand = new RelayCommand(DeleteFixedLesson, () => SelectedFixedLesson is not null);
         AutoScheduleCommand = new RelayCommand(() => _ = AutoScheduleAsync());
         ValidateCommand = new RelayCommand(ValidateSchedule);
+        ClearConflictsCommand = new RelayCommand(() => { Conflicts.Clear(); OnPropertyChanged(nameof(TotalConflicts)); });
         SaveCommand = new RelayCommand(SaveData);
         LoadCommand = new RelayCommand(LoadData);
         NewProjectCommand = new RelayCommand(NewProject);
@@ -1134,6 +1135,7 @@ public sealed class MainViewModel : ObservableObject
     public RelayCommand DeleteFixedLessonCommand { get; }
     public RelayCommand AutoScheduleCommand { get; }
     public RelayCommand ValidateCommand { get; }
+    public RelayCommand ClearConflictsCommand { get; }
     public RelayCommand SaveCommand { get; }
     public RelayCommand LoadCommand { get; }
     public RelayCommand NewProjectCommand { get; }
@@ -1469,6 +1471,11 @@ public sealed class MainViewModel : ObservableObject
         // ===== 跨班/移动到空位：需要重新求解 =====
         IsBusy = true;
 
+        // 保存原始位置以便回退
+        int origDragDay = draggedEntry.DayIndex, origDragPeriod = draggedEntry.PeriodIndex;
+        int origTargetDay = targetEntry?.DayIndex ?? -1, origTargetPeriod = targetEntry?.PeriodIndex ?? -1;
+        int expectedEntryCount = ScheduleEntries.Count;
+
         try
         {
             _cts = new CancellationTokenSource();
@@ -1523,6 +1530,28 @@ public sealed class MainViewModel : ObservableObject
                 _cts.Token);
 
             StopSmoothProgress();
+
+            // 安全检查：求解失败时回退
+            if (result.Entries.Count < expectedEntryCount - 2)
+            {
+                // 回退位置
+                draggedEntry.DayIndex = origDragDay;
+                draggedEntry.PeriodIndex = origDragPeriod;
+                draggedEntry.Locked = false;
+                if (targetEntry != null)
+                {
+                    targetEntry.DayIndex = origTargetDay;
+                    targetEntry.PeriodIndex = origTargetPeriod;
+                    targetEntry.Locked = false;
+                }
+                CloseProgressDialog();
+                StatusMessage = "修改后无解，已恢复上一次状态";
+                Log("拖拽重排无解，已回退");
+                AddInfoMessage("修改后无解", "该调整导致约束冲突无法求解，已自动恢复");
+                RefreshViews();
+                return;
+            }
+
             UpdateDialogProgress(0.90, "正在整理结果...");
 
             // 更新课表
@@ -1644,8 +1673,9 @@ public sealed class MainViewModel : ObservableObject
                 swappedB.Locked = false;
 
                 CloseProgressDialog();
-                StatusMessage = "局部调整失败：无法在保持交换的前提下解决教师冲突，已恢复原位";
+                StatusMessage = "修改后无解，已恢复上一次状态";
                 Log("最小变化求解失败，已回退");
+                AddInfoMessage("修改后无解", "该交换导致教师冲突无法解决，已自动恢复原位");
                 RefreshViews();
                 return;
             }
@@ -2100,8 +2130,8 @@ public sealed class MainViewModel : ObservableObject
         }
 
         OnPropertyChanged(nameof(TotalConflicts));
-        StatusMessage = $"检查完成：{Conflicts.Count} 条提示";
-        Log($"检查冲突：{Conflicts.Count} 条");
+        StatusMessage = Conflicts.Count > 0 ? $"检查完成：{Conflicts.Count} 条信息" : "检查完成，无冲突";
+        Log($"检查信息：{Conflicts.Count} 条");
     }
 
     private void SaveData()
@@ -2706,6 +2736,20 @@ public sealed class MainViewModel : ObservableObject
         {
             ActivityLog.RemoveAt(ActivityLog.Count - 1);
         }
+    }
+
+    /// <summary>添加信息提示到信息面板</summary>
+    private void AddInfoMessage(string typeText, string message)
+    {
+        Conflicts.Add(new ScheduleConflict
+        {
+            Severity = ScheduleConflictSeverity.Info,
+            Type = ScheduleConflictType.PreferenceConflict,
+            Message = message,
+            Scope = typeText,
+            Target = ""
+        });
+        OnPropertyChanged(nameof(TotalConflicts));
     }
 
     private static string GetDayName(int dayIndex)

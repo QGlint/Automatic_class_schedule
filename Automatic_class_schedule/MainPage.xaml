@@ -256,7 +256,7 @@
                                 Style="{StaticResource NavActiveButtonStyle}"
                                 Visibility="{Binding SelectedConfigPage, Converter={StaticResource StringMatchToVisibility}, ConverterParameter=自动排课}" />
                         <Rectangle Height="1" Fill="#FFD9E1EC" Margin="0,6,0,8" />
-                        <Button Content="检查冲突" Command="{Binding ValidateCommand}" Style="{StaticResource NavButtonStyle}" />
+                        <Button Content="检查" Command="{Binding ValidateCommand}" Style="{StaticResource NavButtonStyle}" />
                     </StackPanel>
                 </ScrollViewer>
             </Border>
@@ -787,7 +787,7 @@
                         </Grid>
 
                         <Rectangle Height="1" Fill="#FFD9E1EC" Margin="0,12" />
-                        <Button Content="检查冲突" Command="{Binding ValidateCommand}" Style="{StaticResource RoundButtonBase}" Background="#FFF0F5FF" Foreground="#FF214E78" HorizontalAlignment="Left" />
+                        <Button Content="检查" Command="{Binding ValidateCommand}" Style="{StaticResource RoundButtonBase}" Background="#FFF0F5FF" Foreground="#FF214E78" HorizontalAlignment="Left" />
                         <controls:DataGrid ItemsSource="{Binding Conflicts}" IsReadOnly="True" Margin="0,6,0,0" MaxHeight="220"
                                            AutoGenerateColumns="False" HeadersVisibility="Column" GridLinesVisibility="Horizontal"
                                            HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
@@ -1176,18 +1176,22 @@
                         <TextBlock Text="{Binding SelectedScheduleEntry.SlotLabel}" FontSize="12" />
                     </StackPanel>
 
-                    <!-- 冲突提示（占满剩余空间） -->
+                    <!-- 信息提示（占满剩余空间） -->
                     <Grid Grid.Row="1">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
-                        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,4">
-                            <TextBlock Text="冲突提示" FontWeight="SemiBold" FontSize="14" Foreground="#FF214E78" VerticalAlignment="Center" />
-                            <Border Background="#FFF0F5FF" CornerRadius="8" Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center">
-                                <TextBlock Text="{Binding TotalConflicts}" FontSize="11" Foreground="#FF214E78" />
-                            </Border>
-                        </StackPanel>
+                        <Grid Grid.Row="0" Margin="0,0,0,4">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                                <TextBlock Text="信息" FontWeight="SemiBold" FontSize="14" Foreground="#FF214E78" VerticalAlignment="Center" />
+                                <Border Background="#FFF0F5FF" CornerRadius="8" Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding TotalConflicts}" FontSize="11" Foreground="#FF214E78" />
+                                </Border>
+                            </StackPanel>
+                            <Button Content="清除" Command="{Binding ClearConflictsCommand}" HorizontalAlignment="Right"
+                                    FontSize="11" Padding="8,2" Background="Transparent" BorderThickness="0" Foreground="#FF5A6877" />
+                        </Grid>
                         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                             <ItemsControl ItemsSource="{Binding Conflicts}">
                                 <ItemsControl.ItemTemplate>
@@ -1196,11 +1200,8 @@
                                                 BorderBrush="#FFE0E6EF" BorderThickness="1">
                                             <StackPanel>
                                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,3">
-                                                    <Border CornerRadius="3" Padding="4,1" Margin="0,0,6,0">
-                                                        <Border.Background>
-                                                            <SolidColorBrush Color="#FFFFE0E0" />
-                                                        </Border.Background>
-                                                        <TextBlock Text="{Binding SeverityText}" FontSize="11" Foreground="#FFC62828" />
+                                                    <Border CornerRadius="3" Padding="4,1" Margin="0,0,6,0" Background="#FFE3F2FD">
+                                                        <TextBlock Text="{Binding SeverityText}" FontSize="11" Foreground="#FF1565C0" />
                                                     </Border>
                                                     <TextBlock Text="{Binding TypeText}" FontSize="11" Foreground="#FF5A6877" VerticalAlignment="Center" />
                                                     <TextBlock Text="{Binding Target}" FontSize="11" Foreground="#FF214E78"

@@ -682,7 +682,7 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
             DayIndex = dayIndex,
             PeriodIndex = periodIndex,
             Locked = locked,
-            IsFixed = locked,
+            IsFixed = false,
             Note = note ?? string.Empty
         };
     }
