@@ -128,44 +128,48 @@ public sealed class ExcelScheduleService
     public void ExportAll(SchoolData data, string folder)
     {
         Directory.CreateDirectory(folder);
-        string filePath = Path.Combine(folder, "课表导出.xlsx");
-        using XLWorkbook workbook = new();
 
         int days = data.Settings.DaysPerWeek;
         int periods = data.Settings.PeriodsPerDay;
         var entries = data.ScheduleEntries;
         var grades = data.Classes.GroupBy(c => c.GradeName).OrderBy(g => g.Key).ToList();
 
-        // ===== Sheet 1: 总表(简) — 全年级拼接，只显示科目第一个字 =====
-        WriteGradeOverviewSheet(workbook, "总表(简)", grades, entries, days, periods, simplified: true);
-
-        // ===== Sheet 2: 总表 — 全年级拼接，显示科目+教师 =====
-        WriteGradeOverviewSheet(workbook, "总表", grades, entries, days, periods, simplified: false);
-
-        // ===== Sheet 3-5: 各年级 =====
-        foreach (var gradeGroup in grades)
+        // ===== 文件1: 年级课表.xlsx =====
+        using (XLWorkbook wb = new())
         {
-            string shortName = gradeGroup.Key.Replace("年级", "");
-            WriteGradeOverviewSheet(workbook, $"{shortName}年级", new[] { gradeGroup }, entries, days, periods, simplified: false);
+            WriteGradeOverviewSheet(wb, "总表(简)", grades, entries, days, periods, simplified: true);
+            WriteGradeOverviewSheet(wb, "总表", grades, entries, days, periods, simplified: false);
+            foreach (var gradeGroup in grades)
+            {
+                string shortName = gradeGroup.Key.Replace("年级", "");
+                WriteGradeOverviewSheet(wb, $"{shortName}年级", new[] { gradeGroup }, entries, days, periods, simplified: false);
+            }
+            wb.SaveAs(Path.Combine(folder, "年级课表.xlsx"));
         }
 
-        // ===== 班级课表: 每班一个分表 =====
-        foreach (var cls in data.Classes.OrderBy(c => c.GradeName).ThenBy(c => c.ClassNumber))
+        // ===== 文件2: 班级课表.xlsx =====
+        using (XLWorkbook wb = new())
         {
-            string sheetName = SanitizeSheetName(cls.Name);
-            WriteClassSheet(workbook, sheetName, cls.Name, entries, days, periods);
+            foreach (var cls in data.Classes.OrderBy(c => c.GradeName).ThenBy(c => c.ClassNumber))
+            {
+                string sheetName = SanitizeSheetName(cls.Name);
+                WriteClassSheet(wb, sheetName, cls.Name, entries, days, periods);
+            }
+            wb.SaveAs(Path.Combine(folder, "班级课表.xlsx"));
         }
 
-        // ===== 教师课表: 每位教师一个分表 =====
-        var teachers = entries.Where(e => !string.IsNullOrEmpty(e.TeacherName))
-            .GroupBy(e => e.TeacherName).OrderBy(g => g.Key).ToList();
-        foreach (var teacherGroup in teachers)
+        // ===== 文件3: 教师课表.xlsx =====
+        using (XLWorkbook wb = new())
         {
-            string sheetName = SanitizeSheetName(teacherGroup.Key);
-            WriteTeacherSheet(workbook, sheetName, teacherGroup.Key, teacherGroup.ToList(), days, periods);
+            var teachers = entries.Where(e => !string.IsNullOrEmpty(e.TeacherName))
+                .GroupBy(e => e.TeacherName).OrderBy(g => g.Key).ToList();
+            foreach (var teacherGroup in teachers)
+            {
+                string sheetName = SanitizeSheetName(teacherGroup.Key);
+                WriteTeacherSheet(wb, sheetName, teacherGroup.Key, teacherGroup.ToList(), days, periods);
+            }
+            wb.SaveAs(Path.Combine(folder, "教师课表.xlsx"));
         }
-
-        workbook.SaveAs(filePath);
     }
 
     /// <summary>年级总表格式：班级为行，天×节次为列</summary>
@@ -228,9 +232,10 @@ public sealed class ExcelScheduleService
         StyleHeaderRow(sheet, 2, 1, 2, col - 1);
         sheet.Column(1).Width = 10;
         for (int c = 2; c < col; c++)
-            sheet.Column(c).Width = simplified ? 5 : 9;
+            sheet.Column(c).Width = simplified ? 5 : 10;
         sheet.Rows().Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
         sheet.Rows().Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        sheet.Rows().Style.Alignment.WrapText = true;  // 换行显示科目+教师
         sheet.Rows().Style.Font.FontSize = 10;
         sheet.Row(1).Style.Font.Bold = true;
         sheet.Row(2).Style.Font.Bold = true;

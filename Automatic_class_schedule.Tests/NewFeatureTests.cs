@@ -447,33 +447,39 @@ public sealed class NewFeatureTests
             var excelService = new ExcelScheduleService();
             excelService.ExportAll(data, tempDir);
 
-            string filePath = Path.Combine(tempDir, "课表导出.xlsx");
-            Assert.True(File.Exists(filePath), "导出文件应存在");
+            // 验证3个文件存在
+            string gradeFile = Path.Combine(tempDir, "年级课表.xlsx");
+            string classFile = Path.Combine(tempDir, "班级课表.xlsx");
+            string teacherFile = Path.Combine(tempDir, "教师课表.xlsx");
+            Assert.True(File.Exists(gradeFile), "年级课表.xlsx 应存在");
+            Assert.True(File.Exists(classFile), "班级课表.xlsx 应存在");
+            Assert.True(File.Exists(teacherFile), "教师课表.xlsx 应存在");
 
-            // 验证工作簿内容
-            using var workbook = new ClosedXML.Excel.XLWorkbook(filePath);
-            var sheetNames = workbook.Worksheets.Select(ws => ws.Name).ToList();
+            // 验证年级课表分表
+            using var gradeWb = new ClosedXML.Excel.XLWorkbook(gradeFile);
+            var gradeSheets = gradeWb.Worksheets.Select(ws => ws.Name).ToList();
+            _output.WriteLine($"年级课表分表: {string.Join(", ", gradeSheets)}");
+            Assert.Contains("总表(简)", gradeSheets);
+            Assert.Contains("总表", gradeSheets);
+            Assert.Contains("七年级", gradeSheets);
+            Assert.Contains("八年级", gradeSheets);
+            Assert.Contains("九年级", gradeSheets);
+            Assert.Equal(5, gradeSheets.Count);
 
-            _output.WriteLine($"导出分表数: {sheetNames.Count}");
-            foreach (var name in sheetNames)
-                _output.WriteLine($"  - {name}");
+            // 验证班级课表分表数
+            using var classWb = new ClosedXML.Excel.XLWorkbook(classFile);
+            int classSheetCount = classWb.Worksheets.Count;
+            Assert.Equal(data.Classes.Count, classSheetCount);
+            _output.WriteLine($"班级课表分表数: {classSheetCount} ✓");
 
-            // 应包含: 总表(简), 总表, 七年级, 八年级, 九年级, 各班, 各教师
-            Assert.Contains("总表(简)", sheetNames);
-            Assert.Contains("总表", sheetNames);
-            Assert.Contains("七年级", sheetNames);
-            Assert.Contains("八年级", sheetNames);
-            Assert.Contains("九年级", sheetNames);
-
-            // 班级分表数应等于班级总数
-            int classCount = data.Classes.Count;
-            int teacherCount = data.ScheduleEntries
+            // 验证教师课表分表数
+            using var teacherWb = new ClosedXML.Excel.XLWorkbook(teacherFile);
+            int teacherSheetCount = teacherWb.Worksheets.Count;
+            int expectedTeachers = data.ScheduleEntries
                 .Where(e => !string.IsNullOrEmpty(e.TeacherName))
                 .Select(e => e.TeacherName).Distinct().Count();
-
-            // 总分表数 = 5(年级表) + 班级数 + 教师数
-            Assert.Equal(5 + classCount + teacherCount, sheetNames.Count);
-            _output.WriteLine($"\n年级表:5 + 班级表:{classCount} + 教师表:{teacherCount} = {sheetNames.Count} ✓");
+            Assert.Equal(expectedTeachers, teacherSheetCount);
+            _output.WriteLine($"教师课表分表数: {teacherSheetCount} ✓");
         }
         finally
         {
@@ -497,7 +503,7 @@ public sealed class NewFeatureTests
             var excelService = new ExcelScheduleService();
             excelService.ExportAll(data, tempDir);
 
-            using var workbook = new ClosedXML.Excel.XLWorkbook(Path.Combine(tempDir, "课表导出.xlsx"));
+            using var workbook = new ClosedXML.Excel.XLWorkbook(Path.Combine(tempDir, "年级课表.xlsx"));
             var simpleSheet = workbook.Worksheet("总表(简)");
 
             // 检查数据行中的内容都是单字

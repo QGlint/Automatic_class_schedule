@@ -92,6 +92,7 @@ public sealed class MainViewModel : ObservableObject
         LoadCommand = new RelayCommand(LoadData);
         NewProjectCommand = new RelayCommand(NewProject);
         ExportCommand = new RelayCommand(() => _ = ExportExcelAsync());
+        SelectExportFolderCommand = new RelayCommand(() => _ = SelectExportFolderAsync());
         ImportCommand = new RelayCommand(() => _ = ImportExcelAsync());
         CancelCommand = new RelayCommand(CancelOperation, () => IsBusy);
         UseFiveDayCommand = new RelayCommand(() => SetDaysPerWeek(5));
@@ -721,7 +722,12 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
-    public string ExportFolderPath => AppPaths.ExportFolder;
+    private string _exportFolderPath = AppPaths.OutputPath;
+    public string ExportFolderPath
+    {
+        get => _exportFolderPath;
+        set => SetProperty(ref _exportFolderPath, value);
+    }
     public string DataFilePath => AppPaths.DataFile;
 
     public string ProjectFilePath
@@ -1132,6 +1138,7 @@ public sealed class MainViewModel : ObservableObject
     public RelayCommand LoadCommand { get; }
     public RelayCommand NewProjectCommand { get; }
     public RelayCommand ExportCommand { get; }
+    public RelayCommand SelectExportFolderCommand { get; }
     public RelayCommand ImportCommand { get; }
     public RelayCommand CancelCommand { get; }
     public RelayCommand UseFiveDayCommand { get; }
@@ -1431,6 +1438,35 @@ public sealed class MainViewModel : ObservableObject
     public async Task DragRescheduleAsync(ScheduleEntry draggedEntry, int targetDay, int targetPeriod, ScheduleEntry? targetEntry)
     {
         if (IsBusy) return;
+
+        // ===== 同班交换：先验证无冲突则直接交换，无需重新求解 =====
+        if (targetEntry != null && draggedEntry.ClassName == targetEntry.ClassName)
+        {
+            SchoolData data = BuildSchoolData();
+            if (_scheduleService.TrySwapEntries(data, draggedEntry, targetEntry, out _))
+            {
+                draggedEntry.Note = "换课";
+                targetEntry.Note = "换课";
+                StatusMessage = $"已交换 {draggedEntry.Subject} 和 {targetEntry.Subject}（{draggedEntry.ClassName}）";
+                Log($"同班换课: {draggedEntry.Subject}↔{targetEntry.Subject} ({draggedEntry.ClassName})");
+                RefreshViews();
+                return;
+            }
+            // 有教师冲突，手动执行交换后走最小变化求解
+            int sDay = draggedEntry.DayIndex, sPeriod = draggedEntry.PeriodIndex;
+            draggedEntry.DayIndex = targetEntry.DayIndex;
+            draggedEntry.PeriodIndex = targetEntry.PeriodIndex;
+            targetEntry.DayIndex = sDay;
+            targetEntry.PeriodIndex = sPeriod;
+            draggedEntry.Locked = true;
+            targetEntry.Locked = true;
+
+            // 最小变化求解：锁定所有现有位置，只让冲突部分微调
+            await MinimalChangeSolveAsync(draggedEntry, targetEntry);
+            return;
+        }
+
+        // ===== 跨班/移动到空位：需要重新求解 =====
         IsBusy = true;
 
         try
@@ -1441,7 +1477,6 @@ public sealed class MainViewModel : ObservableObject
             // 执行移动/交换
             if (targetEntry != null)
             {
-                // 交换位置
                 int srcDay = draggedEntry.DayIndex, srcPeriod = draggedEntry.PeriodIndex;
                 draggedEntry.DayIndex = targetEntry.DayIndex;
                 draggedEntry.PeriodIndex = targetEntry.PeriodIndex;
@@ -1452,7 +1487,6 @@ public sealed class MainViewModel : ObservableObject
             }
             else
             {
-                // 移动到空位
                 draggedEntry.DayIndex = targetDay;
                 draggedEntry.PeriodIndex = targetPeriod;
                 draggedEntry.Locked = true;
@@ -1520,6 +1554,111 @@ public sealed class MainViewModel : ObservableObject
             CloseProgressDialog();
             StatusMessage = "重新排课已取消";
             RefreshViews();
+        }
+        finally
+        {
+            IsBusy = false;
+            _cts = null;
+        }
+    }
+
+    /// <summary>同班交换有教师冲突时：锁定几乎所有课程，只让冲突相关条目微调</summary>
+    private async Task MinimalChangeSolveAsync(ScheduleEntry swappedA, ScheduleEntry swappedB)
+    {
+        IsBusy = true;
+        try
+        {
+            _cts = new CancellationTokenSource();
+            SchoolData data = BuildSchoolData();
+
+            // 找出交换后产生的教师时间冲突
+            var allEntries = ScheduleEntries.ToList();
+            var conflictEntryIds = new HashSet<Guid> { swappedA.Id, swappedB.Id };
+
+            // 收集交换后两个entry的教师+时间槽
+            var swappedSlots = new[]
+            {
+                (TeacherId: swappedA.TeacherId, Day: swappedA.DayIndex, Period: swappedA.PeriodIndex),
+                (TeacherId: swappedB.TeacherId, Day: swappedB.DayIndex, Period: swappedB.PeriodIndex)
+            };
+
+            foreach (var (teacherId, day, period) in swappedSlots)
+            {
+                if (teacherId == Guid.Empty) continue;
+                // 找同时段同教师的其它条目（即被冲突的条目）
+                var conflicting = allEntries.Where(e =>
+                    e.TeacherId == teacherId &&
+                    e.DayIndex == day &&
+                    e.PeriodIndex == period &&
+                    e.Id != swappedA.Id &&
+                    e.Id != swappedB.Id &&
+                    e.Subject != "体育").ToList();
+                foreach (var c in conflicting)
+                    conflictEntryIds.Add(c.Id);
+            }
+
+            // 锁定所有不受影响的课程（交换的entry保持锁定，冲突entry解锁让求解器移动）
+            foreach (var entry in allEntries)
+            {
+                if (!conflictEntryIds.Contains(entry.Id))
+                    entry.Locked = true;
+            }
+            // 冲突entry解锁
+            foreach (var entry in allEntries.Where(e => conflictEntryIds.Contains(e.Id) && e.Id != swappedA.Id && e.Id != swappedB.Id))
+            {
+                entry.Locked = false;
+            }
+
+            var locks = allEntries
+                .Where(e => e.Locked)
+                .Select(e => new LockedLesson
+                {
+                    RequirementId = e.RequirementId,
+                    EntryId = e.Id,
+                    DayIndex = e.DayIndex,
+                    PeriodIndex = e.PeriodIndex
+                }).ToList();
+
+            OpenProgressDialog("局部调整");
+            UpdateDialogProgress(0.10, "正在局部求解...");
+            StartSmoothProgress(0.10, 0.85);
+
+            ScheduleResult result = await Task.Run(
+                () => _scheduleService.GenerateWithLocks(data, locks, null, _cts.Token, relaxConsecutiveDays: true),
+                _cts.Token);
+
+            StopSmoothProgress();
+            UpdateDialogProgress(0.90, "正在整理结果...");
+
+            ScheduleEntries.Clear();
+            foreach (var entry in result.Entries.OrderBy(x => x.DayIndex).ThenBy(x => x.PeriodIndex))
+                ScheduleEntries.Add(entry);
+
+            Conflicts.Clear();
+            foreach (var conflict in result.Conflicts)
+                Conflicts.Add(conflict);
+
+            OnPropertyChanged(nameof(TotalScheduleEntries));
+            OnPropertyChanged(nameof(TotalConflicts));
+
+            UpdateDialogProgress(1.0, "局部调整完成！");
+            DialogIsComplete = true;
+            StatusMessage = $"局部调整完成（{conflictEntryIds.Count} 节课参与调整）";
+            Log($"最小变化求解: {conflictEntryIds.Count} 节课调整");
+            RefreshViews();
+        }
+        catch (OperationCanceledException)
+        {
+            StopSmoothProgress();
+            CloseProgressDialog();
+            StatusMessage = "局部调整已取消";
+            RefreshViews();
+        }
+        catch (Exception ex)
+        {
+            StopSmoothProgress();
+            CloseProgressDialog();
+            StatusMessage = $"局部调整失败: {ex.Message}";
         }
         finally
         {
@@ -1970,26 +2109,11 @@ public sealed class MainViewModel : ObservableObject
 
     private async Task ExportExcelAsync()
     {
-        // 默认导出路径
-        string defaultFolder = EnsureExportFolder();
-
-        // 弹出文件夹选择器，允许用户选择导出位置
-        var folderPicker = new Windows.Storage.Pickers.FolderPicker
-        {
-            SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary
-        };
-        folderPicker.FileTypeFilter.Add("*");
-
-        var hwnd = WindowHandle != 0 ? WindowHandle : WinRT.Interop.WindowNative.GetWindowHandle(App.CurrentWindow!);
-        WinRT.Interop.InitializeWithWindow.Initialize(folderPicker, hwnd);
-
-        var folder = await folderPicker.PickSingleFolderAsync();
-        string exportPath = folder != null ? folder.Path : defaultFolder;
-
         try
         {
             IsBusy = true;
             StatusMessage = "正在导出...";
+            string exportPath = ExportFolderPath;
             await Task.Run(() => _excelService.ExportAll(BuildSchoolData(), exportPath));
             StatusMessage = $"已导出到 {exportPath}";
             Log($"导出 Excel: {exportPath}");
@@ -2001,6 +2125,26 @@ public sealed class MainViewModel : ObservableObject
         finally
         {
             IsBusy = false;
+        }
+    }
+
+    /// <summary>选择导出位置</summary>
+    public async Task SelectExportFolderAsync()
+    {
+        var folderPicker = new Windows.Storage.Pickers.FolderPicker
+        {
+            SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary
+        };
+        folderPicker.FileTypeFilter.Add("*");
+
+        var hwnd = WindowHandle != 0 ? WindowHandle : WinRT.Interop.WindowNative.GetWindowHandle(App.CurrentWindow!);
+        WinRT.Interop.InitializeWithWindow.Initialize(folderPicker, hwnd);
+
+        var folder = await folderPicker.PickSingleFolderAsync();
+        if (folder != null)
+        {
+            ExportFolderPath = folder.Path;
+            StatusMessage = $"导出位置已更改为: {folder.Path}";
         }
     }
 

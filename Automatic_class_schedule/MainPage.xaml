@@ -182,32 +182,32 @@
                 <Button Content="⚙ 配置" Command="{Binding SelectMainPageCommand}" CommandParameter="配置"
                         Height="48" FontSize="16" FontWeight="SemiBold"
                         BorderThickness="0" CornerRadius="0"
-                        Background="#FF214E78" Foreground="White"
+                        Background="#FFF0F5FF" Foreground="#FF214E78"
                         Visibility="{Binding SelectedMainPage, Converter={StaticResource InverseBoolToVisibility}, ConverterParameter=配置}" />
                 <Button Content="⚙ 配置" Command="{Binding SelectMainPageCommand}" CommandParameter="配置"
                         Height="48" FontSize="16" FontWeight="SemiBold"
                         BorderThickness="0" CornerRadius="0"
-                        Background="#FFF0F5FF" Foreground="#FF214E78"
+                        Background="#FF214E78" Foreground="White"
                         Visibility="{Binding SelectedMainPage, Converter={StaticResource StringMatchToVisibility}, ConverterParameter=配置}" />
                 <Button Grid.Column="1" Content="📅 课表" Command="{Binding SelectMainPageCommand}" CommandParameter="课表"
                         Height="48" FontSize="16" FontWeight="SemiBold"
                         BorderThickness="0" CornerRadius="0"
-                        Background="#FF214E78" Foreground="White"
+                        Background="#FFF0F5FF" Foreground="#FF214E78"
                         Visibility="{Binding SelectedMainPage, Converter={StaticResource InverseBoolToVisibility}, ConverterParameter=课表}" />
                 <Button Grid.Column="1" Content="📅 课表" Command="{Binding SelectMainPageCommand}" CommandParameter="课表"
                         Height="48" FontSize="16" FontWeight="SemiBold"
                         BorderThickness="0" CornerRadius="0"
-                        Background="#FFF0F5FF" Foreground="#FF214E78"
+                        Background="#FF214E78" Foreground="White"
                         Visibility="{Binding SelectedMainPage, Converter={StaticResource StringMatchToVisibility}, ConverterParameter=课表}" />
                 <Button Grid.Column="2" Content="📤 导出" Command="{Binding SelectMainPageCommand}" CommandParameter="导出"
                         Height="48" FontSize="16" FontWeight="SemiBold"
                         BorderThickness="0" CornerRadius="0"
-                        Background="#FF214E78" Foreground="White"
+                        Background="#FFF0F5FF" Foreground="#FF214E78"
                         Visibility="{Binding SelectedMainPage, Converter={StaticResource InverseBoolToVisibility}, ConverterParameter=导出}" />
                 <Button Grid.Column="2" Content="📤 导出" Command="{Binding SelectMainPageCommand}" CommandParameter="导出"
                         Height="48" FontSize="16" FontWeight="SemiBold"
                         BorderThickness="0" CornerRadius="0"
-                        Background="#FFF0F5FF" Foreground="#FF214E78"
+                        Background="#FF214E78" Foreground="White"
                         Visibility="{Binding SelectedMainPage, Converter={StaticResource StringMatchToVisibility}, ConverterParameter=导出}" />
             </Grid>
         </Border>
@@ -1129,19 +1129,26 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel>
                         <TextBlock Text="导出" FontSize="18" Foreground="#FF214E78" />
-                        <TextBlock Text="导出课表到 Excel 文件（可选择导出位置）。" Foreground="#FF5A6877" Margin="0,0,0,10" />
+                        <TextBlock Text="导出课表到 Excel 文件。" Foreground="#FF5A6877" Margin="0,0,0,10" />
                         <Border Style="{StaticResource SectionBorderStyle}">
                             <StackPanel Spacing="8">
                                 <TextBlock Text="导出操作" FontWeight="SemiBold" />
-                                <TextBlock Text="导出内容包括：年级总表(简)、年级总表、各年级分表、班级课表、教师课表" FontSize="12" Foreground="#FF5A6877" TextWrapping="Wrap" />
+                                <TextBlock Text="导出内容：年级课表.xlsx、班级课表.xlsx、教师课表.xlsx" FontSize="12" Foreground="#FF5A6877" TextWrapping="Wrap" />
                                 <Button Content="📤 导出课表" Command="{Binding ExportCommand}" Style="{StaticResource RoundButtonBase}" Background="#FF214E78" Foreground="White" HorizontalAlignment="Left" />
-                                <TextBlock Text="点击导出后可选择保存位置，取消则使用默认目录" FontSize="11" Foreground="#FF8899AA" />
                             </StackPanel>
                         </Border>
                         <Border Style="{StaticResource SectionBorderStyle}">
-                            <StackPanel>
-                                <TextBlock Text="输出目录" FontWeight="SemiBold" />
-                                <TextBlock Text="{Binding ExportFolderPath}" TextWrapping="Wrap" Foreground="#FF5A6877" FontSize="12" />
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="输出位置" FontWeight="SemiBold" />
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="{Binding ExportFolderPath}" TextWrapping="Wrap" Foreground="#FF5A6877" FontSize="12" VerticalAlignment="Center" />
+                                    <Button Grid.Column="1" Content="选择位置" Command="{Binding SelectExportFolderCommand}"
+                                            Style="{StaticResource RoundButtonBase}" Background="#FFF0F5FF" Foreground="#FF214E78" Margin="8,0,0,0" />
+                                </Grid>
                             </StackPanel>
                         </Border>
                         <Border Style="{StaticResource SectionBorderStyle}">
