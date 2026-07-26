@@ -150,7 +150,7 @@ public sealed class ScheduleService
                     List<SchoolClass> teacherClasses = gradeClasses.Skip(currentOffset).Take(take).ToList();
                     currentOffset += take;
 
-                    string teacherName = $"{shortGrade}{subDef.Name[..1]}{ti + 1}";
+                    string teacherName = $"{shortGrade}{subDef.Name[..1]}{ToChineseNumeral(ti + 1)}";
                     var numbers = teacherClasses.Select(c => c.ClassNumber.ToString()).ToList();
 
                     assignments.Add(new TeacherAssignment
@@ -218,6 +218,14 @@ public sealed class ScheduleService
         return new Guid(bytes.Concat(new byte[16 - bytes.Length]).Take(16).ToArray());
     }
 
+    private static string ToChineseNumeral(int n)
+    {
+        string[] digits = { "零", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十" };
+        if (n <= 10) return digits[n];
+        if (n < 20) return "十" + digits[n - 10];
+        return n.ToString();
+    }
+
     private static ScheduleProblem CreateProblem(SchoolData data)
     {
         return new ScheduleProblem
@@ -242,7 +250,7 @@ public sealed class ScheduleService
             "生物" => 2,
             "历史" => 2,
             "地理" => 2,
-            "政治" => 2,
+            "道德" => 2,
             "体育" => 2,
             "音乐" => 1,
             "美术" => 1,

@@ -39,7 +39,7 @@ public static class SampleDataFactory
             new SubjectDefinition { Name = "生物", Category = "理科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布" },
             new SubjectDefinition { Name = "历史", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布" },
             new SubjectDefinition { Name = "地理", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布" },
-            new SubjectDefinition { Name = "政治", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布" },
+            new SubjectDefinition { Name = "道德", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布" },
             new SubjectDefinition { Name = "体育", Category = "副科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布" }
         });
         ct.ThrowIfCancellationRequested();

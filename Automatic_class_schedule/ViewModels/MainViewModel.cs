@@ -159,7 +159,7 @@ public sealed class MainViewModel : ObservableObject
                 Subjects.Add(new SubjectDefinition { Name = "地理", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = grade });
             }
             Subjects.Add(new SubjectDefinition { Name = "历史", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = grade });
-            Subjects.Add(new SubjectDefinition { Name = "政治", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = grade });
+            Subjects.Add(new SubjectDefinition { Name = "道德", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = grade });
             Subjects.Add(new SubjectDefinition { Name = "体育", Category = "副科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = grade });
         }
     }
@@ -239,6 +239,23 @@ public sealed class MainViewModel : ObservableObject
     public ObservableCollection<PeriodGroup> GradePeriodGroups { get; private set; } = new();
         public ObservableCollection<GradeDayHeader> GradeDayHeaders { get; private set; } = new();
         public ObservableCollection<GradeClassRow> GradeClassRows { get; private set; } = new();
+
+    private double _gradeCellWidth = 48;
+    /// <summary>年级总表单元格宽度（根据可用区域动态计算）</summary>
+    public double GradeCellWidth
+    {
+        get => _gradeCellWidth;
+        set => SetProperty(ref _gradeCellWidth, value);
+    }
+
+    public void UpdateGradeCellWidth(double availableWidth)
+    {
+        int totalCols = DaysPerWeek * PeriodsPerDay;
+        if (totalCols <= 0) return;
+        double width = (availableWidth - 70) / totalCols; // 70 = 班级列宽
+        GradeCellWidth = Math.Max(32, Math.Min(80, width));
+    }
+
     public ObservableCollection<ScheduleGridRow> MatrixRows { get; private set; } = new();
     public ObservableCollection<SchoolClass> AvailableClasses { get; private set; } = new();
     public ObservableCollection<DayTabItem> DayTabs { get; private set; } = new();
@@ -1057,7 +1074,7 @@ public sealed class MainViewModel : ObservableObject
                 new() { Name = "生物", Category = "理科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "七年级" },
                 new() { Name = "地理", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "七年级" },
                 new() { Name = "历史", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "七年级" },
-                new() { Name = "政治", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "七年级" },
+                new() { Name = "道德", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "七年级" },
                 new() { Name = "体育", Category = "副科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "七年级" },
                 new() { Name = "语文", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每日至少一次", GradeName = "八年级" },
                 new() { Name = "数学", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每日至少一次", GradeName = "八年级" },
@@ -1066,7 +1083,7 @@ public sealed class MainViewModel : ObservableObject
                 new() { Name = "生物", Category = "理科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "八年级" },
                 new() { Name = "地理", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "八年级" },
                 new() { Name = "历史", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "八年级" },
-                new() { Name = "政治", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "八年级" },
+                new() { Name = "道德", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "八年级" },
                 new() { Name = "体育", Category = "副科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "八年级" },
                 new() { Name = "语文", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每日至少一次", GradeName = "九年级" },
                 new() { Name = "数学", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每日至少一次", GradeName = "九年级" },
@@ -1074,7 +1091,7 @@ public sealed class MainViewModel : ObservableObject
                 new() { Name = "物理", Category = "理科", DefaultWeeklyCount = 3, DistributionRule = "均匀分布", GradeName = "九年级" },
                 new() { Name = "化学", Category = "理科", DefaultWeeklyCount = 3, DistributionRule = "均匀分布", GradeName = "九年级" },
                 new() { Name = "历史", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "九年级" },
-                new() { Name = "政治", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "九年级" },
+                new() { Name = "道德", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "九年级" },
                 new() { Name = "体育", Category = "副科", DefaultWeeklyCount = 2, DistributionRule = "均匀分布", GradeName = "九年级" },
             },
         };
@@ -1170,7 +1187,7 @@ public sealed class MainViewModel : ObservableObject
                 new() { Name = "生物", Category = "理科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "七年级" },
                 new() { Name = "地理", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "七年级" },
                 new() { Name = "历史", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "七年级" },
-                new() { Name = "政治", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "七年级" },
+                new() { Name = "道德", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "七年级" },
                 new() { Name = "体育", Category = "副科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "七年级" },
                 new() { Name = "语文", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次", GradeName = "八年级" },
                 new() { Name = "数学", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次", GradeName = "八年级" },
@@ -1179,7 +1196,7 @@ public sealed class MainViewModel : ObservableObject
                 new() { Name = "生物", Category = "理科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "八年级" },
                 new() { Name = "地理", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "八年级" },
                 new() { Name = "历史", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "八年级" },
-                new() { Name = "政治", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "八年级" },
+                new() { Name = "道德", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "八年级" },
                 new() { Name = "体育", Category = "副科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "八年级" },
                 new() { Name = "语文", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次", GradeName = "九年级" },
                 new() { Name = "数学", Category = "主科", DefaultWeeklyCount = 6, DistributionRule = "每天一次", GradeName = "九年级" },
@@ -1187,7 +1204,7 @@ public sealed class MainViewModel : ObservableObject
                 new() { Name = "物理", Category = "理科", DefaultWeeklyCount = 3, DistributionRule = "均衡分布", GradeName = "九年级" },
                 new() { Name = "化学", Category = "理科", DefaultWeeklyCount = 3, DistributionRule = "均衡分布", GradeName = "九年级" },
                 new() { Name = "历史", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "九年级" },
-                new() { Name = "政治", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "九年级" },
+                new() { Name = "道德", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "九年级" },
                 new() { Name = "体育", Category = "副科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = "九年级" },
             },
             _ => null,
@@ -1763,7 +1780,7 @@ public sealed class MainViewModel : ObservableObject
         if (SelectedViewMode == "班级课表" && SelectedClass is not null)
             entries = entries.Where(x => x.ClassId == SelectedClass.Id);
         else if (SelectedViewMode == "教师课表" && SelectedTeacher is not null)
-            entries = entries.Where(x => x.TeacherId == SelectedTeacher.Id);
+            entries = entries.Where(x => x.TeacherName == SelectedTeacher.Name);
         else if (SelectedViewMode == "年级总表" && SelectedGradeInput is not null)
         {
             string shortGrade = SelectedGradeInput.GradeName.Replace("年级", "");

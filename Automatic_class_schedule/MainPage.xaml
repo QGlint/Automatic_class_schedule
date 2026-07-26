@@ -55,11 +55,12 @@
         </Style>
 
         <Style x:Key="TagButtonStyle" TargetType="Button" BasedOn="{StaticResource RoundButtonBase}">
-            <Setter Property="MinHeight" Value="34" />
-            <Setter Property="Margin" Value="0,0,0,4" />
-            <Setter Property="Padding" Value="10,6" />
+            <Setter Property="MinHeight" Value="28" />
+            <Setter Property="Margin" Value="0,0,0,2" />
+            <Setter Property="Padding" Value="6,4" />
             <Setter Property="HorizontalContentAlignment" Value="Left" />
-            <Setter Property="Background" Value="#FFF5F5F5" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="CornerRadius" Value="2" />
             <Setter Property="Foreground" Value="#FF214E78" />
         </Style>
 
@@ -215,9 +216,9 @@
         <Grid Grid.Row="2" Margin="0,8,0,0"
               Visibility="{Binding HasActiveProject, Converter={StaticResource BoolToVisibility}}">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="1.5*" />
-                <ColumnDefinition Width="5*" />
-                <ColumnDefinition Width="1.5*" />
+                <ColumnDefinition Width="180" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="200" />
             </Grid.ColumnDefinitions>
 
             <!-- *********************************************** -->
@@ -882,7 +883,7 @@
                                                         </ItemsControl.ItemsPanel>
                                                         <ItemsControl.ItemTemplate>
                                                             <DataTemplate>
-                                                                <Border MinWidth="72" BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,1" Padding="2">
+                                                                <Border Width="48" BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,1" Padding="2,1">
                                                                     <TextBlock Text="{Binding}" FontSize="11"
                                                                                HorizontalAlignment="Center" Foreground="#FF5A6877" />
                                                                 </Border>
@@ -916,14 +917,14 @@
                                                     </ItemsControl.ItemsPanel>
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate>
-                                                            <Border MinWidth="72" MinHeight="40" BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,0" Padding="4,2"
+                                                            <Border Width="48" MinHeight="32" BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,0" Padding="2,1"
                                                                     CanDrag="True" AllowDrop="True"
                                                                     DragStarting="GridCell_DragStarting"
                                                                     DragOver="GridCell_DragOver"
                                                                     Drop="GridCell_Drop">
                                                                 <StackPanel Visibility="{Binding IsEmpty, Converter={StaticResource InverseBoolToVisibility}}">
-                                                                    <TextBlock Text="{Binding Subject}" FontSize="12" TextWrapping="NoWrap" />
-                                                                    <TextBlock Text="{Binding TeacherName}" FontSize="11" Foreground="#FF556070" TextWrapping="NoWrap" />
+                                                                    <TextBlock Text="{Binding Subject}" FontSize="22" TextWrapping="Wrap" />
+                                                                    <TextBlock Text="{Binding TeacherName}" FontSize="14" Foreground="#FF556070" TextWrapping="Wrap" />
                                                                 </StackPanel>
                                                             </Border>
                                                         </DataTemplate>
@@ -1009,9 +1010,9 @@
                                                                 <Grid>
                                                                     <Border Background="#FFF5F5F5"
                                                                             Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibility}}" />
-                                                                    <TextBlock VerticalAlignment="Center" FontSize="12" TextWrapping="NoWrap"
+                                                                    <TextBlock VerticalAlignment="Center" FontSize="14" TextWrapping="NoWrap"
                                                                                Visibility="{Binding IsEmpty, Converter={StaticResource InverseBoolToVisibility}}">
-                                                                        <Run Text="{Binding Subject}" />
+                                                                        <Run Text="{Binding Subject}" FontSize="22" />
                                                                         <Run Text=" " />
                                                                         <Run Text="{Binding TeacherName}" Foreground="#FF556070" />
                                                                     </TextBlock>
@@ -1100,9 +1101,9 @@
                                                                 <Grid>
                                                                     <Border Background="#FFF5F5F5"
                                                                             Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibility}}" />
-                                                                    <TextBlock VerticalAlignment="Center" FontSize="12" TextWrapping="NoWrap"
+                                                                    <TextBlock VerticalAlignment="Center" FontSize="14" TextWrapping="NoWrap"
                                                                                Visibility="{Binding IsEmpty, Converter={StaticResource InverseBoolToVisibility}}">
-                                                                        <Run Text="{Binding Subject}" />
+                                                                        <Run Text="{Binding Subject}" FontSize="22" />
                                                                         <Run Text=" " />
                                                                         <Run Text="{Binding ClassName}" Foreground="#FF556070" />
                                                                     </TextBlock>

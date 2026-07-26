@@ -511,7 +511,7 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
                 data.Subjects.Add(new Models.SubjectDefinition { Name = "地理", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = grade });
             }
             data.Subjects.Add(new Models.SubjectDefinition { Name = "历史", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = grade });
-            data.Subjects.Add(new Models.SubjectDefinition { Name = "政治", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = grade });
+            data.Subjects.Add(new Models.SubjectDefinition { Name = "道德", Category = "文科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = grade });
             data.Subjects.Add(new Models.SubjectDefinition { Name = "体育", Category = "副科", DefaultWeeklyCount = 2, DistributionRule = "均衡分布", GradeName = grade });
         }
 
