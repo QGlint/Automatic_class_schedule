@@ -19,7 +19,9 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
     private readonly ConflictService _conflictService = new();
 
     private static readonly HashSet<string> MainSubjects = new() { "语文", "数学", "英语" };
-    private static readonly HashSet<string> AfternoonSubjects = new() { "体育", "音乐", "美术", "信息" };
+    private static readonly HashSet<string> AfternoonSubjects = new() { "音乐", "美术", "信息", "劳动" };
+    /// <summary>第3节允许的非主科科目：文科+理科+信息</summary>
+    private static readonly HashSet<string> Period3Allowed = new() { "物理", "化学", "生物", "历史", "地理", "道德", "信息" };
 
     public ScheduleResult Solve(ScheduleProblem problem, IProgress<double>? progress = null, CancellationToken ct = default)
     {
@@ -198,6 +200,15 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
                         model.Add(LinearExpr.Sum(combined) <= 1);
                     }
                 }
+
+                // C6: 体育只能排第4节及之后（硬约束）
+                if (subject == "体育")
+                {
+                    for (int d = 0; d < days; d++)
+                        for (int p = 1; p < Math.Min(4, periods + 1); p++)
+                            foreach (int idx in subjIndices)
+                                model.Add(x[idx, d, p] == 0);
+                }
             }
 
             // C5: 第1节多样性 — 一周内第1节不应全是同一科目
@@ -241,11 +252,17 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
                         {
                             if (isMain)
                             {
-                                // 主科：上午前3节高分，第4节中分，下午低分
-                                if (p <= 3)
+                                // 主科：1-2节高分，第3节中高分，第4节中分，下午低分
+                                if (p <= 2)
                                 {
                                     objTerms.Add(x[idx, d, p]);
                                     objWeights.Add(10);
+                                }
+                                else if (p == 3)
+                                {
+                                    // 第3节主科略低，鼓励部分副科排第3节
+                                    objTerms.Add(x[idx, d, p]);
+                                    objWeights.Add(7);
                                 }
                                 else if (p <= morning)
                                 {
@@ -254,14 +271,13 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
                                 }
                                 else
                                 {
-                                    // 主科下午：小正分（因为多出的主科必须排下午，不应惩罚太重）
                                     objTerms.Add(x[idx, d, p]);
                                     objWeights.Add(2);
                                 }
                             }
-                            else if (isAfternoon)
+                            else if (subject == "体育")
                             {
-                                // 体育/音/美/信息：强下午偏好
+                                // 体育：第4节及之后都可以，偏好下午
                                 if (p > morning)
                                 {
                                     objTerms.Add(x[idx, d, p]);
@@ -269,14 +285,29 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
                                 }
                                 else
                                 {
+                                    // p>=4 但仍在上午（第4节）
                                     objTerms.Add(x[idx, d, p]);
-                                    objWeights.Add(-12);
+                                    objWeights.Add(10);
+                                }
+                            }
+                            else if (isAfternoon)
+                            {
+                                // 音/美/信/劳：下午偏好，上午中性
+                                if (p > morning)
+                                {
+                                    objTerms.Add(x[idx, d, p]);
+                                    objWeights.Add(10);
+                                }
+                                else if (p == 3 && Period3Allowed.Contains(subject))
+                                {
+                                    // 信息可排第3节
+                                    objTerms.Add(x[idx, d, p]);
+                                    objWeights.Add(6);
                                 }
                             }
                             else
                             {
-                                // 其他副科（道/历/地/生/物/化/劳）：上午中性，下午微偏好
-                                // 不惩罚上午，避免第4节出现空洞
+                                // 其他副科（道/历/地/生/物/化）：上午中性，下午微偏好
                                 if (p > morning)
                                 {
                                     objTerms.Add(x[idx, d, p]);
@@ -284,9 +315,15 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
                                 }
                                 else if (p == morning)
                                 {
-                                    // 第4节（上午最后一节）小奖励，鼓励填满
+                                    // 第4节小奖励，鼓励填满
                                     objTerms.Add(x[idx, d, p]);
                                     objWeights.Add(4);
+                                }
+                                else if (p == 3 && Period3Allowed.Contains(subject))
+                                {
+                                    // 第3节文科/理科奖励
+                                    objTerms.Add(x[idx, d, p]);
+                                    objWeights.Add(6);
                                 }
                             }
                         }
@@ -397,7 +434,8 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
                     Severity = ScheduleConflictSeverity.Hard,
                     Type = ScheduleConflictType.UnscheduledLesson,
                     Message = $"{className} 课程超出：需要 {requiredLessons} 节，可用槽位仅 {available} 节（总{totalSlots} - 固定课{fixedOccupied}），超出 {requiredLessons - available} 节",
-                    Scope = className
+                    Scope = className,
+                    Target = className
                 });
             }
         }
@@ -416,7 +454,8 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
                     Severity = ScheduleConflictSeverity.Hard,
                     Type = ScheduleConflictType.TeacherConflict,
                     Message = $"{teacherName} 课程冲突：周课时总量 {totalLoad} 节超过可用时间槽 {totalSlots} 节（涉及班级：{classes}）",
-                    Scope = teacherName
+                    Scope = teacherName,
+                    Target = teacherName
                 });
             }
         }

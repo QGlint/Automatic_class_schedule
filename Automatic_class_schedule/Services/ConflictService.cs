@@ -35,7 +35,16 @@ public sealed class ConflictService
             {
                 if (classGroup.Count() > 1)
                 {
-                    conflicts.Add(CreateConflict(ScheduleConflictType.ClassConflict, ScheduleConflictSeverity.Hard, classGroup.First(), "同班同一时间存在多节课"));
+                    var first = classGroup.First();
+                    string subjects = string.Join("、", classGroup.Select(e => e.Subject).Distinct());
+                    conflicts.Add(new ScheduleConflict
+                    {
+                        Type = ScheduleConflictType.ClassConflict,
+                        Severity = ScheduleConflictSeverity.Hard,
+                        Message = $"{first.ClassName} 在{first.SlotLabel}存在多节课（{subjects}）",
+                        Scope = $"{first.ClassName} / {first.SlotLabel}",
+                        Target = first.ClassName
+                    });
                 }
             }
 
@@ -43,9 +52,20 @@ public sealed class ConflictService
             {
                 // 跳过空TeacherId（固定课程等无教师条目）
                 if (teacherGroup.Key == Guid.Empty) continue;
+                // 跳过体育教师（支持合班上课，允许同时段多班）
+                if (teacherGroup.All(e => e.Subject == "体育")) continue;
                 if (teacherGroup.Count() > 1)
                 {
-                    conflicts.Add(CreateConflict(ScheduleConflictType.TeacherConflict, ScheduleConflictSeverity.Hard, teacherGroup.First(), "同教师同一时间存在多节课"));
+                    var first = teacherGroup.First();
+                    string classes = string.Join("、", teacherGroup.Select(e => e.ClassName).Distinct());
+                    conflicts.Add(new ScheduleConflict
+                    {
+                        Type = ScheduleConflictType.TeacherConflict,
+                        Severity = ScheduleConflictSeverity.Hard,
+                        Message = $"{first.TeacherName} 在{first.SlotLabel}被分配到多个班级（{classes}）",
+                        Scope = $"{first.TeacherName} / {first.SlotLabel}",
+                        Target = first.TeacherName
+                    });
                 }
             }
         }
@@ -57,7 +77,14 @@ public sealed class ConflictService
             FixedLesson? fixedLesson = problem.FixedLessons.FirstOrDefault(x => BlocksSlot(x, entry, entry.DayIndex, entry.PeriodIndex));
             if (fixedLesson is not null)
             {
-                conflicts.Add(CreateConflict(ScheduleConflictType.FixedLessonConflict, ScheduleConflictSeverity.Hard, entry, $"{fixedLesson.Reason} 占用该时间"));
+                conflicts.Add(new ScheduleConflict
+                {
+                    Type = ScheduleConflictType.FixedLessonConflict,
+                    Severity = ScheduleConflictSeverity.Hard,
+                    Message = $"{entry.ClassName} 的{entry.Subject}与固定课「{fixedLesson.Reason}」在{entry.SlotLabel}冲突",
+                    Scope = $"{entry.ClassName} / {entry.SlotLabel}",
+                    Target = entry.ClassName
+                });
             }
         }
 
@@ -74,8 +101,9 @@ public sealed class ConflictService
             {
                 Severity = ScheduleConflictSeverity.Hard,
                 Type = ScheduleConflictType.UnscheduledLesson,
-                Message = "目标时间超出排课范围",
-                Scope = $"周{dayIndex + 1} 第{periodIndex}节"
+                Message = $"目标时间超出排课范围（周{dayIndex + 1} 第{periodIndex}节）",
+                Scope = $"周{dayIndex + 1} 第{periodIndex}节",
+                Target = candidate.ClassName
             });
             return conflicts;
         }
@@ -86,13 +114,27 @@ public sealed class ConflictService
             {
                 if (entry.ClassId == candidate.ClassId)
                 {
-                    conflicts.Add(CreateConflict(ScheduleConflictType.ClassConflict, ScheduleConflictSeverity.Hard, candidate, "该班级在目标时间已有课程"));
+                    conflicts.Add(new ScheduleConflict
+                    {
+                        Type = ScheduleConflictType.ClassConflict,
+                        Severity = ScheduleConflictSeverity.Hard,
+                        Message = $"{candidate.ClassName} 在目标时间已有{entry.Subject}",
+                        Scope = $"{candidate.ClassName} / 周{dayIndex + 1} 第{periodIndex}节",
+                        Target = candidate.ClassName
+                    });
                 }
 
                 // 跳过空TeacherId（固定课程等无教师条目）
                 if (candidate.TeacherId != Guid.Empty && entry.TeacherId == candidate.TeacherId)
                 {
-                    conflicts.Add(CreateConflict(ScheduleConflictType.TeacherConflict, ScheduleConflictSeverity.Hard, candidate, "该教师在目标时间已有课程"));
+                    conflicts.Add(new ScheduleConflict
+                    {
+                        Type = ScheduleConflictType.TeacherConflict,
+                        Severity = ScheduleConflictSeverity.Hard,
+                        Message = $"{candidate.TeacherName} 在目标时间已有{entry.ClassName}的{entry.Subject}",
+                        Scope = $"{candidate.TeacherName} / 周{dayIndex + 1} 第{periodIndex}节",
+                        Target = candidate.TeacherName
+                    });
                 }
             }
         }
@@ -100,7 +142,14 @@ public sealed class ConflictService
         FixedLesson? fixedLesson = problem.FixedLessons.FirstOrDefault(x => BlocksSlot(x, candidate, dayIndex, periodIndex));
         if (fixedLesson is not null)
         {
-            conflicts.Add(CreateConflict(ScheduleConflictType.FixedLessonConflict, ScheduleConflictSeverity.Hard, candidate, fixedLesson.Reason));
+            conflicts.Add(new ScheduleConflict
+            {
+                Type = ScheduleConflictType.FixedLessonConflict,
+                Severity = ScheduleConflictSeverity.Hard,
+                Message = $"目标时间与固定课「{fixedLesson.Reason}」冲突",
+                Scope = $"{candidate.ClassName} / 周{dayIndex + 1} 第{periodIndex}节",
+                Target = candidate.ClassName
+            });
         }
 
         return conflicts;
@@ -113,7 +162,8 @@ public sealed class ConflictService
             Type = type,
             Severity = severity,
             Message = message,
-            Scope = $"{entry.ClassName} / {entry.Subject} / {entry.SlotLabel}"
+            Scope = $"{entry.ClassName} / {entry.Subject} / {entry.SlotLabel}",
+            Target = type == ScheduleConflictType.TeacherConflict ? entry.TeacherName : entry.ClassName
         };
     }
 

@@ -112,33 +112,40 @@ public sealed class ScheduleService
         if (classList.Count == 0) return;
 
         string[] mainSubjects = { "语文", "数学", "英语" };
-        string peSubject = "体育";
+        string[] scienceSubjects = { "物理", "化学" };
+        string[] minorSubjects = { "地理", "生物", "历史", "道德" };
+        string[] artSubjects = { "音乐", "美术", "信息", "劳动" };
 
+        // 按年级分配非体育科目
         foreach (IGrouping<string, SchoolClass> gradeGroup in classList.GroupBy(c => c.GradeName))
         {
             string gradeName = gradeGroup.Key;
             string shortGrade = gradeName.Replace("年级", "");
             List<SchoolClass> gradeClasses = gradeGroup.ToList();
+            int classCount = gradeClasses.Count;
 
             foreach (SubjectDefinition subDef in subjects.Where(s => string.IsNullOrEmpty(s.GradeName) || s.GradeName == gradeName))
             {
-                int weeklyCount = subDef.DefaultWeeklyCount;
-                int classCount = gradeClasses.Count;
+                // 体育单独处理（全校分配）
+                if (subDef.Name == "体育") continue;
 
-                // Per-teacher class count based on subject type
-                int perTeacher;
-                if (mainSubjects.Contains(subDef.Name))
-                    perTeacher = 2;
-                else if (subDef.Name == peSubject)
-                    perTeacher = 5;
-                else
-                    perTeacher = 3;
-
-                bool preferMorning = subDef.Name is "数学" or "英语" or "语文" or "物理" or "化学";
-                bool avoidLast = subDef.Name is "体育";
+                bool preferMorning = mainSubjects.Contains(subDef.Name) || scienceSubjects.Contains(subDef.Name);
                 string distributionRule = subDef.DistributionRule;
 
-                int numTeachers = (int)Math.Ceiling((double)classCount / perTeacher);
+                // 根据科目类型确定教师数量
+                int numTeachers;
+                if (mainSubjects.Contains(subDef.Name))
+                    numTeachers = (int)Math.Ceiling((double)classCount / 2); // 每人带2个班
+                else if (scienceSubjects.Contains(subDef.Name))
+                    numTeachers = 3; // 每年级3位
+                else if (minorSubjects.Contains(subDef.Name))
+                    numTeachers = 2; // 每年级2位
+                else if (artSubjects.Contains(subDef.Name))
+                    numTeachers = 1; // 每年级1位
+                else
+                    numTeachers = (int)Math.Ceiling((double)classCount / 3); // 默认每人3个班
+
+                int perTeacher = (int)Math.Ceiling((double)classCount / numTeachers);
                 int currentOffset = 0;
 
                 for (int ti = 0; ti < numTeachers; ti++)
@@ -157,14 +164,53 @@ public sealed class ScheduleService
                     {
                         TeacherName = teacherName,
                         Subject = subDef.Name,
-                        WeeklyCount = 0, // 0=继承年级课程配置的默认周课时
+                        WeeklyCount = 0,
                         GradeName = gradeName,
                         ClassNumbers = string.Join(",", numbers),
                         DistributionRule = distributionRule,
                         PreferMorning = preferMorning,
-                        AvoidLastPeriod = avoidLast
+                        AvoidLastPeriod = false
                     });
                 }
+            }
+        }
+
+        // 体育：全校6位老师，平均分配所有班级
+        SubjectDefinition? peDef = subjects.FirstOrDefault(s => s.Name == "体育");
+        if (peDef is not null)
+        {
+            int peTeacherCount = 6;
+            int totalClasses = classList.Count;
+            // 均匀分配：基础数 + 余数分配给前几位
+            int baseCount = totalClasses / peTeacherCount;
+            int remainder = totalClasses % peTeacherCount;
+            int offset = 0;
+
+            for (int ti = 0; ti < peTeacherCount; ti++)
+            {
+                int take = baseCount + (ti < remainder ? 1 : 0);
+                if (take <= 0) break;
+
+                List<SchoolClass> teacherClasses = classList.Skip(offset).Take(take).ToList();
+                offset += take;
+
+                string teacherName = $"体育{ToChineseNumeral(ti + 1)}";
+                // 体育跨年级，用班级全名区分
+                var fullNames = teacherClasses.Select(c => c.Name).ToList();
+
+                var peAssignment = new TeacherAssignment
+                {
+                    TeacherName = teacherName,
+                    Subject = "体育",
+                    WeeklyCount = 0,
+                    GradeName = "全校",
+                    DistributionRule = peDef.DistributionRule,
+                    PreferMorning = false,
+                    AvoidLastPeriod = true
+                };
+                // 直接设置ClassNames避免UpdateClassNames拼接错误
+                peAssignment.ClassNames = string.Join("、", fullNames);
+                assignments.Add(peAssignment);
             }
         }
     }
@@ -251,9 +297,11 @@ public sealed class ScheduleService
             "历史" => 2,
             "地理" => 2,
             "道德" => 2,
-            "体育" => 2,
+            "体育" => 3,
             "音乐" => 1,
             "美术" => 1,
+            "信息" => 1,
+            "劳动" => 1,
             _ => 2
         };
     }

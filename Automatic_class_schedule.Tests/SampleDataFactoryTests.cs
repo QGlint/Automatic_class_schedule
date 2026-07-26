@@ -30,7 +30,7 @@ public sealed class SampleDataFactoryTests
     public void Create_HasAllSubjects()
     {
         var data = SampleDataFactory.Create();
-        string[] expected = { "语文", "数学", "英语", "物理", "化学", "生物", "历史", "地理", "道德", "体育" };
+        string[] expected = { "语文", "数学", "英语", "物理", "化学", "生物", "历史", "地理", "道德", "体育", "音乐", "美术", "信息", "劳动" };
         Assert.Equal(expected.Length, data.Subjects.Count);
         foreach (var name in expected)
             Assert.Contains(data.Subjects, s => s.Name == name);

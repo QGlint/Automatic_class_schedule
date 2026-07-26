@@ -784,10 +784,13 @@
 
                         <Rectangle Height="1" Fill="#FFD9E1EC" Margin="0,12" />
                         <Button Content="检查冲突" Command="{Binding ValidateCommand}" Style="{StaticResource RoundButtonBase}" Background="#FFF0F5FF" Foreground="#FF214E78" HorizontalAlignment="Left" />
-                        <controls:DataGrid ItemsSource="{Binding Conflicts}" IsReadOnly="True" Margin="0,6,0,0" MaxHeight="180">
+                        <controls:DataGrid ItemsSource="{Binding Conflicts}" IsReadOnly="True" Margin="0,6,0,0" MaxHeight="220"
+                                           AutoGenerateColumns="False" HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                                           HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
                             <controls:DataGrid.Columns>
-                                <controls:DataGridTextColumn Header="级别" Binding="{Binding Severity}" Width="60" />
-                                <controls:DataGridTextColumn Header="类型" Binding="{Binding Type}" Width="80" />
+                                <controls:DataGridTextColumn Header="级别" Binding="{Binding SeverityText}" Width="50" />
+                                <controls:DataGridTextColumn Header="类型" Binding="{Binding TypeText}" Width="72" />
+                                <controls:DataGridTextColumn Header="对象" Binding="{Binding Target}" Width="70" />
                                 <controls:DataGridTextColumn Header="信息" Binding="{Binding Message}" Width="*" />
                             </controls:DataGrid.Columns>
                         </controls:DataGrid>
@@ -1147,27 +1150,66 @@
             </Border>
 
             <!-- *********************************************** -->
-            <!-- RIGHT: Detail Panel -->
+            <!-- RIGHT: 信息面板 -->
             <!-- *********************************************** -->
             <Border Grid.Column="2" Style="{StaticResource SectionBorderStyle}">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <!-- 当前选中信息 -->
+                    <StackPanel Grid.Row="0" Margin="0,0,0,8">
                         <TextBlock Text="详情" FontSize="16" Foreground="#FF214E78" />
-                        <Rectangle Height="1" Fill="#FFD9E1EC" Margin="0,6,0,8" />
-                        <TextBlock Text="当前选中" FontWeight="SemiBold" />
-                        <TextBlock Text="{Binding SelectedScheduleEntry.Subject}" Margin="0,4,0,0" />
-                        <TextBlock Text="{Binding SelectedScheduleEntry.TeacherName}" />
-                        <TextBlock Text="{Binding SelectedScheduleEntry.ClassName}" />
-                        <TextBlock Text="{Binding SelectedScheduleEntry.SlotLabel}" Margin="0,0,0,6" />
-                        <Rectangle Height="1" Fill="#FFD9E1EC" Margin="0,6,0,8" />
-                        <TextBlock Text="冲突提示" FontWeight="SemiBold" />
-                        <controls:DataGrid ItemsSource="{Binding Conflicts}" IsReadOnly="True" MaxHeight="180">
-                            <controls:DataGrid.Columns>
-                                <controls:DataGridTextColumn Header="信息" Binding="{Binding Message}" Width="*" />
-                            </controls:DataGrid.Columns>
-                        </controls:DataGrid>
+                        <Rectangle Height="1" Fill="#FFD9E1EC" Margin="0,6,0,6" />
+                        <TextBlock Text="当前选中" FontWeight="SemiBold" FontSize="12" />
+                        <TextBlock Text="{Binding SelectedScheduleEntry.Subject}" Margin="0,2,0,0" FontSize="12" />
+                        <TextBlock Text="{Binding SelectedScheduleEntry.TeacherName}" FontSize="12" />
+                        <TextBlock Text="{Binding SelectedScheduleEntry.ClassName}" FontSize="12" />
+                        <TextBlock Text="{Binding SelectedScheduleEntry.SlotLabel}" FontSize="12" />
                     </StackPanel>
-                </ScrollViewer>
+
+                    <!-- 冲突提示（占满剩余空间） -->
+                    <Grid Grid.Row="1">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,4">
+                            <TextBlock Text="冲突提示" FontWeight="SemiBold" FontSize="14" Foreground="#FF214E78" VerticalAlignment="Center" />
+                            <Border Background="#FFF0F5FF" CornerRadius="8" Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding TotalConflicts}" FontSize="11" Foreground="#FF214E78" />
+                            </Border>
+                        </StackPanel>
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                            <ItemsControl ItemsSource="{Binding Conflicts}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Margin="0,0,0,6" Padding="8,6" CornerRadius="6" Background="#FFF8F9FB"
+                                                BorderBrush="#FFE0E6EF" BorderThickness="1">
+                                            <StackPanel>
+                                                <StackPanel Orientation="Horizontal" Margin="0,0,0,3">
+                                                    <Border CornerRadius="3" Padding="4,1" Margin="0,0,6,0">
+                                                        <Border.Background>
+                                                            <SolidColorBrush Color="#FFFFE0E0" />
+                                                        </Border.Background>
+                                                        <TextBlock Text="{Binding SeverityText}" FontSize="11" Foreground="#FFC62828" />
+                                                    </Border>
+                                                    <TextBlock Text="{Binding TypeText}" FontSize="11" Foreground="#FF5A6877" VerticalAlignment="Center" />
+                                                    <TextBlock Text="{Binding Target}" FontSize="11" Foreground="#FF214E78"
+                                                               FontWeight="SemiBold" VerticalAlignment="Center" Margin="4,0,0,0" />
+                                                </StackPanel>
+                                                <TextBlock Text="{Binding Message}" FontSize="12" Foreground="#FF333333"
+                                                           TextWrapping="Wrap" />
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Grid>
+                </Grid>
             </Border>
         </Grid>
         <!-- ========== 首页（无项目时显示） ========== -->
