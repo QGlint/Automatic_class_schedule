@@ -4,7 +4,7 @@ namespace Automatic_class_schedule.Services;
 
 public static class SampleDataFactory
 {
-    public static SchoolData Create(IProgress<double>? progress = null, CancellationToken ct = default)
+    public static SchoolData Create(IProgress<double>? progress = null, CancellationToken ct = default, bool skipSolve = false)
     {
         SchoolData data = new()
         {
@@ -18,7 +18,7 @@ public static class SampleDataFactory
         };
 
         ct.ThrowIfCancellationRequested();
-        progress?.Report(0);
+        progress?.Report(0.05);
         data.GradeInputs.AddRange(new[]
         {
             new GradeInput { GradeName = "七年级", ClassCount = 8 },
@@ -28,6 +28,7 @@ public static class SampleDataFactory
 
         ScheduleService service = new();
         data.Classes.AddRange(service.BuildClasses(data.GradeInputs));
+        progress?.Report(0.15);
 
         data.Subjects.AddRange(new[]
         {
@@ -47,17 +48,21 @@ public static class SampleDataFactory
             new SubjectDefinition { Name = "劳动", Category = "副科", DefaultWeeklyCount = 1, DistributionRule = "均衡分布" }
         });
         ct.ThrowIfCancellationRequested();
-        progress?.Report(0.25);
+        progress?.Report(0.3);
 
         service.GenerateAssignments(data.TeacherAssignments, data.Subjects, data.Classes);
+        progress?.Report(0.5);
         data.Requirements.AddRange(service.BuildRequirementsFromAssignments(data.TeacherAssignments, data.Classes, data.Subjects));
         ct.ThrowIfCancellationRequested();
-        progress?.Report(0.5);
+        progress?.Report(0.6);
 
-        ScheduleResult result = service.Generate(data, progress, ct);
-        data.ScheduleEntries.AddRange(result.Entries);
+        if (!skipSolve)
+        {
+            ScheduleResult result = service.Generate(data, progress, ct);
+            data.ScheduleEntries.AddRange(result.Entries);
+        }
+
         progress?.Report(1.0);
-
         return data;
     }
 }

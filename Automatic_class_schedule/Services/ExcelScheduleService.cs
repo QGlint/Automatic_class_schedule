@@ -134,6 +134,49 @@ public sealed class ExcelScheduleService
         ExportWorkbook(Path.Combine(folder, "年级课表.xlsx"), "年级课表", data.ScheduleEntries);
     }
 
+    /// <summary>从 xlsx 导入教师配置（读取"教师信息" sheet）</summary>
+    public List<TeacherAssignment> ImportTeacherAssignments(string filePath)
+    {
+        List<TeacherAssignment> assignments = new();
+        using XLWorkbook workbook = new(filePath);
+
+        IXLWorksheet? sheet = workbook.Worksheets.FirstOrDefault(x => x.Name == "教师信息")
+            ?? workbook.Worksheets.FirstOrDefault();
+        if (sheet is null) return assignments;
+
+        foreach (IXLRow row in sheet.RowsUsed().Skip(1))
+        {
+            string teacherName = row.Cell(1).GetString().Trim();
+            string subject = row.Cell(2).GetString().Trim();
+            string classNames = row.Cell(3).GetString().Trim();
+            int weeklyCount = row.Cell(4).GetValue<int>();
+
+            if (string.IsNullOrWhiteSpace(teacherName) || string.IsNullOrWhiteSpace(subject))
+                continue;
+
+            // 推断年级：从班级名称中提取（如"七1班"→"七年级"）
+            string gradeName = "";
+            var firstClass = classNames.Split(new[] { '、', ',', '，' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.Trim();
+            if (!string.IsNullOrEmpty(firstClass))
+            {
+                string gradeChar = firstClass[..1];
+                gradeName = $"{gradeChar}年级";
+            }
+
+            var assignment = new TeacherAssignment
+            {
+                TeacherName = teacherName,
+                Subject = subject,
+                WeeklyCount = weeklyCount,
+                GradeName = gradeName
+            };
+            assignment.ClassNames = classNames;
+            assignments.Add(assignment);
+        }
+
+        return assignments;
+    }
+
     /// <summary>生成教师导入模板 Excel</summary>
     public void GenerateImportTemplate(string filePath, List<GradeInput> grades)
     {

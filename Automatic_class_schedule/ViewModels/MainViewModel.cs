@@ -76,6 +76,8 @@ public sealed class MainViewModel : ObservableObject
         AddTeacherAssignmentCommand = new RelayCommand(AddTeacherAssignment);
         DeleteTeacherAssignmentCommand = new RelayCommand(DeleteTeacherAssignment, () => SelectedTeacherAssignment is not null);
         GenerateTeacherTemplateCommand = new RelayCommand(GenerateTeacherTemplate);
+        ImportTeacherListCommand = new RelayCommand(() => _ = ImportTeacherListAsync());
+        GenerateTeachersCommand = new RelayCommand(() => _ = GenerateTeachersAsync());
         AddFixedLessonCommand = new RelayCommand(AddFixedLesson);
         DeleteFixedLessonCommand = new RelayCommand(DeleteFixedLesson, () => SelectedFixedLesson is not null);
         AutoScheduleCommand = new RelayCommand(() => _ = AutoScheduleAsync());
@@ -1024,6 +1026,8 @@ public sealed class MainViewModel : ObservableObject
     public RelayCommand AddTeacherAssignmentCommand { get; }
     public RelayCommand DeleteTeacherAssignmentCommand { get; }
     public RelayCommand GenerateTeacherTemplateCommand { get; }
+    public RelayCommand ImportTeacherListCommand { get; }
+    public RelayCommand GenerateTeachersCommand { get; }
     public RelayCommand AddFixedLessonCommand { get; }
     public RelayCommand DeleteFixedLessonCommand { get; }
     public RelayCommand AutoScheduleCommand { get; }
@@ -1384,8 +1388,16 @@ public sealed class MainViewModel : ObservableObject
 
         try
         {
-            IProgress<double> progress = new Progress<double>(v => ProgressValue = v);
-            SchoolData data = await Task.Run(() => SampleDataFactory.Create(progress, _cts.Token), _cts.Token);
+            IProgress<double> progress = new Progress<double>(v =>
+            {
+                ProgressValue = v;
+                ProgressMessage = $"正在加载示例数据... {v * 100:F0}%";
+            });
+            // 跳过求解器，仅生成配置数据（秒级完成）
+            SchoolData data = await Task.Run(() => SampleDataFactory.Create(progress, _cts.Token, skipSolve: true), _cts.Token);
+
+            ProgressMessage = "正在应用课程模板...";
+            ProgressValue = 0.7;
 
             // 使用内置初中标准配置替换示例数据中的课程
             var builtIn = GetBuiltInTemplate();
@@ -1400,6 +1412,9 @@ public sealed class MainViewModel : ObservableObject
             data.Requirements.Clear();
             data.Requirements.AddRange(service.BuildRequirementsFromAssignments(data.TeacherAssignments, data.Classes, data.Subjects));
 
+            ProgressValue = 0.9;
+            ProgressMessage = "正在初始化界面...";
+
             ApplySchoolData(data);
             SelectedMainPage = "配置";
             SelectedConfigPage = "基础设置";
@@ -1410,6 +1425,7 @@ public sealed class MainViewModel : ObservableObject
             SelectedTeacher = Teachers.FirstOrDefault();
             StatusMessage = "已载入示例数据";
             RefreshViews();
+            ProgressValue = 1.0;
         }
         catch (OperationCanceledException)
         {
@@ -1526,6 +1542,116 @@ public sealed class MainViewModel : ObservableObject
         Log($"生成教师导入模板: {path}");
     }
 
+    private async Task ImportTeacherListAsync()
+    {
+        var picker = new Windows.Storage.Pickers.FileOpenPicker
+        {
+            FileTypeFilter = { ".xlsx" },
+            ViewMode = Windows.Storage.Pickers.PickerViewMode.List
+        };
+        var hwnd = WindowHandle != 0 ? WindowHandle : WinRT.Interop.WindowNative.GetWindowHandle(App.CurrentWindow!);
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
+
+        var file = await picker.PickSingleFileAsync();
+        if (file is null) return;
+
+        try
+        {
+            var imported = await Task.Run(() => _excelService.ImportTeacherAssignments(file.Path));
+            if (imported.Count == 0)
+            {
+                StatusMessage = "导入失败：未找到有效的教师数据";
+                return;
+            }
+
+            TeacherAssignments.Clear();
+            foreach (var assignment in imported)
+                TeacherAssignments.Add(assignment);
+
+            StatusMessage = $"已导入 {imported.Count} 位教师配置";
+            Log($"导入教师名单: {imported.Count} 位");
+            OnPropertyChanged(nameof(TotalAssignments));
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"导入失败: {ex.Message}";
+        }
+    }
+
+    private async Task GenerateTeachersAsync()
+    {
+        // 构建配置弹窗
+        var dialog = new Microsoft.UI.Xaml.Controls.ContentDialog
+        {
+            Title = "生成教师配置",
+            PrimaryButtonText = "生成",
+            CloseButtonText = "取消",
+            DefaultButton = Microsoft.UI.Xaml.Controls.ContentDialogButton.Primary,
+            XamlRoot = App.CurrentWindow!.Content.XamlRoot
+        };
+
+        // 弹窗内容：每个年级的教师生成规则配置
+        var panel = new Microsoft.UI.Xaml.Controls.StackPanel { Spacing = 8, MinWidth = 400 };
+        panel.Children.Add(new Microsoft.UI.Xaml.Controls.TextBlock
+        {
+            Text = "根据班级配置和课程配置快速生成教师。\n规则：语数英每人带2班，物化每年级3位，地生历道每年级2位，音美信劳每年级1位，体育全校6位。",
+            TextWrapping = Microsoft.UI.Xaml.TextWrapping.Wrap,
+            FontSize = 12,
+            Margin = new Microsoft.UI.Xaml.Thickness(0, 0, 0, 8)
+        });
+
+        var gradeCheckBoxes = new List<(string GradeName, Microsoft.UI.Xaml.Controls.CheckBox CheckBox)>();
+        foreach (var grade in GradeInputs)
+        {
+            var cb = new Microsoft.UI.Xaml.Controls.CheckBox
+            {
+                Content = $"{grade.GradeName}（{grade.ClassCount}个班）",
+                IsChecked = true
+            };
+            gradeCheckBoxes.Add((grade.GradeName, cb));
+            panel.Children.Add(cb);
+        }
+
+        var replaceCb = new Microsoft.UI.Xaml.Controls.CheckBox
+        {
+            Content = "替换现有教师配置（取消则追加）",
+            IsChecked = true,
+            Margin = new Microsoft.UI.Xaml.Thickness(0, 8, 0, 0)
+        };
+        panel.Children.Add(replaceCb);
+
+        dialog.Content = panel;
+        var result = await dialog.ShowAsync();
+        if (result != Microsoft.UI.Xaml.Controls.ContentDialogResult.Primary) return;
+
+        // 收集选中的年级
+        var selectedGrades = gradeCheckBoxes.Where(g => g.CheckBox.IsChecked == true).Select(g => g.GradeName).ToHashSet();
+        if (selectedGrades.Count == 0)
+        {
+            StatusMessage = "未选择任何年级";
+            return;
+        }
+
+        // 生成教师
+        var selectedClasses = Classes.Where(c => selectedGrades.Contains(c.GradeName)).ToList();
+        var selectedSubjects = Subjects.Where(s =>
+            string.IsNullOrEmpty(s.GradeName) || selectedGrades.Contains(s.GradeName)).ToList();
+
+        var service = new ScheduleService();
+        var newAssignments = new List<TeacherAssignment>();
+        service.GenerateAssignments(newAssignments, selectedSubjects, selectedClasses);
+
+        if (replaceCb.IsChecked == true)
+            TeacherAssignments.Clear();
+
+        foreach (var a in newAssignments)
+            TeacherAssignments.Add(a);
+
+        StatusMessage = $"已生成 {newAssignments.Count} 位教师配置";
+        Log($"生成教师: {newAssignments.Count} 位");
+        OnPropertyChanged(nameof(TotalAssignments));
+    }
+
     private async Task AutoScheduleAsync()
     {
         if (IsBusy) return;
@@ -1536,11 +1662,16 @@ public sealed class MainViewModel : ObservableObject
         try
         {
             _cts = new CancellationTokenSource();
-            IProgress<double> progress = new Progress<double>(v => ProgressValue = v);
+            IProgress<double> progress = new Progress<double>(v =>
+            {
+                ProgressValue = v;
+                ProgressMessage = $"正在自动排课... {v * 100:F0}%";
+            });
 
             GenerateRequirements();
+            ProgressValue = 0.05;
+            ProgressMessage = "正在自动排课... 5%";
 
-            ProgressMessage = "正在自动排课...";
             SchoolData data = BuildSchoolData();
             ScheduleResult result = await Task.Run(
                 () => _scheduleService.Generate(data, progress, _cts.Token), _cts.Token);

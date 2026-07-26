@@ -218,7 +218,7 @@ public sealed class ScheduleService
     public List<LessonRequirement> BuildRequirementsFromAssignments(IEnumerable<TeacherAssignment> assignments, IEnumerable<SchoolClass> allClasses, IEnumerable<SubjectDefinition> subjects)
     {
         List<LessonRequirement> requirements = new();
-        Dictionary<string, SubjectDefinition> subjectMap = subjects.Where(x => !string.IsNullOrWhiteSpace(x.Name)).GroupBy(x => x.Name).ToDictionary(x => x.Key, x => x.First(), StringComparer.OrdinalIgnoreCase);
+        var subjectList = subjects.Where(x => !string.IsNullOrWhiteSpace(x.Name)).ToList();
 
         foreach (TeacherAssignment assignment in assignments)
         {
@@ -227,7 +227,10 @@ public sealed class ScheduleService
                 continue;
             }
 
-            int weeklyCount = assignment.WeeklyCount > 0 ? assignment.WeeklyCount : (subjectMap.TryGetValue(assignment.Subject, out SubjectDefinition? sub) ? sub.DefaultWeeklyCount : GetDefaultWeeklyCount(assignment.Subject));
+            // 年级感知的周课时解析：优先匹配同年级科目配置，其次无年级配置，最后默认值
+            int weeklyCount = assignment.WeeklyCount > 0
+                ? assignment.WeeklyCount
+                : ResolveWeeklyCount(subjectList, assignment.Subject, assignment.GradeName);
             Guid teacherId = DeterministicGuid(assignment.TeacherName);
 
             string[] classNames = assignment.ClassNames.Split(new[] { '、', ',', '，', ';', '；', ' ' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
@@ -262,6 +265,33 @@ public sealed class ScheduleService
     {
         byte[] bytes = System.Text.Encoding.UTF8.GetBytes(input);
         return new Guid(bytes.Concat(new byte[16 - bytes.Length]).Take(16).ToArray());
+    }
+
+    /// <summary>年级感知的周课时解析：优先同年级科目配置 → 无年级配置 → 默认值</summary>
+    private static int ResolveWeeklyCount(List<SubjectDefinition> subjects, string subjectName, string gradeName)
+    {
+        // 1. 精确匹配：同科目+同年级
+        if (!string.IsNullOrWhiteSpace(gradeName))
+        {
+            var gradeMatch = subjects.FirstOrDefault(s =>
+                string.Equals(s.Name, subjectName, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(s.GradeName, gradeName, StringComparison.OrdinalIgnoreCase));
+            if (gradeMatch is not null) return gradeMatch.DefaultWeeklyCount;
+        }
+
+        // 2. 回退：同科目+无年级指定
+        var genericMatch = subjects.FirstOrDefault(s =>
+            string.Equals(s.Name, subjectName, StringComparison.OrdinalIgnoreCase) &&
+            string.IsNullOrEmpty(s.GradeName));
+        if (genericMatch is not null) return genericMatch.DefaultWeeklyCount;
+
+        // 3. 同科目任意一个（兼容旧数据）
+        var anyMatch = subjects.FirstOrDefault(s =>
+            string.Equals(s.Name, subjectName, StringComparison.OrdinalIgnoreCase));
+        if (anyMatch is not null) return anyMatch.DefaultWeeklyCount;
+
+        // 4. 硬编码默认值
+        return GetDefaultWeeklyCount(subjectName);
     }
 
     private static string ToChineseNumeral(int n)
