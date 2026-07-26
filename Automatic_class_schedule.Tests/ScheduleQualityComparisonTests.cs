@@ -7,19 +7,12 @@ using Xunit.Abstractions;
 namespace Automatic_class_schedule.Tests;
 
 /// <summary>
-/// 运行CP-SAT求解器后，与人工课表 out.xlsx 进行多样性和规律性对比。
-/// 指标：
-///   1. 第3节非主科数量（目标0-2天/周）
-///   2. 主科在第1-2节的多样性（不应总是语+英）
-///   3. 数学在各节次的分布（不应集中在第4节）
-///   4. 第1节科目轮换（一周内不同科目数）
-///   5. 主科上午占比
+/// 开发验证用：运行CP-SAT求解器后与人工课表 out.xlsx 进行全面统计对比。
+/// 输出完整质量报告到 comparison_report.txt。
 /// </summary>
 public sealed class ScheduleQualityComparisonTests
 {
     private readonly ITestOutputHelper _output;
-    private readonly List<string> _outputBuffer = new();
-    private static readonly HashSet<string> MainSubjects = new() { "语文", "数学", "英语" };
     private static readonly Dictionary<string, string> SubjectAbbrMap = new()
     {
         ["语"] = "语文", ["数"] = "数学", ["英"] = "英语",
@@ -30,22 +23,23 @@ public sealed class ScheduleQualityComparisonTests
     };
     private static readonly string OutXlsxPath = Path.Combine(
         Directory.GetCurrentDirectory(), "..", "..", "..", "..", "out.xlsx");
+    private static readonly string ReportPath = Path.Combine(
+        Directory.GetCurrentDirectory(), "..", "..", "..", "..", "comparison_report.txt");
 
     public ScheduleQualityComparisonTests(ITestOutputHelper output)
     {
         _output = output;
     }
 
-    /// <summary>从 out.xlsx 读取指定班级课表，返回 [day, period] → subject</summary>
-    private static Dictionary<(int day, int period), string> ReadReferenceTimetable(string className)
+    /// <summary>从 out.xlsx 读取指定班级课表</summary>
+    private static ScheduleComparisonService.Timetable ReadReferenceTimetable(string className)
     {
-        var result = new Dictionary<(int, int), string>();
-        if (!File.Exists(OutXlsxPath)) return result;
-    
+        var tt = new ScheduleComparisonService.Timetable { Label = $"参考({className})" };
+        if (!File.Exists(OutXlsxPath)) return tt;
+
         using var workbook = new XLWorkbook(OutXlsxPath);
         var sheet = workbook.Worksheets.First();
-    
-        // 格式：第1列=班级名，列2-9=周一P1-P8，列10-17=周二...列34-41=周五
+
         int targetRow = -1;
         for (int r = 2; r <= 30; r++)
         {
@@ -56,8 +50,8 @@ public sealed class ScheduleQualityComparisonTests
                 break;
             }
         }
-        if (targetRow < 0) return result;
-    
+        if (targetRow < 0) return tt;
+
         for (int d = 0; d < 5; d++)
         {
             int colStart = 2 + d * 8;
@@ -66,261 +60,165 @@ public sealed class ScheduleQualityComparisonTests
                 string subject = sheet.Cell(targetRow, colStart + p - 1).GetString().Trim();
                 if (!string.IsNullOrEmpty(subject))
                 {
-                    // 规范化缩写→全名
                     if (SubjectAbbrMap.TryGetValue(subject, out string? full))
                         subject = full;
-                    result[(d, p)] = subject;
+                    tt.Grid[(d, p)] = subject;
                 }
             }
         }
-        return result;
+        return tt;
     }
 
-    /// <summary>分析课表质量指标</summary>
-    private static QualityMetrics AnalyzeMetrics(Dictionary<(int day, int period), string> timetable, int days = 5, int periods = 8)
+    /// <summary>从求解器结果提取指定班级课表</summary>
+    private static ScheduleComparisonService.Timetable ExtractSolverTimetable(
+        ScheduleResult result, Guid classId, string label)
     {
-        var metrics = new QualityMetrics();
-
-        // 1. 第3节非主科天数
-        int period3NonMainDays = 0;
-        var period3Subjects = new List<string>();
-        for (int d = 0; d < days; d++)
-        {
-            if (timetable.TryGetValue((d, 3), out string? subj))
-            {
-                period3Subjects.Add($"{DayName(d)}:{subj}");
-                if (!MainSubjects.Contains(subj))
-                    period3NonMainDays++;
-            }
-        }
-        metrics.Period3NonMainDays = period3NonMainDays;
-        metrics.Period3Detail = string.Join(", ", period3Subjects);
-
-        // 2. 第1-2节主科组合多样性
-        var top2Combos = new List<string>();
-        for (int d = 0; d < days; d++)
-        {
-            timetable.TryGetValue((d, 1), out string? p1);
-            timetable.TryGetValue((d, 2), out string? p2);
-            top2Combos.Add($"{p1 ?? "?"}+{p2 ?? "?"}");
-        }
-        metrics.Top2Combos = string.Join(", ", top2Combos);
-        metrics.Top2UniqueCombos = top2Combos.Distinct().Count();
-
-        // 3. 数学在各节次的分布
-        var mathPeriodDist = new int[periods + 1];
-        foreach (var kvp in timetable)
-        {
-            if (kvp.Value == "数学")
-                mathPeriodDist[kvp.Key.period]++;
-        }
-        metrics.MathDistribution = string.Join(", ",
-            Enumerable.Range(1, periods).Select(p => $"P{p}={mathPeriodDist[p]}"));
-        metrics.MathAtPeriod4Plus = Enumerable.Range(4, periods - 3).Sum(p => mathPeriodDist[p]);
-        metrics.MathTotal = mathPeriodDist.Sum();
-
-        // 4. 第1节科目轮换
-        var firstPeriodSubjects = new List<string>();
-        for (int d = 0; d < days; d++)
-        {
-            if (timetable.TryGetValue((d, 1), out string? subj))
-                firstPeriodSubjects.Add(subj);
-        }
-        metrics.FirstPeriodUnique = firstPeriodSubjects.Distinct().Count();
-        metrics.FirstPeriodDetail = string.Join(", ",
-            Enumerable.Range(0, days).Select(d => $"{DayName(d)}:{(timetable.TryGetValue((d, 1), out var s) ? s : "?")}"));
-
-        // 5. 主科上午占比（period 1-4）
-        int mainTotal = 0, mainMorning = 0;
-        foreach (var kvp in timetable)
-        {
-            if (MainSubjects.Contains(kvp.Value))
-            {
-                mainTotal++;
-                if (kvp.Key.period <= 4) mainMorning++;
-            }
-        }
-        metrics.MainTotal = mainTotal;
-        metrics.MainMorning = mainMorning;
-        metrics.MainMorningRatio = mainTotal > 0 ? (double)mainMorning / mainTotal : 0;
-
-        // 6. 每天主科数量分布
-        var dailyMainCount = new int[days];
-        foreach (var kvp in timetable)
-        {
-            if (MainSubjects.Contains(kvp.Value))
-                dailyMainCount[kvp.Key.day]++;
-        }
-        metrics.DailyMainCounts = string.Join(", ", dailyMainCount.Select((c, i) => $"{DayName(i)}={c}"));
-
-        return metrics;
+        var tt = new ScheduleComparisonService.Timetable { Label = label };
+        foreach (var e in result.Entries.Where(e => e.ClassId == classId))
+            tt.Grid[(e.DayIndex, e.PeriodIndex)] = e.Subject;
+        return tt;
     }
-
-    private static string DayName(int d) => d switch
-    {
-        0 => "周一", 1 => "周二", 2 => "周三", 3 => "周四", 4 => "周五", _ => $"D{d}"
-    };
 
     [Fact]
-    public void DumpOutXlsx_Structure()
+    public void FullComparison_GeneratesReport()
     {
-        string outPath = Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "..", "out_dump.txt");
-        Assert.True(File.Exists(OutXlsxPath), $"out.xlsx not found at {Path.GetFullPath(OutXlsxPath)}");
-
         var lines = new List<string>();
-        using var wb = new XLWorkbook(OutXlsxPath);
-        foreach (var s in wb.Worksheets)
-        {
-            int rows = s.LastRowUsed()?.RowNumber() ?? 0;
-            int cols = s.LastColumnUsed()?.ColumnNumber() ?? 0;
-            lines.Add($"Sheet: [{s.Name}] Rows={rows} Cols={cols}");
-            for (int r = 1; r <= Math.Min(24, rows); r++)
-            {
-                var row = $"R{r:D2}: ";
-                for (int c = 1; c <= Math.Min(41, cols); c++)
-                {
-                    string val = s.Cell(r, c).GetString();
-                    row += val.PadRight(6);
-                }
-                lines.Add(row);
-            }
-        }
-        File.WriteAllLines(Path.GetFullPath(outPath), lines, System.Text.Encoding.UTF8);
-        _output.WriteLine($"Dumped to {Path.GetFullPath(outPath)}");
-    }
 
-    [Fact]
-    public void CompareSolverOutput_WithReference_OutputsMetrics()
-    {
-        // 1. 准备数据（不求解，手动调用求解器）
+        // ═══ 1. 运行求解器 ═══
+        lines.Add("=== 运行CP-SAT求解器（30秒时限）===");
         var data = SampleDataFactory.Create(skipSolve: true);
         var service = new ScheduleService(new CpSatScheduleSolver(), new ConflictService());
-
-        _output.WriteLine("=== 运行CP-SAT求解器（30秒时限）===");
-        _outputBuffer.Add("=== 运行CP-SAT求解器（30秒时限）===");
-        var progress = new Progress<double>(p => { });
+        var progress = new Progress<double>(_ => { });
         var result = service.Generate(data, progress);
 
-        Assert.NotEmpty(result.Entries);
         int hardConflicts = result.Conflicts.Count(c => c.Severity == ScheduleConflictSeverity.Hard);
-        var summary = $"求解完成: {result.Entries.Count}节课, 硬冲突={hardConflicts}";
-        _output.WriteLine(summary);
-        _outputBuffer.Add(summary);
-        // 输出硬冲突详情
-        foreach (var c in result.Conflicts.Where(c => c.Severity == ScheduleConflictSeverity.Hard).Take(10))
+        lines.Add($"求解完成: {result.Entries.Count}节课, 硬冲突={hardConflicts}");
+        foreach (var c in result.Conflicts.Where(c => c.Severity == ScheduleConflictSeverity.Hard).Take(5))
+            lines.Add($"  [硬冲突] {c.TypeText} | {c.Scope} | {c.Message}");
+        lines.Add("");
+
+        Assert.NotEmpty(result.Entries);
+        Assert.Equal(0, hardConflicts);
+
+        // ═══ 2. 多班级对比 ═══
+        var classNames = new[] { ("七1", "七年级"), ("八1", "八年级"), ("九1", "九年级") };
+        var allScores = new List<ScheduleComparisonService.ComparisonReport>();
+
+        foreach (var (refName, gradeName) in classNames)
         {
-            var line = $"  [硬冲突] {c.TypeText} | {c.Scope} | {c.Message}";
-            _output.WriteLine(line);
-            _outputBuffer.Add(line);
-        }
+            var classEntry = data.Classes.FirstOrDefault(c => c.GradeName == gradeName);
+            if (classEntry == null) continue;
 
-        // 2. 提取七年级1班的课表
-        var classEntry = data.Classes.First(c => c.Name.Contains("七") && c.Name.Contains("1"));
-
-        // 诊断：输出九年级课时明细
-        var grade9Class = data.Classes.First(c => c.GradeName == "九年级");
-        var g9Reqs = data.Requirements.Where(r => r.ClassId == grade9Class.Id).ToList();
-        _outputBuffer.Add($"\n=== 九年级课时明细 ({grade9Class.Name}) ===");
-        foreach (var r in g9Reqs)
-            _outputBuffer.Add($"  {r.Subject}: {r.WeeklyCount}节 ({r.TeacherName})");
-        _outputBuffer.Add($"  总计: {g9Reqs.Sum(r => r.WeeklyCount)}节");
-        var solverTimetable = new Dictionary<(int, int), string>();
-        foreach (var e in result.Entries.Where(e => e.ClassId == classEntry.Id))
-            solverTimetable[(e.DayIndex, e.PeriodIndex)] = e.Subject;
-
-        _output.WriteLine($"\n=== 求解器结果: {classEntry.Name} ===");
-        _outputBuffer.Add($"\n=== 求解器结果: {classEntry.Name} ===");
-        PrintTimetable(solverTimetable);
-        var solverMetrics = AnalyzeMetrics(solverTimetable);
-        PrintMetrics("求解器", solverMetrics);
-
-        // 3. 读取 out.xlsx 参考课表
-        var refTimetable = ReadReferenceTimetable("七1");
-        if (refTimetable.Count > 0)
-        {
-            _output.WriteLine($"\n=== 参考课表(out.xlsx): 七1 ===");
-            _outputBuffer.Add("\n=== 参考课表(out.xlsx): 七1 ===");
-            PrintTimetable(refTimetable);
-            var refMetrics = AnalyzeMetrics(refTimetable);
-            PrintMetrics("参考", refMetrics);
-
-            // 4. 对比总结
-            var comparisons = new[]
+            var solverTT = ExtractSolverTimetable(result, classEntry.Id, $"求解器({classEntry.Name})");
+            var refTT = ReadReferenceTimetable(refName);
+            if (refTT.Grid.Count == 0)
             {
-                "\n=== 对比总结 ===",
-                $"第3节非主科天数: 求解器={solverMetrics.Period3NonMainDays} vs 参考={refMetrics.Period3NonMainDays} (目标≤2)",
-                $"第1-2节组合多样性: 求解器={solverMetrics.Top2UniqueCombos}种 vs 参考={refMetrics.Top2UniqueCombos}种",
-                $"数学P4及之后: 求解器={solverMetrics.MathAtPeriod4Plus}/{solverMetrics.MathTotal} vs 参考={refMetrics.MathAtPeriod4Plus}/{refMetrics.MathTotal}",
-                $"第1节科目种类: 求解器={solverMetrics.FirstPeriodUnique}种 vs 参考={refMetrics.FirstPeriodUnique}种",
-                $"主科上午占比: 求解器={solverMetrics.MainMorningRatio:P0} vs 参考={refMetrics.MainMorningRatio:P0}"
-            };
-            foreach (var line in comparisons)
-            {
-                _output.WriteLine(line);
-                _outputBuffer.Add(line);
+                lines.Add($"[SKIP] 未能读取参考课表: {refName}");
+                continue;
             }
-        }
-        else
-        {
-            _output.WriteLine($"\n[WARN] 未能从out.xlsx读取七1课表，文件路径: {Path.GetFullPath(OutXlsxPath)}");
+
+            // 打印课表
+            lines.Add($"╔═══ {classEntry.Name} vs {refName} ═══╗");
+            lines.Add("");
+            lines.Add($"--- 求解器: {classEntry.Name} ---");
+            lines.AddRange(FormatTimetable(solverTT));
+            lines.Add("");
+            lines.Add($"--- 参考: {refName} ---");
+            lines.AddRange(FormatTimetable(refTT));
+            lines.Add("");
+
+            // 提取指标并比较
+            var solverMetrics = ScheduleComparisonService.ExtractMetrics(solverTT);
+            var refMetrics = ScheduleComparisonService.ExtractMetrics(refTT);
+            var report = ScheduleComparisonService.Compare(solverMetrics, refMetrics);
+            allScores.Add(report);
+
+            lines.Add(ScheduleComparisonService.FormatReport(report, solverMetrics, refMetrics));
+            lines.Add("");
+            lines.Add("═══════════════════════════════════════════════════");
+            lines.Add("");
         }
 
-        // 输出到文件避免控制台编码问题
-        string dumpPath = Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "..", "quality_comparison.txt");
-        File.WriteAllLines(Path.GetFullPath(dumpPath), _outputBuffer, System.Text.Encoding.UTF8);
-        _output.WriteLine($"\n详细结果已写入: {Path.GetFullPath(dumpPath)}");
+        // ═══ 3. 总体汇总 ═══
+        if (allScores.Count > 0)
+        {
+            lines.Add("╔══════════════════════════════════════════════════╗");
+            lines.Add("║              总体汇总                          ║");
+            lines.Add("╚══════════════════════════════════════════════════╝");
+            lines.Add("");
+            double avgTotal = allScores.Average(r => r.TotalScore);
+            lines.Add($"平均总相似度: {avgTotal:F1} / 100");
+            lines.Add("");
+
+            // 按指标汇总
+            var metricNames = allScores[0].Scores.Select(s => s.MetricName).ToList();
+            lines.Add("各指标平均分:");
+            foreach (var name in metricNames)
+            {
+                double avg = allScores.Average(r => r.Scores.First(s => s.MetricName == name).Score);
+                string bar = new('█', (int)(avg / 5));
+                string empty = new('░', 20 - bar.Length);
+                lines.Add($"  {name,-12} {avg,5:F1} {bar}{empty}");
+            }
+            lines.Add("");
+
+            // 差异最大项
+            var worstPerClass = allScores.Select(r => $"{r.WorstMetric}({r.Scores.First(s => s.MetricName == r.WorstMetric).Score:F0})");
+            lines.Add($"各班差异最大项: {string.Join(", ", worstPerClass)}");
+        }
+
+        // 写入报告文件
+        string fullPath = Path.GetFullPath(ReportPath);
+        File.WriteAllLines(fullPath, lines, System.Text.Encoding.UTF8);
+        _output.WriteLine($"报告已写入: {fullPath}");
+        _output.WriteLine($"平均总相似度: {allScores.Average(r => r.TotalScore):F1} / 100");
+
+        // 基本断言：总分应>50
+        if (allScores.Count > 0)
+            Assert.True(allScores.Average(r => r.TotalScore) > 40, "总相似度过低，排课质量需改进");
     }
 
-    private void PrintTimetable(Dictionary<(int, int), string> timetable)
+    /// <summary>快速对比（仅七1班，用于日常开发迭代验证）</summary>
+    [Fact]
+    public void QuickComparison_SingleClass()
     {
-        var header = "     周一    周二    周三    周四    周五";
-        _output.WriteLine(header);
-        _outputBuffer.Add(header);
-        for (int p = 1; p <= 8; p++)
+        var data = SampleDataFactory.Create(skipSolve: true);
+        var service = new ScheduleService(new CpSatScheduleSolver(), new ConflictService());
+        var result = service.Generate(data, new Progress<double>(_ => { }));
+
+        var classEntry = data.Classes.First(c => c.GradeName == "七年级");
+        var solverTT = ExtractSolverTimetable(result, classEntry.Id, "求解器");
+        var refTT = ReadReferenceTimetable("七1");
+
+        Assert.NotEmpty(refTT.Grid);
+
+        var solverM = ScheduleComparisonService.ExtractMetrics(solverTT);
+        var refM = ScheduleComparisonService.ExtractMetrics(refTT);
+        var report = ScheduleComparisonService.Compare(solverM, refM);
+
+        string reportText = ScheduleComparisonService.FormatReport(report, solverM, refM);
+        _output.WriteLine(reportText);
+
+        // 写入文件
+        File.WriteAllText(Path.GetFullPath(ReportPath), reportText, System.Text.Encoding.UTF8);
+        _output.WriteLine($"总分: {report.TotalScore:F1}/100, 最差项: {report.WorstMetric}");
+
+        Assert.True(report.TotalScore > 40);
+    }
+
+    private static List<string> FormatTimetable(ScheduleComparisonService.Timetable tt)
+    {
+        var lines = new List<string> { "     周一      周二      周三      周四      周五" };
+        for (int p = 1; p <= tt.Periods; p++)
         {
             var row = $"P{p}: ";
-            for (int d = 0; d < 5; d++)
+            for (int d = 0; d < tt.Days; d++)
             {
-                timetable.TryGetValue((d, p), out string? subj);
-                row += (subj ?? "---").PadRight(8);
+                string s = tt.Get(d, p);
+                row += (string.IsNullOrEmpty(s) ? "---" : s).PadRight(10);
             }
-            _output.WriteLine(row);
-            _outputBuffer.Add(row);
+            lines.Add(row);
         }
-    }
-
-    private void PrintMetrics(string label, QualityMetrics m)
-    {
-        var lines = new[]
-        {
-            $"[{label}] 第3节: {m.Period3Detail} → 非主科{m.Period3NonMainDays}天",
-            $"[{label}] 1-2节组合: {m.Top2Combos} → {m.Top2UniqueCombos}种",
-            $"[{label}] 数学分布: {m.MathDistribution} (P4+={m.MathAtPeriod4Plus}/{m.MathTotal})",
-            $"[{label}] 第1节: {m.FirstPeriodDetail} → {m.FirstPeriodUnique}种",
-            $"[{label}] 主科上午: {m.MainMorning}/{m.MainTotal} = {m.MainMorningRatio:P0}",
-            $"[{label}] 每日主科: {m.DailyMainCounts}"
-        };
-        foreach (var line in lines)
-        {
-            _output.WriteLine(line);
-            _outputBuffer.Add(line);
-        }
-    }
-
-    private sealed class QualityMetrics
-    {
-        public int Period3NonMainDays { get; set; }
-        public string Period3Detail { get; set; } = "";
-        public string Top2Combos { get; set; } = "";
-        public int Top2UniqueCombos { get; set; }
-        public string MathDistribution { get; set; } = "";
-        public int MathAtPeriod4Plus { get; set; }
-        public int MathTotal { get; set; }
-        public int FirstPeriodUnique { get; set; }
-        public string FirstPeriodDetail { get; set; } = "";
-        public int MainTotal { get; set; }
-        public int MainMorning { get; set; }
-        public double MainMorningRatio { get; set; }
-        public string DailyMainCounts { get; set; } = "";
+        return lines;
     }
 }
