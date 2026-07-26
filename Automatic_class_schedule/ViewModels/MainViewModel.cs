@@ -1494,9 +1494,9 @@ public sealed class MainViewModel : ObservableObject
 
             UpdateDialogProgress(0.05, "正在准备重新排课...");
 
-            // 收集所有锁定课程
+            // 收集所有锁定课程（排除固定课，求解器单独处理）
             var locks = ScheduleEntries
-                .Where(e => e.Locked)
+                .Where(e => e.Locked && !e.IsFixed && e.RequirementId != Guid.Empty)
                 .Select(e => new LockedLesson
                 {
                     RequirementId = e.RequirementId,
@@ -1573,6 +1573,7 @@ public sealed class MainViewModel : ObservableObject
 
             // 找出交换后产生的教师时间冲突
             var allEntries = ScheduleEntries.ToList();
+            int expectedCount = allEntries.Count;
             var conflictEntryIds = new HashSet<Guid> { swappedA.Id, swappedB.Id };
 
             // 收集交换后两个entry的教师+时间槽
@@ -1609,8 +1610,9 @@ public sealed class MainViewModel : ObservableObject
                 entry.Locked = false;
             }
 
+            // 构建锁定列表（排除固定课，求解器通过PlaceFixedLessons单独处理）
             var locks = allEntries
-                .Where(e => e.Locked)
+                .Where(e => e.Locked && !e.IsFixed && e.RequirementId != Guid.Empty)
                 .Select(e => new LockedLesson
                 {
                     RequirementId = e.RequirementId,
@@ -1628,6 +1630,26 @@ public sealed class MainViewModel : ObservableObject
                 _cts.Token);
 
             StopSmoothProgress();
+
+            // 安全检查：如果结果条目数明显少于预期，说明求解失败，回退交换
+            if (result.Entries.Count < expectedCount - conflictEntryIds.Count)
+            {
+                // 回退交换
+                int tmpDay = swappedA.DayIndex, tmpPeriod = swappedA.PeriodIndex;
+                swappedA.DayIndex = swappedB.DayIndex;
+                swappedA.PeriodIndex = swappedB.PeriodIndex;
+                swappedB.DayIndex = tmpDay;
+                swappedB.PeriodIndex = tmpPeriod;
+                swappedA.Locked = false;
+                swappedB.Locked = false;
+
+                CloseProgressDialog();
+                StatusMessage = "局部调整失败：无法在保持交换的前提下解决教师冲突，已恢复原位";
+                Log("最小变化求解失败，已回退");
+                RefreshViews();
+                return;
+            }
+
             UpdateDialogProgress(0.90, "正在整理结果...");
 
             ScheduleEntries.Clear();

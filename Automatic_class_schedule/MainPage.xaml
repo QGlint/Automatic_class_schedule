@@ -1134,21 +1134,15 @@
                             <StackPanel Spacing="8">
                                 <TextBlock Text="导出操作" FontWeight="SemiBold" />
                                 <TextBlock Text="导出内容：年级课表.xlsx、班级课表.xlsx、教师课表.xlsx" FontSize="12" Foreground="#FF5A6877" TextWrapping="Wrap" />
-                                <Button Content="📤 导出课表" Command="{Binding ExportCommand}" Style="{StaticResource RoundButtonBase}" Background="#FF214E78" Foreground="White" HorizontalAlignment="Left" />
+                                <Button Content="📤 导出课表" Command="{Binding ExportCommand}" Style="{StaticResource RoundButtonBase}" Background="#FFF0F5FF" Foreground="#FF0066CC" FontWeight="Bold" HorizontalAlignment="Left" />
                             </StackPanel>
                         </Border>
                         <Border Style="{StaticResource SectionBorderStyle}">
                             <StackPanel Spacing="6">
                                 <TextBlock Text="输出位置" FontWeight="SemiBold" />
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="{Binding ExportFolderPath}" TextWrapping="Wrap" Foreground="#FF5A6877" FontSize="12" VerticalAlignment="Center" />
-                                    <Button Grid.Column="1" Content="选择位置" Command="{Binding SelectExportFolderCommand}"
-                                            Style="{StaticResource RoundButtonBase}" Background="#FFF0F5FF" Foreground="#FF214E78" Margin="8,0,0,0" />
-                                </Grid>
+                                <TextBlock Text="{Binding ExportFolderPath}" TextWrapping="Wrap" Foreground="#FF5A6877" FontSize="12" />
+                                <Button Content="📂 更改输出位置" Command="{Binding SelectExportFolderCommand}"
+                                        Style="{StaticResource RoundButtonBase}" Background="#FFF0F5FF" Foreground="#FF0066CC" FontWeight="Bold" HorizontalAlignment="Left" />
                             </StackPanel>
                         </Border>
                         <Border Style="{StaticResource SectionBorderStyle}">
