@@ -2079,7 +2079,11 @@ public sealed class MainViewModel : ObservableObject
             };
             gradeToggles[gName] = toggle;
 
-            var gradeGrid = BuildSubjectGrid(gName, allSubjectNames);
+            // 年级自定义：只显示该年级存在的课程，排除全校科目
+            var gradeSubjectNames = Subjects
+                .Where(s => (string.IsNullOrEmpty(s.GradeName) || s.GradeName == gName) && !IsDefaultSchoolWide(s.Name))
+                .Select(s => s.Name).Distinct().OrderBy(n => n).ToList();
+            var gradeGrid = BuildSubjectGrid(gName, gradeSubjectNames);
             gradeGrid.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             toggle.Toggled += (_, _) =>
             {
