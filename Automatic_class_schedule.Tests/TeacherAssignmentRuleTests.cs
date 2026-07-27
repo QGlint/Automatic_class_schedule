@@ -160,7 +160,7 @@ public sealed class TeacherAssignmentRuleTests
             totalAssigned += count;
             _output.WriteLine($"{t.TeacherName}: {count}个班 → {t.ClassNames}");
         }
-        Assert.Equal(23, totalAssigned); // 所有班级都被分配
+        Assert.Equal(22, totalAssigned); // 所有班级都被分配(8+8+6=22)
         _output.WriteLine($"体育教师共{peTeachers.Count}位，共分配{totalAssigned}个班");
     }
 

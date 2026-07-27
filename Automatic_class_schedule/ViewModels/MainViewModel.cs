@@ -2019,7 +2019,7 @@ public sealed class MainViewModel : ObservableObject
                 : Subjects.Where(s => s.GradeName == gradeKey || string.IsNullOrEmpty(s.GradeName)).Select(s => s.Name).Distinct().OrderBy(n => n).ToList();
 
             var grid = new Microsoft.UI.Xaml.Controls.Grid { Margin = new Microsoft.UI.Xaml.Thickness(0, 4, 0, 0) };
-            // 4列: 科目名 | 模式 | 数值 || 科目名 | 模式 | 数值
+            // 6列: 科目名 | 模式 | 数值 || 科目名 | 模式 | 数值
             for (int c = 0; c < 6; c++)
                 grid.ColumnDefinitions.Add(new Microsoft.UI.Xaml.Controls.ColumnDefinition
                 {
@@ -2027,6 +2027,9 @@ public sealed class MainViewModel : ObservableObject
                 });
 
             int half = (subjects.Count + 1) / 2;
+            // 添加行定义
+            for (int r = 0; r < half; r++)
+                grid.RowDefinitions.Add(new Microsoft.UI.Xaml.Controls.RowDefinition { Height = new Microsoft.UI.Xaml.GridLength(36) });
             for (int i = 0; i < subjects.Count; i++)
             {
                 string subj = subjects[i];
@@ -2166,13 +2169,13 @@ public sealed class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(TotalAssignments));
     }
 
-    private static bool IsDefaultByGrade(string subject)
+    internal static bool IsDefaultByGrade(string subject)
     {
         // 默认“按年级”的科目
         return subject is "物理" or "化学" or "地理" or "生物" or "历史" or "道德" or "音乐" or "美术" or "信息" or "劳动" or "体育";
     }
 
-    private static int GetDefaultTeacherConfig(string subject, bool isClassesPerTeacherMode)
+    internal static int GetDefaultTeacherConfig(string subject, bool isClassesPerTeacherMode)
     {
         if (isClassesPerTeacherMode)
         {
@@ -2235,7 +2238,7 @@ public sealed class MainViewModel : ObservableObject
                     if (assignedClasses.Count == 0) break;
                     assignments.Add(new TeacherAssignment
                     {
-                        TeacherName = $"{shortGrade}{subDef.Name}{t + 1}",
+                        TeacherName = $"{shortGrade}{subDef.Name[..1]}{ToChineseNumeral(t + 1)}",
                         Subject = subDef.Name,
                         ClassNames = string.Join(",", assignedClasses.Select(c => c.Name)),
                         GradeName = gradeName
@@ -2246,7 +2249,7 @@ public sealed class MainViewModel : ObservableObject
     }
 
     /// <summary>V2: 每个年级+科目独立配置，模式按班/按年级</summary>
-    private void GenerateTeachersWithConfigV2(ICollection<TeacherAssignment> assignments, IEnumerable<SubjectDefinition> subjects,
+    internal static void GenerateTeachersWithConfigV2(ICollection<TeacherAssignment> assignments, IEnumerable<SubjectDefinition> subjects,
         IEnumerable<SchoolClass> classes, Dictionary<string, (int Value, bool ByGrade)> configMap)
     {
         var classList = classes.ToList();
@@ -2277,7 +2280,7 @@ public sealed class MainViewModel : ObservableObject
                     if (assignedClasses.Count == 0) break;
                     assignments.Add(new TeacherAssignment
                     {
-                        TeacherName = $"{shortGrade}{subDef.Name}{t + 1}",
+                        TeacherName = $"{shortGrade}{subDef.Name[..1]}{ToChineseNumeral(t + 1)}",
                         Subject = subDef.Name,
                         ClassNames = string.Join(",", assignedClasses.Select(c => c.Name)),
                         GradeName = gradeName
@@ -2285,6 +2288,18 @@ public sealed class MainViewModel : ObservableObject
                 }
             }
         }
+    }
+
+    /// <summary>数字转中文序号（一、二、三...十、十一...）</summary>
+    internal static string ToChineseNumeral(int n)
+    {
+        string[] digits = { "", "一", "二", "三", "四", "五", "六", "七", "八", "九" };
+        if (n <= 0) return n.ToString();
+        if (n < 10) return digits[n];
+        if (n == 10) return "十";
+        if (n < 20) return $"十{digits[n % 10]}";
+        if (n < 100) return $"{digits[n / 10]}十{(n % 10 == 0 ? "" : digits[n % 10])}";
+        return n.ToString();
     }
 
     private async Task AutoScheduleAsync()
