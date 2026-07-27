@@ -248,7 +248,7 @@ public sealed class NewFeatureTests
         var problem = CreateProblem(data);
 
         // 使用 relaxConsecutiveDays 求解
-        var result = solver.SolveWithLocks(problem, new List<LockedLesson>(), relaxConsecutiveDays: true);
+        var result = solver.SolveWithLocks(problem, new List<LockedLesson>(), relaxLevel: 1);
 
         Assert.NotEmpty(result.Entries);
         // 基本验证：每个需求都有对应课时数
@@ -282,7 +282,7 @@ public sealed class NewFeatureTests
         };
 
         // 同时使用 locks + relaxConsecutiveDays
-        var result = solver.SolveWithLocks(problem, locks, relaxConsecutiveDays: true);
+        var result = solver.SolveWithLocks(problem, locks, relaxLevel: 1);
 
         Assert.NotEmpty(result.Entries);
 

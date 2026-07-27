@@ -916,7 +916,8 @@
                                         <Border BorderBrush="#FFD9E1EC" BorderThickness="1,0,1,1" Background="#FFFAFBFC">
                                             <StackPanel Orientation="Horizontal">
                                                 <!-- 班级名称 -->
-                                                <Border Width="70" BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,0" Padding="4">
+                                                <Border Width="70" BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,0" Padding="4"
+                                                        Background="{Binding HeaderBackground}">
                                                     <TextBlock Text="{Binding ClassName}" FontSize="12"
                                                                HorizontalAlignment="Center" VerticalAlignment="Center" />
                                                 </Border>

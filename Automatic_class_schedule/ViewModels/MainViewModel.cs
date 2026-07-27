@@ -89,7 +89,7 @@ public sealed class MainViewModel : ObservableObject
         AutoScheduleCommand = new RelayCommand(() => _ = AutoScheduleAsync());
         ValidateCommand = new RelayCommand(ValidateSchedule);
         ClearConflictsCommand = new RelayCommand(() => { Conflicts.Clear(); OnPropertyChanged(nameof(TotalConflicts)); });
-        LocalAdjustCommand = new RelayCommand(() => _ = LocalAdjustAsync(), () => !IsBusy && ScheduleEntries.Count > 0);
+        LocalAdjustCommand = new RelayCommand(() => _ = LocalAdjustAsync());
         SaveCommand = new RelayCommand(SaveData);
         LoadCommand = new RelayCommand(LoadData);
         NewProjectCommand = new RelayCommand(NewProject);
@@ -3116,10 +3116,27 @@ public sealed class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(GradeDayHeaders));
 
         // 构建班级行，每行 Cells 按 day×period 平铺
+        // 预计算每个班级每个科目的实际数量 vs 配置数量
+        var expectedCounts = Requirements
+            .GroupBy(r => (r.ClassId, r.Subject))
+            .ToDictionary(g => g.Key, g => g.Sum(r => r.WeeklyCount));
+        var actualCounts = VisibleScheduleEntries
+            .Where(e => !e.IsFixed)
+            .GroupBy(e => (e.ClassId, e.Subject))
+            .ToDictionary(g => g.Key, g => g.Count());
+
         var classRows = new ObservableCollection<GradeClassRow>();
         foreach (var cls in classes)
         {
-            var row = new GradeClassRow { ClassName = cls.DisplayName, ClassId = cls.Id };
+            // 检查该班级每个科目数量是否符合配置
+            bool hasError = expectedCounts
+                .Where(kv => kv.Key.ClassId == cls.Id)
+                .Any(kv => !actualCounts.TryGetValue(kv.Key, out int actual) || actual != kv.Value);
+            // 也检查多出来的科目（实际有但配置没有）
+            if (!hasError)
+                hasError = actualCounts.Keys.Any(k => k.ClassId == cls.Id && !expectedCounts.ContainsKey(k));
+
+            var row = new GradeClassRow { ClassName = cls.DisplayName, ClassId = cls.Id, HasCountError = hasError };
             for (int day = 0; day < daysPerWeek; day++)
             {
                 for (int period = 1; period <= periodsPerDay; period++)

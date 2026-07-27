@@ -74,4 +74,11 @@ public sealed class GradeClassRow
     public string ClassName { get; set; } = string.Empty;
     public Guid ClassId { get; set; }
     public ObservableCollection<ScheduleGridCell> Cells { get; set; } = new();
+    /// <summary>该班级课程数量与配置不符（表头标红）</summary>
+    public bool HasCountError { get; set; }
+    /// <summary>表头背景色（数量不符时红色）</summary>
+    public Microsoft.UI.Xaml.Media.SolidColorBrush HeaderBackground =>
+        HasCountError
+            ? new Microsoft.UI.Xaml.Media.SolidColorBrush(new Windows.UI.Color { A = 60, R = 255, G = 80, B = 80 })
+            : new Microsoft.UI.Xaml.Media.SolidColorBrush(new Windows.UI.Color { A = 0, R = 255, G = 255, B = 255 });
 }

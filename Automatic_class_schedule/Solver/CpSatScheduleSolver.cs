@@ -140,6 +140,20 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
                                 for (int p = 1; p <= periods; p++)
                                     model.Add(x[ia, d, p] + x[ib, d, p] <= 1);
                         }
+                        else
+                        {
+                            // 相邻班号允许同时段，但加软约束惩罚以减少连班概率
+                            int ia = peItems[a].idx, ib = peItems[b].idx;
+                            for (int d = 0; d < days; d++)
+                                for (int p = 1; p <= periods; p++)
+                                {
+                                    var overlap = model.NewBoolVar($"pe_overlap_{ia}_{ib}_{d}_{p}");
+                                    model.Add(x[ia, d, p] + x[ib, d, p] == 2).OnlyEnforceIf(overlap);
+                                    model.Add(x[ia, d, p] + x[ib, d, p] <= 1).OnlyEnforceIf(overlap.Not());
+                                    objTerms.Add(overlap);
+                                    objWeights.Add(-8);
+                                }
+                        }
                     }
                 }
             }
