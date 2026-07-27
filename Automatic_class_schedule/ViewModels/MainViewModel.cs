@@ -663,16 +663,17 @@ public sealed class MainViewModel : ObservableObject
         StopSmoothProgress();
         _dispatcherQueue ??= Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
         double current = from;
-        double step = (to - from) / 60; // 约30秒内平滑到目标
         var dispatcher = _dispatcherQueue;
         _progressSmoothTimer = new System.Threading.Timer(_ =>
         {
-            if (current < to - step)
+            // 减速逼近目标：剩余距离的 3%，永远到不了目标
+            double remaining = to - current;
+            if (remaining > 0.005)
             {
-                current += step;
+                current += remaining * 0.03;
                 dispatcher?.TryEnqueue(() => UpdateDialogProgress(current));
             }
-        }, null, 500, 500);
+        }, null, 400, 400);
     }
 
     /// <summary>停止平滑进度定时器</summary>
@@ -1985,7 +1986,7 @@ public sealed class MainViewModel : ObservableObject
             XamlRoot = App.CurrentWindow!.Content.XamlRoot
         };
 
-        var root = new Microsoft.UI.Xaml.Controls.StackPanel { Spacing = 6, Width = 680 };
+        var root = new Microsoft.UI.Xaml.Controls.StackPanel { Spacing = 6, Width = 780 };
 
         // 替换选项
         var replaceCb = new Microsoft.UI.Xaml.Controls.CheckBox { Content = "替换现有教师配置（取消则追加）", IsChecked = true };
@@ -2002,38 +2003,34 @@ public sealed class MainViewModel : ObservableObject
         }
         root.Children.Add(gradePanel);
 
-        // 科目配置区域（标签页：全局 + 各年级）
+        // 科目配置区域
         var allSubjectNames = Subjects.Select(s => s.Name).Distinct().OrderBy(n => n).ToList();
-        // 每个年级+全局的科目配置: (grade, subject) -> (modeCombo, numBox)
-        var configControls = new Dictionary<(string Grade, string Subject), (Microsoft.UI.Xaml.Controls.ComboBox Mode, Microsoft.UI.Xaml.Controls.NumberBox Num)>();
+        var schoolWideSubjects = allSubjectNames.Where(IsSchoolWideSubject).ToList();
+        var gradeSubjects = allSubjectNames.Where(s => !IsSchoolWideSubject(s)).ToList();
 
-        // 标签页内容容器
+        var configControls = new Dictionary<(string Grade, string Subject), (Microsoft.UI.Xaml.Controls.ComboBox Mode, Microsoft.UI.Xaml.Controls.NumberBox Num)>();
+        var gradeToggles = new Dictionary<string, Microsoft.UI.Xaml.Controls.ToggleSwitch>();
+
         var contentArea = new Microsoft.UI.Xaml.Controls.Grid { MinHeight = 320 };
         var tabPages = new Dictionary<string, Microsoft.UI.Xaml.UIElement>();
 
-        // 创建科目配置网格（双列）
-        Microsoft.UI.Xaml.UIElement BuildSubjectGrid(string gradeKey, bool isGlobal)
+        // 构建科目网格（双列，带间隙）
+        Microsoft.UI.Xaml.UIElement BuildSubjectGrid(string gradeKey, List<string> subjectList)
         {
-            var subjects = isGlobal
-                ? allSubjectNames
-                : Subjects.Where(s => s.GradeName == gradeKey || string.IsNullOrEmpty(s.GradeName)).Select(s => s.Name).Distinct().OrderBy(n => n).ToList();
-
             var grid = new Microsoft.UI.Xaml.Controls.Grid { Margin = new Microsoft.UI.Xaml.Thickness(0, 4, 0, 0) };
-            // 6列: 科目名 | 模式 | 数值 || 科目名 | 模式 | 数值
-            for (int c = 0; c < 6; c++)
-                grid.ColumnDefinitions.Add(new Microsoft.UI.Xaml.Controls.ColumnDefinition
-                {
-                    Width = c % 3 == 0 ? new Microsoft.UI.Xaml.GridLength(70) : c % 3 == 1 ? new Microsoft.UI.Xaml.GridLength(90) : new Microsoft.UI.Xaml.GridLength(70)
-                });
+            // 7列: 科目名|模式|数值|间隙||科目名|模式|数值
+            int[] colWidths = { 60, 100, 50, 30, 60, 100, 50 };
+            for (int c = 0; c < 7; c++)
+                grid.ColumnDefinitions.Add(new Microsoft.UI.Xaml.Controls.ColumnDefinition { Width = new Microsoft.UI.Xaml.GridLength(colWidths[c]) });
 
-            int half = (subjects.Count + 1) / 2;
-            // 添加行定义
+            int half = (subjectList.Count + 1) / 2;
             for (int r = 0; r < half; r++)
                 grid.RowDefinitions.Add(new Microsoft.UI.Xaml.Controls.RowDefinition { Height = new Microsoft.UI.Xaml.GridLength(36) });
-            for (int i = 0; i < subjects.Count; i++)
+
+            for (int i = 0; i < subjectList.Count; i++)
             {
-                string subj = subjects[i];
-                int colOffset = i < half ? 0 : 3;
+                string subj = subjectList[i];
+                int colOffset = i < half ? 0 : 4; // 第二列偏移4（含间隙列）
                 int rowIdx = i < half ? i : i - half;
 
                 var nameLabel = new Microsoft.UI.Xaml.Controls.TextBlock { Text = subj, VerticalAlignment = Microsoft.UI.Xaml.VerticalAlignment.Center, FontSize = 13 };
@@ -2041,17 +2038,21 @@ public sealed class MainViewModel : ObservableObject
                 Microsoft.UI.Xaml.Controls.Grid.SetColumn(nameLabel, colOffset);
                 grid.Children.Add(nameLabel);
 
-                var modeCombo = new Microsoft.UI.Xaml.Controls.ComboBox { Margin = new Microsoft.UI.Xaml.Thickness(4, 1, 4, 1), FontSize = 12, SelectedIndex = 0 };
+                var modeCombo = new Microsoft.UI.Xaml.Controls.ComboBox { Margin = new Microsoft.UI.Xaml.Thickness(4, 1, 4, 1), FontSize = 12, MinWidth = 90 };
                 modeCombo.Items.Add("按班");
                 modeCombo.Items.Add("按年级");
-                // 默认模式
                 modeCombo.SelectedIndex = IsDefaultByGrade(subj) ? 1 : 0;
                 Microsoft.UI.Xaml.Controls.Grid.SetRow(modeCombo, rowIdx);
                 Microsoft.UI.Xaml.Controls.Grid.SetColumn(modeCombo, colOffset + 1);
                 grid.Children.Add(modeCombo);
 
                 int defaultVal = GetDefaultTeacherConfig(subj, modeCombo.SelectedIndex == 0);
-                var numBox = new Microsoft.UI.Xaml.Controls.NumberBox { Value = defaultVal, Minimum = 1, Maximum = 30, SmallChange = 1, SpinButtonPlacementMode = Microsoft.UI.Xaml.Controls.NumberBoxSpinButtonPlacementMode.Inline, Margin = new Microsoft.UI.Xaml.Thickness(2, 1, 0, 1), FontSize = 12 };
+                var numBox = new Microsoft.UI.Xaml.Controls.NumberBox
+                {
+                    Value = defaultVal, Minimum = 1, Maximum = 30, SmallChange = 1,
+                    SpinButtonPlacementMode = Microsoft.UI.Xaml.Controls.NumberBoxSpinButtonPlacementMode.Hidden,
+                    Margin = new Microsoft.UI.Xaml.Thickness(2, 1, 0, 1), FontSize = 12, MinWidth = 44
+                };
                 Microsoft.UI.Xaml.Controls.Grid.SetRow(numBox, rowIdx);
                 Microsoft.UI.Xaml.Controls.Grid.SetColumn(numBox, colOffset + 2);
                 grid.Children.Add(numBox);
@@ -2059,20 +2060,52 @@ public sealed class MainViewModel : ObservableObject
                 configControls[(gradeKey, subj)] = (modeCombo, numBox);
             }
 
-            var sv = new Microsoft.UI.Xaml.Controls.ScrollViewer { Content = grid, VerticalScrollBarVisibility = Microsoft.UI.Xaml.Controls.ScrollBarVisibility.Auto };
-            return sv;
+            return new Microsoft.UI.Xaml.Controls.ScrollViewer { Content = grid, VerticalScrollBarVisibility = Microsoft.UI.Xaml.Controls.ScrollBarVisibility.Auto };
         }
 
-        // 全局页
-        tabPages["全局"] = BuildSubjectGrid("全局", true);
-        // 各年级页
+        // 全校页（仅显示全校科目）
+        tabPages["全校"] = BuildSubjectGrid("全校", schoolWideSubjects);
+        // 全局页（显示非全校科目）
+        tabPages["全局"] = BuildSubjectGrid("全局", gradeSubjects);
+
+        // 年级页（带开关）
         foreach (var grade in GradeInputs)
-            tabPages[grade.GradeName] = BuildSubjectGrid(grade.GradeName, false);
+        {
+            string gName = grade.GradeName;
+            var pagePanel = new Microsoft.UI.Xaml.Controls.StackPanel { Spacing = 4 };
+            var toggle = new Microsoft.UI.Xaml.Controls.ToggleSwitch
+            {
+                Header = "自定义配置",
+                IsOn = false,
+                Margin = new Microsoft.UI.Xaml.Thickness(0, 4, 0, 0)
+            };
+            gradeToggles[gName] = toggle;
+
+            // 年级科目网格（继承全局默认值，不显示全校科目）
+            var gradeGrid = BuildSubjectGrid(gName, gradeSubjects);
+            gradeGrid.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+            toggle.Toggled += (_, _) =>
+            {
+                gradeGrid.Visibility = toggle.IsOn ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+            };
+
+            var hint = new Microsoft.UI.Xaml.Controls.TextBlock
+            {
+                Text = "关闭时使用全局配置",
+                FontSize = 11,
+                Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 120, 130, 140)),
+                Margin = new Microsoft.UI.Xaml.Thickness(0, 2, 0, 0)
+            };
+
+            pagePanel.Children.Add(toggle);
+            pagePanel.Children.Add(hint);
+            pagePanel.Children.Add(gradeGrid);
+            tabPages[gName] = pagePanel;
+        }
 
         // 标签按钮栏
         var tabBar = new Microsoft.UI.Xaml.Controls.StackPanel { Orientation = Microsoft.UI.Xaml.Controls.Orientation.Horizontal, Spacing = 4 };
         var tabButtons = new List<(string Name, Microsoft.UI.Xaml.Controls.Button Btn)>();
-        string currentTab = "全局";
 
         foreach (var tabName in tabPages.Keys)
         {
@@ -2080,11 +2113,11 @@ public sealed class MainViewModel : ObservableObject
             {
                 Content = tabName,
                 FontSize = 13,
-                Padding = new Microsoft.UI.Xaml.Thickness(12, 4, 12, 4),
-                Background = tabName == "全局"
+                Padding = new Microsoft.UI.Xaml.Thickness(14, 5, 14, 5),
+                Background = tabName == "全校"
                     ? new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 33, 78, 120))
                     : new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 240, 245, 255)),
-                Foreground = tabName == "全局"
+                Foreground = tabName == "全校"
                     ? new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 255, 255))
                     : new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 33, 78, 120)),
                 BorderThickness = new Microsoft.UI.Xaml.Thickness(0),
@@ -2093,7 +2126,6 @@ public sealed class MainViewModel : ObservableObject
             string name = tabName;
             btn.Click += (_, _) =>
             {
-                currentTab = name;
                 foreach (var (n, b) in tabButtons)
                 {
                     bool active = n == name;
@@ -2112,14 +2144,14 @@ public sealed class MainViewModel : ObservableObject
         }
         root.Children.Add(tabBar);
 
-        // 初始显示全局页
-        contentArea.Children.Add(tabPages["全局"]);
+        // 初始显示全校页
+        contentArea.Children.Add(tabPages["全校"]);
         root.Children.Add(contentArea);
 
         // 提示
         root.Children.Add(new Microsoft.UI.Xaml.Controls.TextBlock
         {
-            Text = "“按班”：数值=每位教师所带班级数；“按年级”：数值=该年级该科目教师数。年级页覆盖全局配置。",
+            Text = "“按班”：数值=每位教师所带班级数；“按年级”：数值=该年级该科目教师数。全校科目跨年级统一分配，年级自定义时继承全局配置。",
             FontSize = 11,
             Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 90, 104, 119)),
             TextWrapping = Microsoft.UI.Xaml.TextWrapping.Wrap
@@ -2133,27 +2165,31 @@ public sealed class MainViewModel : ObservableObject
         var selectedGrades = gradeCheckBoxes.Where(g => g.CheckBox.IsChecked == true).Select(g => g.GradeName).ToHashSet();
         if (selectedGrades.Count == 0) { StatusMessage = "未选择任何年级"; return; }
 
-        // 构建配置映射：年级配置优先，否则用全局
         var configMap = new Dictionary<string, (int Value, bool ByGrade)>();
+
+        // 全校科目配置
+        foreach (var subj in schoolWideSubjects)
+        {
+            if (configControls.TryGetValue(("全校", subj), out var ctrl))
+                configMap[$"全校|{subj}"] = ((int)ctrl.Num.Value, ctrl.Mode.SelectedIndex == 1);
+        }
+
+        // 年级科目配置：开关打开用年级配置，否则用全局
         foreach (var gradeName in selectedGrades)
         {
-            foreach (var subj in allSubjectNames)
+            bool customOn = gradeToggles.TryGetValue(gradeName, out var tg) && tg.IsOn;
+            foreach (var subj in gradeSubjects)
             {
-                // 年级配置优先
-                if (configControls.TryGetValue((gradeName, subj), out var gradeCtrl))
-                {
+                if (customOn && configControls.TryGetValue((gradeName, subj), out var gradeCtrl))
                     configMap[$"{gradeName}|{subj}"] = ((int)gradeCtrl.Num.Value, gradeCtrl.Mode.SelectedIndex == 1);
-                }
                 else if (configControls.TryGetValue(("全局", subj), out var globalCtrl))
-                {
                     configMap[$"{gradeName}|{subj}"] = ((int)globalCtrl.Num.Value, globalCtrl.Mode.SelectedIndex == 1);
-                }
             }
         }
 
         // 生成教师
         var selectedClasses = Classes.Where(c => selectedGrades.Contains(c.GradeName)).ToList();
-        var selectedSubjects = Subjects.Where(s => string.IsNullOrEmpty(s.GradeName) || selectedGrades.Contains(s.GradeName)).ToList();
+        var selectedSubjects = Subjects.Where(s => string.IsNullOrEmpty(s.GradeName) || selectedGrades.Contains(s.GradeName) || IsSchoolWideSubject(s.Name)).ToList();
 
         var newAssignments = new List<TeacherAssignment>();
         GenerateTeachersWithConfigV2(newAssignments, selectedSubjects, selectedClasses, configMap);
@@ -2172,7 +2208,13 @@ public sealed class MainViewModel : ObservableObject
     internal static bool IsDefaultByGrade(string subject)
     {
         // 默认“按年级”的科目
-        return subject is "物理" or "化学" or "地理" or "生物" or "历史" or "道德" or "音乐" or "美术" or "信息" or "劳动" or "体育";
+        return subject is "物理" or "化学" or "地理" or "生物" or "历史" or "道德" or "音乐" or "美术" or "信息" or "劳动";
+    }
+
+    /// <summary>是否为全校统一科目（不按年级配置）</summary>
+    internal static bool IsSchoolWideSubject(string subject)
+    {
+        return subject is "体育";
     }
 
     internal static int GetDefaultTeacherConfig(string subject, bool isClassesPerTeacherMode)
@@ -2240,7 +2282,7 @@ public sealed class MainViewModel : ObservableObject
                     {
                         TeacherName = $"{shortGrade}{subDef.Name[..1]}{ToChineseNumeral(t + 1)}",
                         Subject = subDef.Name,
-                        ClassNames = string.Join(",", assignedClasses.Select(c => c.Name)),
+                        ClassNames = string.Join("、", assignedClasses.Select(c => c.Name)),
                         GradeName = gradeName
                     });
                 }
@@ -2248,13 +2290,42 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
-    /// <summary>V2: 每个年级+科目独立配置，模式按班/按年级</summary>
+    /// <summary>V2: 每个年级+科目独立配置，模式按班/按年级，支持全校科目</summary>
     internal static void GenerateTeachersWithConfigV2(ICollection<TeacherAssignment> assignments, IEnumerable<SubjectDefinition> subjects,
         IEnumerable<SchoolClass> classes, Dictionary<string, (int Value, bool ByGrade)> configMap)
     {
         var classList = classes.ToList();
         if (classList.Count == 0) return;
 
+        // 全校科目（如体育）：跨年级统一分配
+        var schoolWideSubjects = subjects.Where(s => IsSchoolWideSubject(s.Name)).ToList();
+        foreach (var subDef in schoolWideSubjects)
+        {
+            string key = $"全校|{subDef.Name}";
+            if (!configMap.TryGetValue(key, out var cfg)) continue;
+
+            int totalClasses = classList.Count;
+            int numTeachers = cfg.ByGrade
+                ? Math.Max(1, cfg.Value)
+                : (int)Math.Ceiling((double)totalClasses / Math.Max(1, cfg.Value));
+
+            int perTeacher = (int)Math.Ceiling((double)totalClasses / numTeachers);
+            for (int t = 0; t < numTeachers; t++)
+            {
+                var assignedClasses = classList.Skip(t * perTeacher).Take(perTeacher).ToList();
+                if (assignedClasses.Count == 0) break;
+                assignments.Add(new TeacherAssignment
+                {
+                    TeacherName = $"{subDef.Name[..1]}{ToChineseNumeral(t + 1)}",
+                    Subject = subDef.Name,
+                    ClassNames = string.Join("、", assignedClasses.Select(c => c.Name)),
+                    GradeName = "全校"
+                });
+            }
+        }
+
+        // 按年级科目
+        var gradeSubjects = subjects.Where(s => !IsSchoolWideSubject(s.Name)).ToList();
         foreach (var gradeGroup in classList.GroupBy(c => c.GradeName))
         {
             string gradeName = gradeGroup.Key;
@@ -2262,7 +2333,7 @@ public sealed class MainViewModel : ObservableObject
             var gradeClasses = gradeGroup.ToList();
             int classCount = gradeClasses.Count;
 
-            foreach (var subDef in subjects.Where(s => string.IsNullOrEmpty(s.GradeName) || s.GradeName == gradeName))
+            foreach (var subDef in gradeSubjects.Where(s => string.IsNullOrEmpty(s.GradeName) || s.GradeName == gradeName))
             {
                 string key = $"{gradeName}|{subDef.Name}";
                 if (!configMap.TryGetValue(key, out var cfg)) continue;
@@ -2282,7 +2353,7 @@ public sealed class MainViewModel : ObservableObject
                     {
                         TeacherName = $"{shortGrade}{subDef.Name[..1]}{ToChineseNumeral(t + 1)}",
                         Subject = subDef.Name,
-                        ClassNames = string.Join(",", assignedClasses.Select(c => c.Name)),
+                        ClassNames = string.Join("、", assignedClasses.Select(c => c.Name)),
                         GradeName = gradeName
                     });
                 }
@@ -2322,16 +2393,15 @@ public sealed class MainViewModel : ObservableObject
             SchoolData data = BuildSchoolData();
             UpdateDialogProgress(0.15, "正在构建模型... 15%");
 
-            // 阶段3: 求解 (15-85%) — 启动平滑进度
-            StartSmoothProgress(0.15, 0.85);
+            // 阶段3: 求解 (15-97%) — 启动平滑进度
+            StartSmoothProgress(0.15, 0.97);
             IProgress<double> progress = new Progress<double>(v =>
             {
-                // 求解器报告 0-1 映射到 UI 15-85%
-                double mapped = 0.15 + v * 0.70;
+                // 求解器报告 0-1 映射到 UI 15-97%
+                double mapped = 0.15 + v * 0.82;
                 StopSmoothProgress();
                 UpdateDialogProgress(mapped);
-                // 重新启动平滑（下次回调前继续平滑）
-                StartSmoothProgress(mapped, 0.85);
+                StartSmoothProgress(mapped, 0.97);
             });
 
             ScheduleResult result = await Task.Run(
@@ -2339,8 +2409,8 @@ public sealed class MainViewModel : ObservableObject
 
             StopSmoothProgress();
 
-            // 阶段4: 输出结果 (85-100%)
-            UpdateDialogProgress(0.90, "正在整理结果...");
+            // 阶段4: 输出结果 (97-99%)
+            UpdateDialogProgress(0.97, "正在整理结果...");
 
             ScheduleEntries.Clear();
             foreach (ScheduleEntry entry in result.Entries.OrderBy(x => x.DayIndex).ThenBy(x => x.PeriodIndex))
@@ -2357,6 +2427,8 @@ public sealed class MainViewModel : ObservableObject
             OnPropertyChanged(nameof(TotalScheduleEntries));
             OnPropertyChanged(nameof(TotalConflicts));
 
+            UpdateDialogProgress(0.99, "即将完成...");
+            await Task.Delay(600); // 99%短暂停留
             UpdateDialogProgress(1.0, "排课完成！");
             DialogIsComplete = true;
 

@@ -58,7 +58,7 @@ public sealed class GenerateTeachersV2Tests
     [InlineData("美术", true)]
     [InlineData("信息", true)]
     [InlineData("劳动", true)]
-    [InlineData("体育", true)]
+    [InlineData("体育", false)]  // 体育是全校科目，不属于按年级
     [InlineData("语文", false)]
     [InlineData("数学", false)]
     [InlineData("英语", false)]
@@ -108,7 +108,7 @@ public sealed class GenerateTeachersV2Tests
         Assert.Equal(4, assignments.Count); // 8/2=4位
         foreach (var a in assignments)
         {
-            int classCount = a.ClassNames.Split(',').Length;
+            int classCount = a.ClassNames.Split('、').Length;
             Assert.Equal(2, classCount);
             _output.WriteLine($"{a.TeacherName}: {a.ClassNames} ({classCount}班)");
         }
@@ -130,7 +130,7 @@ public sealed class GenerateTeachersV2Tests
         // ceil(7/3)=3位教师
         Assert.Equal(3, assignments.Count);
         // 前两位各3班，最后一位1班
-        int totalClasses = assignments.Sum(a => a.ClassNames.Split(',').Length);
+        int totalClasses = assignments.Sum(a => a.ClassNames.Split('、').Length);
         Assert.Equal(7, totalClasses);
         _output.WriteLine($"物理: {assignments.Count}位教师, 共覆盖{totalClasses}班");
         foreach (var a in assignments)
@@ -154,7 +154,7 @@ public sealed class GenerateTeachersV2Tests
 
         Assert.Equal(3, assignments.Count);
         // 8班/3人 → ceil=3, 前2人各3班, 第3人2班
-        int totalClasses = assignments.Sum(a => a.ClassNames.Split(',').Length);
+        int totalClasses = assignments.Sum(a => a.ClassNames.Split('、').Length);
         Assert.Equal(8, totalClasses);
         _output.WriteLine($"物理按年级3人: 共覆盖{totalClasses}班");
         foreach (var a in assignments)
@@ -175,7 +175,7 @@ public sealed class GenerateTeachersV2Tests
         MainViewModel.GenerateTeachersWithConfigV2(assignments, subjects, classes, configMap);
 
         Assert.Single(assignments);
-        Assert.Equal(6, assignments[0].ClassNames.Split(',').Length);
+        Assert.Equal(6, assignments[0].ClassNames.Split('、').Length);
         _output.WriteLine($"音乐: {assignments[0].TeacherName} → {assignments[0].ClassNames}");
     }
 
@@ -229,9 +229,10 @@ public sealed class GenerateTeachersV2Tests
             configMap[$"{grade}|英语"] = (2, false);
             configMap[$"{grade}|物理"] = (3, true);
             configMap[$"{grade}|化学"] = (3, true);
-            configMap[$"{grade}|体育"] = (2, true);
             configMap[$"{grade}|音乐"] = (1, true);
         }
+        // 体育是全校科目
+        configMap["全校|体育"] = (2, true);
 
         var assignments = new List<TeacherAssignment>();
         MainViewModel.GenerateTeachersWithConfigV2(assignments, subjects, classes, configMap);
@@ -240,16 +241,24 @@ public sealed class GenerateTeachersV2Tests
         foreach (string grade in new[] { "七年级", "八年级", "九年级" })
         {
             int expectedClassCount = grade == "九年级" ? 6 : 8;
-            foreach (var subj in subjects)
+            var gradeSubjects = subjects.Where(s => s.Name != "体育").ToList();
+            foreach (var subj in gradeSubjects)
             {
                 var gradeAssignments = assignments.Where(a => a.GradeName == grade && a.Subject == subj.Name).ToList();
-                var allClassNames = gradeAssignments.SelectMany(a => a.ClassNames.Split(',')).ToList();
+                var allClassNames = gradeAssignments.SelectMany(a => a.ClassNames.Split('、')).ToList();
 
                 Assert.Equal(expectedClassCount, allClassNames.Count);
                 Assert.Equal(allClassNames.Count, allClassNames.Distinct().Count());
                 _output.WriteLine($"{grade} {subj.Name}: {gradeAssignments.Count}位教师, {allClassNames.Count}班全覆盖 ✓");
             }
         }
+
+        // 验证体育全校覆盖所有班级
+        var peAssignments = assignments.Where(a => a.Subject == "体育").ToList();
+        var peClasses = peAssignments.SelectMany(a => a.ClassNames.Split('、')).ToList();
+        Assert.Equal(22, peClasses.Count); // 8+8+6=22
+        Assert.Equal(peClasses.Count, peClasses.Distinct().Count());
+        _output.WriteLine($"全校 体育: {peAssignments.Count}位教师, {peClasses.Count}班全覆盖 ✓");
     }
 
     // ===== 教师命名规范（七数一 格式） =====
@@ -283,7 +292,7 @@ public sealed class GenerateTeachersV2Tests
         {
             ["八年级|语文"] = (3, false),  // 2位
             ["八年级|物理"] = (2, true),   // 2位
-            ["八年级|体育"] = (3, true),   // 3位
+            ["全校|体育"] = (2, true),     // 2位（全校模式）
         };
 
         var assignments = new List<TeacherAssignment>();
@@ -297,9 +306,10 @@ public sealed class GenerateTeachersV2Tests
         Assert.Equal("八语二", chinese[1].TeacherName);
         Assert.Equal("八物一", physics[0].TeacherName);
         Assert.Equal("八物二", physics[1].TeacherName);
-        Assert.Equal("八体一", pe[0].TeacherName);
-        Assert.Equal("八体二", pe[1].TeacherName);
-        Assert.Equal("八体三", pe[2].TeacherName);
+        // 体育全校模式：命名不带年级前缀
+        Assert.Equal("体一", pe[0].TeacherName);
+        Assert.Equal("体二", pe[1].TeacherName);
+        Assert.All(pe, a => Assert.Equal("全校", a.GradeName));
         _output.WriteLine($"多科目命名: {string.Join(", ", assignments.Select(a => a.TeacherName))} ✓");
     }
 
@@ -335,14 +345,14 @@ public sealed class GenerateTeachersV2Tests
         var result2 = new List<TeacherAssignment>();
         MainViewModel.GenerateTeachersWithConfigV2(result2, subjects, classes, config2);
         Assert.Equal(2, result2.Count);
-        Assert.All(result2, a => Assert.Equal(4, a.ClassNames.Split(',').Length));
+        Assert.All(result2, a => Assert.Equal(4, a.ClassNames.Split('、').Length));
 
         // 修改为按年级模式 4位教师（8班/4人=每人2班）
         var config3 = new Dictionary<string, (int Value, bool ByGrade)> { ["七年级|语文"] = (4, true) };
         var result3 = new List<TeacherAssignment>();
         MainViewModel.GenerateTeachersWithConfigV2(result3, subjects, classes, config3);
         Assert.Equal(4, result3.Count);
-        Assert.All(result3, a => Assert.Equal(2, a.ClassNames.Split(',').Length));
+        Assert.All(result3, a => Assert.Equal(2, a.ClassNames.Split('、').Length));
 
         _output.WriteLine($"修改前: {result1.Count}位 → 改班数后: {result2.Count}位 → 改模式后: {result3.Count}位 ✓");
     }
@@ -371,7 +381,7 @@ public sealed class GenerateTeachersV2Tests
         Assert.Equal(4, g7.Count); // 8/2=4
         Assert.Equal(4, g8.Count); // 直接4人
         // 八年级每人带2班 (8/4=2)
-        Assert.All(g8, a => Assert.Equal(2, a.ClassNames.Split(',').Length));
+        Assert.All(g8, a => Assert.Equal(2, a.ClassNames.Split('、').Length));
 
         _output.WriteLine($"七年级数学: {g7.Count}位(按班), 八年级数学: {g8.Count}位(按年级) ✓");
     }
@@ -411,5 +421,48 @@ public sealed class GenerateTeachersV2Tests
         MainViewModel.GenerateTeachersWithConfigV2(assignments, subjects, new List<SchoolClass>(), configMap);
 
         Assert.Empty(assignments);
+    }
+
+    // ===== 全校模式（体育） =====
+
+    [Fact]
+    public void SchoolWide_PE_CrossGrade()
+    {
+        var classes = new List<SchoolClass>();
+        classes.AddRange(CreateClasses(8, "七年级"));
+        classes.AddRange(CreateClasses(8, "八年级"));
+        classes.AddRange(CreateClasses(6, "九年级"));
+        var subjects = CreateSubjects().Where(s => s.Name == "体育").ToList();
+        var configMap = new Dictionary<string, (int Value, bool ByGrade)>
+        {
+            ["全校|体育"] = (6, true) // 6位体育教师
+        };
+
+        var assignments = new List<TeacherAssignment>();
+        MainViewModel.GenerateTeachersWithConfigV2(assignments, subjects, classes, configMap);
+
+        Assert.Equal(6, assignments.Count);
+        Assert.All(assignments, a => Assert.Equal("全校", a.GradeName));
+        // 命名不带年级前缀
+        Assert.Equal("体一", assignments[0].TeacherName);
+        Assert.Equal("体六", assignments[5].TeacherName);
+        // 所有班级覆盖
+        var allClasses = assignments.SelectMany(a => a.ClassNames.Split('、')).ToList();
+        Assert.Equal(22, allClasses.Count);
+        // 跨年级分配
+        Assert.Contains(allClasses, c => c.Contains("七"));
+        Assert.Contains(allClasses, c => c.Contains("八"));
+        Assert.Contains(allClasses, c => c.Contains("九"));
+        _output.WriteLine($"体育全校: {assignments.Count}位, 覆盖{allClasses.Count}班 ✓");
+    }
+
+    [Theory]
+    [InlineData("体育", true)]
+    [InlineData("语文", false)]
+    [InlineData("数学", false)]
+    [InlineData("物理", false)]
+    public void IsSchoolWideSubject_Correct(string subject, bool expected)
+    {
+        Assert.Equal(expected, MainViewModel.IsSchoolWideSubject(subject));
     }
 }
