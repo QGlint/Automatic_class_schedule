@@ -28,13 +28,14 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
         return SolveInternal(problem, Array.Empty<LockedLesson>(), progress, ct);
     }
 
-    public ScheduleResult SolveWithLocks(ScheduleProblem problem, List<LockedLesson> locks, IProgress<double>? progress = null, CancellationToken ct = default, bool relaxConsecutiveDays = false)
+    public ScheduleResult SolveWithLocks(ScheduleProblem problem, List<LockedLesson> locks, IProgress<double>? progress = null, CancellationToken ct = default, int relaxLevel = 0)
     {
-        return SolveInternal(problem, locks, progress, ct, relaxConsecutiveDays);
+        return SolveInternal(problem, locks, progress, ct, relaxLevel);
     }
 
-    private ScheduleResult SolveInternal(ScheduleProblem problem, IReadOnlyCollection<LockedLesson> locks, IProgress<double>? progress, CancellationToken ct, bool relaxConsecutiveDays = false)
+    private ScheduleResult SolveInternal(ScheduleProblem problem, IReadOnlyCollection<LockedLesson> locks, IProgress<double>? progress, CancellationToken ct, int relaxLevel = 0)
     {
+        bool relaxConsecutiveDays = relaxLevel >= 1;
         progress?.Report(0.05);
 
         int days = problem.Settings.DaysPerWeek;
@@ -241,16 +242,30 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
                                 model.Add(x[idx, d, p] == 0);
                 }
 
-                // C8: 前两节只排主科（硬约束）— 非主科不能出现在P1-P2
+                // C8: 前两节只排主科（relaxLevel>=1时降级为软约束，relaxLevel>=2惩罚更低）
                 if (!isMain)
                 {
-                    for (int d = 0; d < days; d++)
-                        for (int p = 1; p <= Math.Min(2, periods); p++)
-                            foreach (int idx in subjIndices)
-                                model.Add(x[idx, d, p] == 0);
+                    if (relaxConsecutiveDays)
+                    {
+                        int c8Penalty = relaxLevel >= 2 ? -10 : -20;
+                        for (int d = 0; d < days; d++)
+                            for (int p = 1; p <= Math.Min(2, periods); p++)
+                                foreach (int idx in subjIndices)
+                                {
+                                    objTerms.Add(x[idx, d, p]);
+                                    objWeights.Add(c8Penalty);
+                                }
+                    }
+                    else
+                    {
+                        for (int d = 0; d < days; d++)
+                            for (int p = 1; p <= Math.Min(2, periods); p++)
+                                foreach (int idx in subjIndices)
+                                    model.Add(x[idx, d, p] == 0);
+                    }
                 }
 
-                // C9: 连天约束（relaxConsecutiveDays时降级为软约束）
+                // C9: 连天约束（relaxLevel>=1时降级为软约束，relaxLevel>=2副科进一步放宽）
                 if (totalWeekly == 2 && days >= 3)
                 {
                     // 每周2节的科目不能出现在连续两天
@@ -268,20 +283,32 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
                     }
                     if (relaxConsecutiveDays)
                     {
-                        // 软约束：违反时惩罚
+                        // 软约束：违反时惩罚（副科在relaxLevel>=2时惩罚更小）
+                        int penalty = (!isMain && relaxLevel >= 2) ? -2 : -5;
                         for (int d = 0; d < days - 1; d++)
                         {
                             var viol = model.NewBoolVar($"viol2_{subject}_{group.Key}_{d}");
                             model.Add(LinearExpr.Sum(new ILiteral[] { dayHasSubj[d], dayHasSubj[d + 1] }) == 2).OnlyEnforceIf(viol);
                             model.Add(LinearExpr.Sum(new ILiteral[] { dayHasSubj[d], dayHasSubj[d + 1] }) <= 1).OnlyEnforceIf(viol.Not());
                             objTerms.Add(viol);
-                            objWeights.Add(-5);
+                            objWeights.Add(penalty);
                         }
                     }
                     else
                     {
                         for (int d = 0; d < days - 1; d++)
                             model.Add(LinearExpr.Sum(new ILiteral[] { dayHasSubj[d], dayHasSubj[d + 1] }) <= 1);
+                    }
+
+                    // C9b: 副科第一天必须在周一到周三（relaxLevel>=2时作为软约束）
+                    if (!isMain && relaxLevel >= 2 && days >= 4)
+                    {
+                        // 如果副科只在周四/周五出现（day0-2都没有），惩罚
+                        var appearsLate = model.NewBoolVar($"late_{subject}_{group.Key}");
+                        model.Add(LinearExpr.Sum(dayHasSubj.Take(3).ToArray()) == 0).OnlyEnforceIf(appearsLate);
+                        model.Add(LinearExpr.Sum(dayHasSubj.Take(3).ToArray()) >= 1).OnlyEnforceIf(appearsLate.Not());
+                        objTerms.Add(appearsLate);
+                        objWeights.Add(-3);
                     }
                 }
                 else if (totalWeekly == 3 && days >= 4)
@@ -506,7 +533,7 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
         model.Maximize(LinearExpr.WeightedSum(objTerms.ToArray(), objWeights.ToArray()));
 
         CpSolver solver = new();
-        int timeLimit = relaxConsecutiveDays ? 10 : 30;
+        int timeLimit = relaxLevel >= 1 ? 15 : 30;
         solver.StringParameters = $"max_time_in_seconds:{timeLimit};num_workers:4;random_seed:42;";
 
         progress?.Report(0.6);

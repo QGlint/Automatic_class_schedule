@@ -20,10 +20,10 @@ public sealed class ScheduleService
         return _solver.Solve(problem, progress, ct);
     }
 
-    public ScheduleResult GenerateWithLocks(SchoolData data, List<LockedLesson> locks, IProgress<double>? progress = null, CancellationToken ct = default, bool relaxConsecutiveDays = false)
+    public ScheduleResult GenerateWithLocks(SchoolData data, List<LockedLesson> locks, IProgress<double>? progress = null, CancellationToken ct = default, int relaxLevel = 0)
     {
         ScheduleProblem problem = CreateProblem(data);
-        return _solver.SolveWithLocks(problem, locks, progress, ct, relaxConsecutiveDays);
+        return _solver.SolveWithLocks(problem, locks, progress, ct, relaxLevel);
     }
 
     public IReadOnlyList<ScheduleConflict> Validate(SchoolData data)

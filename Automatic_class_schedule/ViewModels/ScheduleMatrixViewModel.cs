@@ -29,6 +29,13 @@ public sealed class ScheduleGridCell
     public Guid EntryId { get; set; }
     public ScheduleEntry? Entry { get; set; }
     public bool IsEmpty => string.IsNullOrWhiteSpace(Subject);
+    /// <summary>该单元格是否存在冲突（标红）</summary>
+    public bool HasConflict { get; set; }
+    /// <summary>单元格背景色（冲突时红色底）</summary>
+    public Microsoft.UI.Xaml.Media.SolidColorBrush CellBackground =>
+        HasConflict
+            ? new Microsoft.UI.Xaml.Media.SolidColorBrush(new Windows.UI.Color { A = 40, R = 255, G = 0, B = 0 })
+            : new Microsoft.UI.Xaml.Media.SolidColorBrush(new Windows.UI.Color { A = 0, R = 255, G = 255, B = 255 });
 
     /// <summary>同时段所有条目（教师课表连班用）</summary>
     public List<ScheduleEntry> AllEntries { get; set; } = new();

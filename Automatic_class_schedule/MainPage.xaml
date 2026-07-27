@@ -829,25 +829,31 @@
                         </Grid>
                     </Border>
 
-                    <!-- 年级子标签 -->
-                    <ItemsControl Grid.Row="1" ItemsSource="{Binding GradeInputs}" Margin="0,0,0,6">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <StackPanel Orientation="Horizontal" />
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Grid>
-                                    <Button Content="{Binding GradeName}" Click="GradeTabButton_Click"
-                                            Height="36" MinWidth="80" Margin="0,0,6,0" Padding="12,4"
-                                            CornerRadius="6" FontSize="14" FontWeight="SemiBold"
-                                            BorderThickness="0"
-                                            Background="#FFF0F5FF" Foreground="#FF214E78" />
-                                </Grid>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
+                    <!-- 年级子标签 + 局部调整按钮 -->
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,6">
+                        <ItemsControl ItemsSource="{Binding GradeInputs}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid>
+                                        <Button Content="{Binding GradeName}" Click="GradeTabButton_Click"
+                                                Height="36" MinWidth="80" Margin="0,0,6,0" Padding="12,4"
+                                                CornerRadius="6" FontSize="14" FontWeight="SemiBold"
+                                                BorderThickness="0"
+                                                Background="#FFF0F5FF" Foreground="#FF214E78" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Button Content="局部调整" Command="{Binding LocalAdjustCommand}"
+                                Height="36" Margin="16,0,0,0" Padding="14,4"
+                                CornerRadius="6" FontSize="13" FontWeight="Bold"
+                                Background="#FFF0F5FF" Foreground="#FF0066CC" BorderThickness="0" />
+                    </StackPanel>
 
                     <!-- ===== 年级总表（班级行 × 天×节次列） ===== -->
                     <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
@@ -855,12 +861,7 @@
                         <StackPanel>
                             <!-- 拖拽提示 -->
                             <Border Background="#FFFDF6E3" Padding="8,4" Margin="0,0,0,4">
-                                <StackPanel Orientation="Horizontal" Spacing="12">
-                                    <TextBlock Text="提示：拖动课程可调整位置，系统将自动重新排课" FontSize="12" Foreground="#FF8B6914" VerticalAlignment="Center" />
-                                    <Button Content="局部调整" Command="{Binding LocalAdjustCommand}"
-                                            FontSize="12" Padding="10,3" CornerRadius="4"
-                                            Background="#FFF0F5FF" Foreground="#FF0066CC" FontWeight="Bold" BorderThickness="0" />
-                                </StackPanel>
+                                <TextBlock Text="提示：拖动课程可调整位置，冲突课程将标红显示" FontSize="12" Foreground="#FF8B6914" />
                             </Border>
                             <!-- 双层表头 -->
                             <Border Background="#FFF0F5FF" BorderBrush="#FFD9E1EC" BorderThickness="1,1,1,0">
@@ -928,11 +929,12 @@
                                                     </ItemsControl.ItemsPanel>
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate>
-                                                            <Border Width="48" MinHeight="32" BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,0" Padding="2,1"
+                                                            <Border Width="48" MinHeight="32" BorderThickness="0,0,1,0" Padding="2,1"
                                                                     CanDrag="True" AllowDrop="True"
                                                                     DragStarting="GridCell_DragStarting"
                                                                     DragOver="GridCell_DragOver"
-                                                                    Drop="GridCell_Drop">
+                                                                    Drop="GridCell_Drop"
+                                                                    Background="{Binding CellBackground}">
                                                                 <StackPanel Visibility="{Binding IsEmpty, Converter={StaticResource InverseBoolToVisibility}}">
                                                                     <TextBlock Text="{Binding Subject}" FontSize="18" TextWrapping="Wrap" />
                                                                     <TextBlock Text="{Binding TeacherName}" FontSize="14" Foreground="#FF556070" TextWrapping="Wrap" />
