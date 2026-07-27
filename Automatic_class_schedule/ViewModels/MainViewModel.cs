@@ -2005,8 +2005,6 @@ public sealed class MainViewModel : ObservableObject
 
         // 科目配置区域
         var allSubjectNames = Subjects.Select(s => s.Name).Distinct().OrderBy(n => n).ToList();
-        var schoolWideSubjects = allSubjectNames.Where(IsSchoolWideSubject).ToList();
-        var gradeSubjects = allSubjectNames.Where(s => !IsSchoolWideSubject(s)).ToList();
 
         var configControls = new Dictionary<(string Grade, string Subject), (Microsoft.UI.Xaml.Controls.ComboBox Mode, Microsoft.UI.Xaml.Controls.NumberBox Num)>();
         var gradeToggles = new Dictionary<string, Microsoft.UI.Xaml.Controls.ToggleSwitch>();
@@ -2030,7 +2028,7 @@ public sealed class MainViewModel : ObservableObject
             for (int i = 0; i < subjectList.Count; i++)
             {
                 string subj = subjectList[i];
-                int colOffset = i < half ? 0 : 4; // 第二列偏移4（含间隙列）
+                int colOffset = i < half ? 0 : 4;
                 int rowIdx = i < half ? i : i - half;
 
                 var nameLabel = new Microsoft.UI.Xaml.Controls.TextBlock { Text = subj, VerticalAlignment = Microsoft.UI.Xaml.VerticalAlignment.Center, FontSize = 13 };
@@ -2041,7 +2039,9 @@ public sealed class MainViewModel : ObservableObject
                 var modeCombo = new Microsoft.UI.Xaml.Controls.ComboBox { Margin = new Microsoft.UI.Xaml.Thickness(4, 1, 4, 1), FontSize = 12, MinWidth = 90 };
                 modeCombo.Items.Add("按班");
                 modeCombo.Items.Add("按年级");
-                modeCombo.SelectedIndex = IsDefaultByGrade(subj) ? 1 : 0;
+                modeCombo.Items.Add("全校");
+                // 默认模式：全校 > 按年级 > 按班
+                modeCombo.SelectedIndex = IsDefaultSchoolWide(subj) ? 2 : IsDefaultByGrade(subj) ? 1 : 0;
                 Microsoft.UI.Xaml.Controls.Grid.SetRow(modeCombo, rowIdx);
                 Microsoft.UI.Xaml.Controls.Grid.SetColumn(modeCombo, colOffset + 1);
                 grid.Children.Add(modeCombo);
@@ -2063,12 +2063,10 @@ public sealed class MainViewModel : ObservableObject
             return new Microsoft.UI.Xaml.Controls.ScrollViewer { Content = grid, VerticalScrollBarVisibility = Microsoft.UI.Xaml.Controls.ScrollBarVisibility.Auto };
         }
 
-        // 全校页（仅显示全校科目）
-        tabPages["全校"] = BuildSubjectGrid("全校", schoolWideSubjects);
-        // 全局页（显示非全校科目）
-        tabPages["全局"] = BuildSubjectGrid("全局", gradeSubjects);
+        // 全局页（所有科目）
+        tabPages["全局"] = BuildSubjectGrid("全局", allSubjectNames);
 
-        // 年级页（带开关）
+        // 年级页（带开关，继承全局配置）
         foreach (var grade in GradeInputs)
         {
             string gName = grade.GradeName;
@@ -2081,8 +2079,7 @@ public sealed class MainViewModel : ObservableObject
             };
             gradeToggles[gName] = toggle;
 
-            // 年级科目网格（继承全局默认值，不显示全校科目）
-            var gradeGrid = BuildSubjectGrid(gName, gradeSubjects);
+            var gradeGrid = BuildSubjectGrid(gName, allSubjectNames);
             gradeGrid.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             toggle.Toggled += (_, _) =>
             {
@@ -2114,10 +2111,10 @@ public sealed class MainViewModel : ObservableObject
                 Content = tabName,
                 FontSize = 13,
                 Padding = new Microsoft.UI.Xaml.Thickness(14, 5, 14, 5),
-                Background = tabName == "全校"
+                Background = tabName == "全局"
                     ? new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 33, 78, 120))
                     : new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 240, 245, 255)),
-                Foreground = tabName == "全校"
+                Foreground = tabName == "全局"
                     ? new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 255, 255))
                     : new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 33, 78, 120)),
                 BorderThickness = new Microsoft.UI.Xaml.Thickness(0),
@@ -2144,14 +2141,14 @@ public sealed class MainViewModel : ObservableObject
         }
         root.Children.Add(tabBar);
 
-        // 初始显示全校页
-        contentArea.Children.Add(tabPages["全校"]);
+        // 初始显示全局页
+        contentArea.Children.Add(tabPages["全局"]);
         root.Children.Add(contentArea);
 
         // 提示
         root.Children.Add(new Microsoft.UI.Xaml.Controls.TextBlock
         {
-            Text = "“按班”：数值=每位教师所带班级数；“按年级”：数值=该年级该科目教师数。全校科目跨年级统一分配，年级自定义时继承全局配置。",
+            Text = "“按班”：数值=每位教师所带班级数；“按年级”：数值=该年级该科目教师数；“全校”：数值=全校该科目教师总数。年级自定义时继承全局配置。",
             FontSize = 11,
             Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 90, 104, 119)),
             TextWrapping = Microsoft.UI.Xaml.TextWrapping.Wrap
@@ -2165,31 +2162,24 @@ public sealed class MainViewModel : ObservableObject
         var selectedGrades = gradeCheckBoxes.Where(g => g.CheckBox.IsChecked == true).Select(g => g.GradeName).ToHashSet();
         if (selectedGrades.Count == 0) { StatusMessage = "未选择任何年级"; return; }
 
-        var configMap = new Dictionary<string, (int Value, bool ByGrade)>();
-
-        // 全校科目配置
-        foreach (var subj in schoolWideSubjects)
-        {
-            if (configControls.TryGetValue(("全校", subj), out var ctrl))
-                configMap[$"全校|{subj}"] = ((int)ctrl.Num.Value, ctrl.Mode.SelectedIndex == 1);
-        }
+        var configMap = new Dictionary<string, (int Value, int Mode)>();
 
         // 年级科目配置：开关打开用年级配置，否则用全局
         foreach (var gradeName in selectedGrades)
         {
             bool customOn = gradeToggles.TryGetValue(gradeName, out var tg) && tg.IsOn;
-            foreach (var subj in gradeSubjects)
+            foreach (var subj in allSubjectNames)
             {
                 if (customOn && configControls.TryGetValue((gradeName, subj), out var gradeCtrl))
-                    configMap[$"{gradeName}|{subj}"] = ((int)gradeCtrl.Num.Value, gradeCtrl.Mode.SelectedIndex == 1);
+                    configMap[$"{gradeName}|{subj}"] = ((int)gradeCtrl.Num.Value, gradeCtrl.Mode.SelectedIndex);
                 else if (configControls.TryGetValue(("全局", subj), out var globalCtrl))
-                    configMap[$"{gradeName}|{subj}"] = ((int)globalCtrl.Num.Value, globalCtrl.Mode.SelectedIndex == 1);
+                    configMap[$"{gradeName}|{subj}"] = ((int)globalCtrl.Num.Value, globalCtrl.Mode.SelectedIndex);
             }
         }
 
         // 生成教师
         var selectedClasses = Classes.Where(c => selectedGrades.Contains(c.GradeName)).ToList();
-        var selectedSubjects = Subjects.Where(s => string.IsNullOrEmpty(s.GradeName) || selectedGrades.Contains(s.GradeName) || IsSchoolWideSubject(s.Name)).ToList();
+        var selectedSubjects = Subjects.Where(s => string.IsNullOrEmpty(s.GradeName) || selectedGrades.Contains(s.GradeName)).ToList();
 
         var newAssignments = new List<TeacherAssignment>();
         GenerateTeachersWithConfigV2(newAssignments, selectedSubjects, selectedClasses, configMap);
@@ -2211,8 +2201,8 @@ public sealed class MainViewModel : ObservableObject
         return subject is "物理" or "化学" or "地理" or "生物" or "历史" or "道德" or "音乐" or "美术" or "信息" or "劳动";
     }
 
-    /// <summary>是否为全校统一科目（不按年级配置）</summary>
-    internal static bool IsSchoolWideSubject(string subject)
+    /// <summary>是否为默认“全校”模式的科目</summary>
+    internal static bool IsDefaultSchoolWide(string subject)
     {
         return subject is "体育";
     }
@@ -2290,25 +2280,24 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
-    /// <summary>V2: 每个年级+科目独立配置，模式按班/按年级，支持全校科目</summary>
+    /// <summary>V2: 每个年级+科目独立配置，模式: 0=按班, 1=按年级, 2=全校</summary>
     internal static void GenerateTeachersWithConfigV2(ICollection<TeacherAssignment> assignments, IEnumerable<SubjectDefinition> subjects,
-        IEnumerable<SchoolClass> classes, Dictionary<string, (int Value, bool ByGrade)> configMap)
+        IEnumerable<SchoolClass> classes, Dictionary<string, (int Value, int Mode)> configMap)
     {
         var classList = classes.ToList();
         if (classList.Count == 0) return;
 
-        // 全校科目（如体育）：跨年级统一分配
-        var schoolWideSubjects = subjects.Where(s => IsSchoolWideSubject(s.Name)).ToList();
-        foreach (var subDef in schoolWideSubjects)
+        // 全校模式科目：跨年级统一分配
+        var schoolWideKeys = configMap.Where(kv => kv.Value.Mode == 2).ToList();
+        var handledSubjects = new HashSet<string>();
+        foreach (var (key, cfg) in schoolWideKeys)
         {
-            string key = $"全校|{subDef.Name}";
-            if (!configMap.TryGetValue(key, out var cfg)) continue;
+            string subj = key.Split('|')[1];
+            if (handledSubjects.Contains(subj)) continue;
+            handledSubjects.Add(subj);
 
             int totalClasses = classList.Count;
-            int numTeachers = cfg.ByGrade
-                ? Math.Max(1, cfg.Value)
-                : (int)Math.Ceiling((double)totalClasses / Math.Max(1, cfg.Value));
-
+            int numTeachers = Math.Max(1, cfg.Value);
             int perTeacher = (int)Math.Ceiling((double)totalClasses / numTeachers);
             for (int t = 0; t < numTeachers; t++)
             {
@@ -2316,16 +2305,15 @@ public sealed class MainViewModel : ObservableObject
                 if (assignedClasses.Count == 0) break;
                 assignments.Add(new TeacherAssignment
                 {
-                    TeacherName = $"{subDef.Name[..1]}{ToChineseNumeral(t + 1)}",
-                    Subject = subDef.Name,
+                    TeacherName = $"{subj[..1]}{ToChineseNumeral(t + 1)}",
+                    Subject = subj,
                     ClassNames = string.Join("、", assignedClasses.Select(c => c.Name)),
                     GradeName = "全校"
                 });
             }
         }
 
-        // 按年级科目
-        var gradeSubjects = subjects.Where(s => !IsSchoolWideSubject(s.Name)).ToList();
+        // 按年级/按班模式
         foreach (var gradeGroup in classList.GroupBy(c => c.GradeName))
         {
             string gradeName = gradeGroup.Key;
@@ -2333,15 +2321,18 @@ public sealed class MainViewModel : ObservableObject
             var gradeClasses = gradeGroup.ToList();
             int classCount = gradeClasses.Count;
 
-            foreach (var subDef in gradeSubjects.Where(s => string.IsNullOrEmpty(s.GradeName) || s.GradeName == gradeName))
+            foreach (var subDef in subjects.Where(s => string.IsNullOrEmpty(s.GradeName) || s.GradeName == gradeName))
             {
+                if (handledSubjects.Contains(subDef.Name)) continue; // 全校模式已处理
+
                 string key = $"{gradeName}|{subDef.Name}";
                 if (!configMap.TryGetValue(key, out var cfg)) continue;
+                if (cfg.Mode == 2) continue; // 全校模式已在上面处理
 
                 int numTeachers;
-                if (cfg.ByGrade)
+                if (cfg.Mode == 1) // 按年级
                     numTeachers = Math.Max(1, cfg.Value);
-                else
+                else // 按班
                     numTeachers = (int)Math.Ceiling((double)classCount / Math.Max(1, cfg.Value));
 
                 int perTeacher = (int)Math.Ceiling((double)classCount / numTeachers);

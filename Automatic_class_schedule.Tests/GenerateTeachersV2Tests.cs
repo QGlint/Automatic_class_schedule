@@ -97,9 +97,9 @@ public sealed class GenerateTeachersV2Tests
     {
         var classes = CreateClasses(8, "七年级");
         var subjects = CreateSubjects().Where(s => s.Name == "语文").ToList();
-        var configMap = new Dictionary<string, (int Value, bool ByGrade)>
+        var configMap = new Dictionary<string, (int Value, int Mode)>
         {
-            ["七年级|语文"] = (2, false) // 按班，每人带2班
+            ["七年级|语文"] = (2, 0) // 按班，每人带2班
         };
 
         var assignments = new List<TeacherAssignment>();
@@ -119,9 +119,9 @@ public sealed class GenerateTeachersV2Tests
     {
         var classes = CreateClasses(7, "八年级");
         var subjects = CreateSubjects().Where(s => s.Name == "物理").ToList();
-        var configMap = new Dictionary<string, (int Value, bool ByGrade)>
+        var configMap = new Dictionary<string, (int Value, int Mode)>
         {
-            ["八年级|物理"] = (3, false) // 按班，每人带3班
+            ["八年级|物理"] = (3, 0) // 按班，每人带3班
         };
 
         var assignments = new List<TeacherAssignment>();
@@ -144,9 +144,9 @@ public sealed class GenerateTeachersV2Tests
     {
         var classes = CreateClasses(8, "七年级");
         var subjects = CreateSubjects().Where(s => s.Name == "物理").ToList();
-        var configMap = new Dictionary<string, (int Value, bool ByGrade)>
+        var configMap = new Dictionary<string, (int Value, int Mode)>
         {
-            ["七年级|物理"] = (3, true) // 按年级，3位教师
+            ["七年级|物理"] = (3, 1) // 按年级，3位教师
         };
 
         var assignments = new List<TeacherAssignment>();
@@ -166,9 +166,9 @@ public sealed class GenerateTeachersV2Tests
     {
         var classes = CreateClasses(6, "九年级");
         var subjects = CreateSubjects().Where(s => s.Name == "音乐").ToList();
-        var configMap = new Dictionary<string, (int Value, bool ByGrade)>
+        var configMap = new Dictionary<string, (int Value, int Mode)>
         {
-            ["九年级|音乐"] = (1, true) // 1位教师教全年级
+            ["九年级|音乐"] = (1, 1) // 1位教师教全年级
         };
 
         var assignments = new List<TeacherAssignment>();
@@ -189,10 +189,10 @@ public sealed class GenerateTeachersV2Tests
         classes.AddRange(CreateClasses(6, "八年级"));
 
         var subjects = CreateSubjects().Where(s => s.Name == "语文").ToList();
-        var configMap = new Dictionary<string, (int Value, bool ByGrade)>
+        var configMap = new Dictionary<string, (int Value, int Mode)>
         {
-            ["七年级|语文"] = (2, false), // 按班，每人2班 → 4位
-            ["八年级|语文"] = (3, true),  // 按年级，3位教师
+            ["七年级|语文"] = (2, 0), // 按班，每人2班 → 4位
+            ["八年级|语文"] = (3, 1),  // 按年级，3位教师
         };
 
         var assignments = new List<TeacherAssignment>();
@@ -219,20 +219,21 @@ public sealed class GenerateTeachersV2Tests
         classes.AddRange(CreateClasses(6, "九年级"));
 
         var subjects = CreateSubjects();
-        var configMap = new Dictionary<string, (int Value, bool ByGrade)>();
+        var configMap = new Dictionary<string, (int Value, int Mode)>();
 
         // 为每个年级每个科目配置
         foreach (string grade in new[] { "七年级", "八年级", "九年级" })
         {
-            configMap[$"{grade}|语文"] = (2, false);
-            configMap[$"{grade}|数学"] = (2, false);
-            configMap[$"{grade}|英语"] = (2, false);
-            configMap[$"{grade}|物理"] = (3, true);
-            configMap[$"{grade}|化学"] = (3, true);
-            configMap[$"{grade}|音乐"] = (1, true);
+            configMap[$"{grade}|语文"] = (2, 0);
+            configMap[$"{grade}|数学"] = (2, 0);
+            configMap[$"{grade}|英语"] = (2, 0);
+            configMap[$"{grade}|物理"] = (3, 1);
+            configMap[$"{grade}|化学"] = (3, 1);
+            configMap[$"{grade}|音乐"] = (1, 1);
         }
-        // 体育是全校科目
-        configMap["全校|体育"] = (2, true);
+        // 体育是全校模式（Mode=2）
+        foreach (string g in new[] { "七年级", "八年级", "九年级" })
+            configMap[$"{g}|体育"] = (2, 2);
 
         var assignments = new List<TeacherAssignment>();
         MainViewModel.GenerateTeachersWithConfigV2(assignments, subjects, classes, configMap);
@@ -268,9 +269,9 @@ public sealed class GenerateTeachersV2Tests
     {
         var classes = CreateClasses(4, "七年级");
         var subjects = CreateSubjects().Where(s => s.Name == "数学").ToList();
-        var configMap = new Dictionary<string, (int Value, bool ByGrade)>
+        var configMap = new Dictionary<string, (int Value, int Mode)>
         {
-            ["七年级|数学"] = (2, false)
+            ["七年级|数学"] = (2, 0)
         };
 
         var assignments = new List<TeacherAssignment>();
@@ -288,11 +289,11 @@ public sealed class GenerateTeachersV2Tests
     {
         var classes = CreateClasses(6, "八年级");
         var subjects = CreateSubjects().Where(s => s.Name is "语文" or "物理" or "体育").ToList();
-        var configMap = new Dictionary<string, (int Value, bool ByGrade)>
+        var configMap = new Dictionary<string, (int Value, int Mode)>
         {
-            ["八年级|语文"] = (3, false),  // 2位
-            ["八年级|物理"] = (2, true),   // 2位
-            ["全校|体育"] = (2, true),     // 2位（全校模式）
+            ["八年级|语文"] = (3, 0),  // 2位
+            ["八年级|物理"] = (2, 1),   // 2位
+            ["八年级|体育"] = (2, 2),   // 2位（全校模式）
         };
 
         var assignments = new List<TeacherAssignment>();
@@ -335,20 +336,20 @@ public sealed class GenerateTeachersV2Tests
         var subjects = CreateSubjects().Where(s => s.Name == "语文").ToList();
 
         // 原始配置：每人带2班 → 4位教师
-        var config1 = new Dictionary<string, (int Value, bool ByGrade)> { ["七年级|语文"] = (2, false) };
+        var config1 = new Dictionary<string, (int Value, int Mode)> { ["七年级|语文"] = (2, 0) };
         var result1 = new List<TeacherAssignment>();
         MainViewModel.GenerateTeachersWithConfigV2(result1, subjects, classes, config1);
         Assert.Equal(4, result1.Count);
 
         // 修改为每人带4班 → 2位教师
-        var config2 = new Dictionary<string, (int Value, bool ByGrade)> { ["七年级|语文"] = (4, false) };
+        var config2 = new Dictionary<string, (int Value, int Mode)> { ["七年级|语文"] = (4, 0) };
         var result2 = new List<TeacherAssignment>();
         MainViewModel.GenerateTeachersWithConfigV2(result2, subjects, classes, config2);
         Assert.Equal(2, result2.Count);
         Assert.All(result2, a => Assert.Equal(4, a.ClassNames.Split('、').Length));
 
         // 修改为按年级模式 4位教师（8班/4人=每人2班）
-        var config3 = new Dictionary<string, (int Value, bool ByGrade)> { ["七年级|语文"] = (4, true) };
+        var config3 = new Dictionary<string, (int Value, int Mode)> { ["七年级|语文"] = (4, 1) };
         var result3 = new List<TeacherAssignment>();
         MainViewModel.GenerateTeachersWithConfigV2(result3, subjects, classes, config3);
         Assert.Equal(4, result3.Count);
@@ -366,10 +367,10 @@ public sealed class GenerateTeachersV2Tests
         var subjects = CreateSubjects().Where(s => s.Name == "数学").ToList();
 
         // 七年级按班模式每人2班，八年级按年级模式4人
-        var config = new Dictionary<string, (int Value, bool ByGrade)>
+        var config = new Dictionary<string, (int Value, int Mode)>
         {
-            ["七年级|数学"] = (2, false),
-            ["八年级|数学"] = (4, true),
+            ["七年级|数学"] = (2, 0),
+            ["八年级|数学"] = (4, 1),
         };
 
         var assignments = new List<TeacherAssignment>();
@@ -392,9 +393,9 @@ public sealed class GenerateTeachersV2Tests
         var classes = CreateClasses(4, "七年级");
         var subjects = CreateSubjects();
         // 只配置语文，其他科目无配置
-        var configMap = new Dictionary<string, (int Value, bool ByGrade)>
+        var configMap = new Dictionary<string, (int Value, int Mode)>
         {
-            ["七年级|语文"] = (2, false)
+            ["七年级|语文"] = (2, 0)
         };
 
         var assignments = new List<TeacherAssignment>();
@@ -412,9 +413,9 @@ public sealed class GenerateTeachersV2Tests
     public void EmptyClasses_NoAssignments()
     {
         var subjects = CreateSubjects();
-        var configMap = new Dictionary<string, (int Value, bool ByGrade)>
+        var configMap = new Dictionary<string, (int Value, int Mode)>
         {
-            ["七年级|语文"] = (2, false)
+            ["七年级|语文"] = (2, 0)
         };
 
         var assignments = new List<TeacherAssignment>();
@@ -433,9 +434,9 @@ public sealed class GenerateTeachersV2Tests
         classes.AddRange(CreateClasses(8, "八年级"));
         classes.AddRange(CreateClasses(6, "九年级"));
         var subjects = CreateSubjects().Where(s => s.Name == "体育").ToList();
-        var configMap = new Dictionary<string, (int Value, bool ByGrade)>
+        var configMap = new Dictionary<string, (int Value, int Mode)>
         {
-            ["全校|体育"] = (6, true) // 6位体育教师
+            ["全校|体育"] = (6, 2) // 6位体育教师（全校模式）
         };
 
         var assignments = new List<TeacherAssignment>();
@@ -461,8 +462,8 @@ public sealed class GenerateTeachersV2Tests
     [InlineData("语文", false)]
     [InlineData("数学", false)]
     [InlineData("物理", false)]
-    public void IsSchoolWideSubject_Correct(string subject, bool expected)
+    public void IsDefaultSchoolWide_Correct(string subject, bool expected)
     {
-        Assert.Equal(expected, MainViewModel.IsSchoolWideSubject(subject));
+        Assert.Equal(expected, MainViewModel.IsDefaultSchoolWide(subject));
     }
 }

@@ -669,10 +669,16 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
 
     private void OnProgressDialogConfirm(ContentDialog sender, ContentDialogButtonClickEventArgs args)
     {
-        // 完成后确认关闭
-        if (DataContext is MainViewModel vm)
+        // 未完成时禁止关闭
+        if (DataContext is MainViewModel vm && !vm.DialogIsComplete)
         {
-            vm.ConfirmProgressDialog();
+            args.Cancel = true;
+            return;
+        }
+        // 完成后确认关闭
+        if (DataContext is MainViewModel vm2)
+        {
+            vm2.ConfirmProgressDialog();
         }
     }
 }
