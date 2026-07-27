@@ -52,8 +52,6 @@ public sealed class ConflictService
             {
                 // 跳过空TeacherId（固定课程等无教师条目）
                 if (teacherGroup.Key == Guid.Empty) continue;
-                // 跳过体育教师（支持合班上课，允许同时段多班）
-                if (teacherGroup.All(e => e.Subject == "体育")) continue;
                 if (teacherGroup.Count() > 1)
                 {
                     var first = teacherGroup.First();

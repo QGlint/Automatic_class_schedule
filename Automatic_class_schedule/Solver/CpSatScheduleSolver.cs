@@ -101,7 +101,7 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
                     model.AddAtMostOne(indices.Select(i => (ILiteral)x[i, d, p]).ToList());
         }
 
-        // H3: 教师时间槽互斥（体育教师允许连班但最多2班）
+        // H3: 教师时间槽互斥（所有教师包括体育均不允许同时段多班）
         var teacherGroups = requirements
             .Select((req, idx) => (req, idx))
             .Where(t => t.req.TeacherId != Guid.Empty)
@@ -111,15 +111,9 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
         foreach (var group in teacherGroups)
         {
             var indices = group.Select(t => t.idx).ToList();
-            bool isPE = group.All(t => t.req.Subject == "体育");
             for (int d = 0; d < days; d++)
                 for (int p = 1; p <= periods; p++)
-                {
-                    if (isPE)
-                        model.Add(LinearExpr.Sum(indices.Select(i => (ILiteral)x[i, d, p]).ToList()) <= 2);
-                    else
-                        model.AddAtMostOne(indices.Select(i => (ILiteral)x[i, d, p]).ToList());
-                }
+                    model.AddAtMostOne(indices.Select(i => (ILiteral)x[i, d, p]).ToList());
         }
 
         // H4: 固定课程占位

@@ -129,6 +129,7 @@ public sealed class ExcelScheduleService
     {
         Directory.CreateDirectory(folder);
 
+        string prefix = string.IsNullOrWhiteSpace(data.ProjectName) ? "" : data.ProjectName + "_";
         int days = data.Settings.DaysPerWeek;
         int periods = data.Settings.PeriodsPerDay;
         var entries = data.ScheduleEntries;
@@ -144,7 +145,7 @@ public sealed class ExcelScheduleService
                 string shortName = gradeGroup.Key.Replace("年级", "");
                 WriteGradeOverviewSheet(wb, $"{shortName}年级", new[] { gradeGroup }, entries, days, periods, simplified: false);
             }
-            wb.SaveAs(Path.Combine(folder, "年级课表.xlsx"));
+            wb.SaveAs(Path.Combine(folder, $"{prefix}年级课表.xlsx"));
         }
 
         // ===== 文件2: 班级课表.xlsx =====
@@ -155,7 +156,7 @@ public sealed class ExcelScheduleService
                 string sheetName = SanitizeSheetName(cls.Name);
                 WriteClassSheet(wb, sheetName, cls.Name, entries, days, periods);
             }
-            wb.SaveAs(Path.Combine(folder, "班级课表.xlsx"));
+            wb.SaveAs(Path.Combine(folder, $"{prefix}班级课表.xlsx"));
         }
 
         // ===== 文件3: 教师课表.xlsx =====
@@ -168,7 +169,7 @@ public sealed class ExcelScheduleService
                 string sheetName = SanitizeSheetName(teacherGroup.Key);
                 WriteTeacherSheet(wb, sheetName, teacherGroup.Key, teacherGroup.ToList(), days, periods);
             }
-            wb.SaveAs(Path.Combine(folder, "教师课表.xlsx"));
+            wb.SaveAs(Path.Combine(folder, $"{prefix}教师课表.xlsx"));
         }
     }
 
@@ -194,7 +195,7 @@ public sealed class ExcelScheduleService
             sheet.Range(1, col, 1, col + periods - 1).Merge();
             for (int p = 1; p <= periods; p++)
             {
-                sheet.Cell(2, col).Value = $"第{p}节";
+                sheet.Cell(2, col).Value = simplified ? p.ToString() : $"第{p}节";
                 col++;
             }
         }

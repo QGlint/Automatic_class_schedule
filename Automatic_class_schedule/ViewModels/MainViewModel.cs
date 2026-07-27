@@ -628,6 +628,9 @@ public sealed class MainViewModel : ObservableObject
     /// <summary>请求关闭进度弹窗（View订阅）</summary>
     public event Action? RequestCloseProgressDialog;
 
+    /// <summary>请求显示消息弹窗</summary>
+    public event Action<string, string>? RequestShowMessage;
+
     /// <summary>打开进度弹窗</summary>
     private void OpenProgressDialog(string title)
     {
@@ -1621,8 +1624,7 @@ public sealed class MainViewModel : ObservableObject
                     e.DayIndex == day &&
                     e.PeriodIndex == period &&
                     e.Id != swappedA.Id &&
-                    e.Id != swappedB.Id &&
-                    e.Subject != "体育").ToList();
+                    e.Id != swappedB.Id).ToList();
                 foreach (var c in conflicting)
                     conflictEntryIds.Add(c.Id);
             }
@@ -1984,56 +1986,103 @@ public sealed class MainViewModel : ObservableObject
             XamlRoot = App.CurrentWindow!.Content.XamlRoot
         };
 
-        // 弹窗内容：每个年级的教师生成规则配置
-        var panel = new Microsoft.UI.Xaml.Controls.StackPanel { Spacing = 8, MinWidth = 400 };
-        panel.Children.Add(new Microsoft.UI.Xaml.Controls.TextBlock
-        {
-            Text = "根据班级配置和课程配置快速生成教师。\n规则：语数英每人带2班，物化每年级3位，地生历道每年级2位，音美信劳每年级1位，体育全校6位。",
-            TextWrapping = Microsoft.UI.Xaml.TextWrapping.Wrap,
-            FontSize = 12,
-            Margin = new Microsoft.UI.Xaml.Thickness(0, 0, 0, 8)
-        });
+        var panel = new Microsoft.UI.Xaml.Controls.StackPanel { Spacing = 8, MinWidth = 480 };
 
+        // 模式选择
+        var modePanel = new Microsoft.UI.Xaml.Controls.StackPanel { Orientation = Microsoft.UI.Xaml.Controls.Orientation.Horizontal, Spacing = 12 };
+        modePanel.Children.Add(new Microsoft.UI.Xaml.Controls.TextBlock { Text = "配置方式：", VerticalAlignment = Microsoft.UI.Xaml.VerticalAlignment.Center });
+        var modeClassesPerTeacher = new Microsoft.UI.Xaml.Controls.RadioButton { Content = "所带班数", IsChecked = true, GroupName = "mode" };
+        var modeTeachersPerGrade = new Microsoft.UI.Xaml.Controls.RadioButton { Content = "年级老师数", GroupName = "mode" };
+        modePanel.Children.Add(modeClassesPerTeacher);
+        modePanel.Children.Add(modeTeachersPerGrade);
+        panel.Children.Add(modePanel);
+
+        // 年级选择
         var gradeCheckBoxes = new List<(string GradeName, Microsoft.UI.Xaml.Controls.CheckBox CheckBox)>();
+        var gradePanel = new Microsoft.UI.Xaml.Controls.StackPanel { Orientation = Microsoft.UI.Xaml.Controls.Orientation.Horizontal, Spacing = 8 };
         foreach (var grade in GradeInputs)
         {
-            var cb = new Microsoft.UI.Xaml.Controls.CheckBox
-            {
-                Content = $"{grade.GradeName}（{grade.ClassCount}个班）",
-                IsChecked = true
-            };
+            var cb = new Microsoft.UI.Xaml.Controls.CheckBox { Content = grade.GradeName, IsChecked = true };
             gradeCheckBoxes.Add((grade.GradeName, cb));
-            panel.Children.Add(cb);
+            gradePanel.Children.Add(cb);
+        }
+        panel.Children.Add(gradePanel);
+
+        // 替换选项
+        var replaceCb = new Microsoft.UI.Xaml.Controls.CheckBox { Content = "替换现有教师配置（取消则追加）", IsChecked = true };
+        panel.Children.Add(replaceCb);
+
+        // 科目配置区域（总页面显示所有年级课程总集合）
+        panel.Children.Add(new Microsoft.UI.Xaml.Controls.TextBlock { Text = "科目配置（所有年级总集合）", FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Margin = new Microsoft.UI.Xaml.Thickness(0, 8, 0, 4) });
+
+        var allSubjectNames = Subjects.Select(s => s.Name).Distinct().OrderBy(n => n).ToList();
+        var subjectConfigs = new List<(string Subject, Microsoft.UI.Xaml.Controls.NumberBox ValueBox, Microsoft.UI.Xaml.Controls.CheckBox CustomCb)>();
+
+        var grid = new Microsoft.UI.Xaml.Controls.Grid();
+        grid.ColumnDefinitions.Add(new Microsoft.UI.Xaml.Controls.ColumnDefinition { Width = new Microsoft.UI.Xaml.GridLength(1, Microsoft.UI.Xaml.GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new Microsoft.UI.Xaml.Controls.ColumnDefinition { Width = new Microsoft.UI.Xaml.GridLength(80) });
+        grid.ColumnDefinitions.Add(new Microsoft.UI.Xaml.Controls.ColumnDefinition { Width = new Microsoft.UI.Xaml.GridLength(80) });
+
+        // 表头
+        grid.Children.Add(new Microsoft.UI.Xaml.Controls.TextBlock { Text = "科目", FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Margin = new Microsoft.UI.Xaml.Thickness(0, 0, 0, 4) });
+        var headerVal = new Microsoft.UI.Xaml.Controls.TextBlock { Text = "数值", FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Margin = new Microsoft.UI.Xaml.Thickness(0, 0, 0, 4) };
+        Microsoft.UI.Xaml.Controls.Grid.SetColumn(headerVal, 1);
+        grid.Children.Add(headerVal);
+        var headerCust = new Microsoft.UI.Xaml.Controls.TextBlock { Text = "自定义", FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Margin = new Microsoft.UI.Xaml.Thickness(0, 0, 0, 4) };
+        Microsoft.UI.Xaml.Controls.Grid.SetColumn(headerCust, 2);
+        grid.Children.Add(headerCust);
+
+        int row = 1;
+        foreach (var subjName in allSubjectNames)
+        {
+            int defaultVal = GetDefaultTeacherConfig(subjName, modeClassesPerTeacher.IsChecked == true);
+            var nameLabel = new Microsoft.UI.Xaml.Controls.TextBlock { Text = subjName, VerticalAlignment = Microsoft.UI.Xaml.VerticalAlignment.Center, Margin = new Microsoft.UI.Xaml.Thickness(0, 2, 0, 0) };
+            Microsoft.UI.Xaml.Controls.Grid.SetRow(nameLabel, row);
+            grid.Children.Add(nameLabel);
+
+            var numBox = new Microsoft.UI.Xaml.Controls.NumberBox { Value = defaultVal, Minimum = 1, Maximum = 20, SmallChange = 1, SpinButtonPlacementMode = Microsoft.UI.Xaml.Controls.NumberBoxSpinButtonPlacementMode.Inline, Margin = new Microsoft.UI.Xaml.Thickness(0, 1, 0, 0) };
+            Microsoft.UI.Xaml.Controls.Grid.SetRow(numBox, row);
+            Microsoft.UI.Xaml.Controls.Grid.SetColumn(numBox, 1);
+            grid.Children.Add(numBox);
+
+            var customCb = new Microsoft.UI.Xaml.Controls.CheckBox { IsChecked = false, Margin = new Microsoft.UI.Xaml.Thickness(0, 1, 0, 0) };
+            Microsoft.UI.Xaml.Controls.Grid.SetRow(customCb, row);
+            Microsoft.UI.Xaml.Controls.Grid.SetColumn(customCb, 2);
+            grid.Children.Add(customCb);
+
+            subjectConfigs.Add((subjName, numBox, customCb));
+            row++;
         }
 
-        var replaceCb = new Microsoft.UI.Xaml.Controls.CheckBox
+        var scrollViewer = new Microsoft.UI.Xaml.Controls.ScrollViewer { MaxHeight = 300, Content = grid };
+        panel.Children.Add(scrollViewer);
+
+        panel.Children.Add(new Microsoft.UI.Xaml.Controls.TextBlock
         {
-            Content = "替换现有教师配置（取消则追加）",
-            IsChecked = true,
-            Margin = new Microsoft.UI.Xaml.Thickness(0, 8, 0, 0)
-        };
-        panel.Children.Add(replaceCb);
+            Text = "“所带班数”模式：数值=每位教师所带班级数\n“年级老师数”模式：数值=每个年级该科目教师数\n勾选“自定义”可覆盖默认值",
+            FontSize = 11,
+            Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 90, 104, 119)),
+            TextWrapping = Microsoft.UI.Xaml.TextWrapping.Wrap,
+            Margin = new Microsoft.UI.Xaml.Thickness(0, 4, 0, 0)
+        });
 
         dialog.Content = panel;
         var result = await dialog.ShowAsync();
         if (result != Microsoft.UI.Xaml.Controls.ContentDialogResult.Primary) return;
 
-        // 收集选中的年级
+        // 收集配置
         var selectedGrades = gradeCheckBoxes.Where(g => g.CheckBox.IsChecked == true).Select(g => g.GradeName).ToHashSet();
-        if (selectedGrades.Count == 0)
-        {
-            StatusMessage = "未选择任何年级";
-            return;
-        }
+        if (selectedGrades.Count == 0) { StatusMessage = "未选择任何年级"; return; }
+
+        bool isClassesPerTeacherMode = modeClassesPerTeacher.IsChecked == true;
+        var configMap = subjectConfigs.ToDictionary(c => c.Subject, c => (Value: (int)c.ValueBox.Value, Custom: c.CustomCb.IsChecked == true));
 
         // 生成教师
         var selectedClasses = Classes.Where(c => selectedGrades.Contains(c.GradeName)).ToList();
-        var selectedSubjects = Subjects.Where(s =>
-            string.IsNullOrEmpty(s.GradeName) || selectedGrades.Contains(s.GradeName)).ToList();
+        var selectedSubjects = Subjects.Where(s => string.IsNullOrEmpty(s.GradeName) || selectedGrades.Contains(s.GradeName)).ToList();
 
-        var service = new ScheduleService();
         var newAssignments = new List<TeacherAssignment>();
-        service.GenerateAssignments(newAssignments, selectedSubjects, selectedClasses);
+        GenerateTeachersWithConfig(newAssignments, selectedSubjects, selectedClasses, configMap, isClassesPerTeacherMode);
 
         if (replaceCb.IsChecked == true)
             TeacherAssignments.Clear();
@@ -2044,6 +2093,79 @@ public sealed class MainViewModel : ObservableObject
         StatusMessage = $"已生成 {newAssignments.Count} 位教师配置";
         Log($"生成教师: {newAssignments.Count} 位");
         OnPropertyChanged(nameof(TotalAssignments));
+    }
+
+    private static int GetDefaultTeacherConfig(string subject, bool isClassesPerTeacherMode)
+    {
+        if (isClassesPerTeacherMode)
+        {
+            return subject switch
+            {
+                "语文" or "数学" or "英语" => 2,
+                "物理" or "化学" => 3,
+                "地理" or "生物" or "历史" or "道德" => 4,
+                "音乐" or "美术" or "信息" or "劳动" => 8,
+                "体育" => 4,
+                _ => 3
+            };
+        }
+        else
+        {
+            return subject switch
+            {
+                "语文" or "数学" or "英语" => 4,
+                "物理" or "化学" => 3,
+                "地理" or "生物" or "历史" or "道德" => 2,
+                "音乐" or "美术" or "信息" or "劳动" => 1,
+                "体育" => 6,
+                _ => 2
+            };
+        }
+    }
+
+    private void GenerateTeachersWithConfig(ICollection<TeacherAssignment> assignments, IEnumerable<SubjectDefinition> subjects,
+        IEnumerable<SchoolClass> classes, Dictionary<string, (int Value, bool Custom)> configMap, bool isClassesPerTeacherMode)
+    {
+        var classList = classes.ToList();
+        if (classList.Count == 0) return;
+
+        foreach (var gradeGroup in classList.GroupBy(c => c.GradeName))
+        {
+            string gradeName = gradeGroup.Key;
+            string shortGrade = gradeName.Replace("年级", "");
+            var gradeClasses = gradeGroup.ToList();
+            int classCount = gradeClasses.Count;
+
+            foreach (var subDef in subjects.Where(s => string.IsNullOrEmpty(s.GradeName) || s.GradeName == gradeName))
+            {
+                if (!configMap.TryGetValue(subDef.Name, out var cfg)) continue;
+
+                int numTeachers;
+                if (isClassesPerTeacherMode)
+                {
+                    int classesPerTeacher = Math.Max(1, cfg.Value);
+                    numTeachers = (int)Math.Ceiling((double)classCount / classesPerTeacher);
+                }
+                else
+                {
+                    numTeachers = Math.Max(1, cfg.Value);
+                }
+
+                int perTeacher = (int)Math.Ceiling((double)classCount / numTeachers);
+                for (int t = 0; t < numTeachers; t++)
+                {
+                    var assignedClasses = gradeClasses.Skip(t * perTeacher).Take(perTeacher).ToList();
+                    if (assignedClasses.Count == 0) break;
+                    assignments.Add(new TeacherAssignment
+                    {
+                        TeacherName = $"{shortGrade}{subDef.Name}{t + 1}",
+                        Subject = subDef.Name,
+                        ClassNames = string.Join(",", assignedClasses.Select(c => c.Name)),
+                        GradeName = gradeName
+                    });
+                }
+            }
+        }
     }
 
     private async Task AutoScheduleAsync()
@@ -2169,10 +2291,12 @@ public sealed class MainViewModel : ObservableObject
             await Task.Run(() => _excelService.ExportAll(BuildSchoolData(), exportPath));
             StatusMessage = $"已导出到 {exportPath}";
             Log($"导出 Excel: {exportPath}");
+            RequestShowMessage?.Invoke("导出成功", $"课表已导出到：\n{exportPath}");
         }
         catch (Exception ex)
         {
             StatusMessage = $"导出失败: {ex.Message}";
+            RequestShowMessage?.Invoke("导出失败", ex.Message);
         }
         finally
         {

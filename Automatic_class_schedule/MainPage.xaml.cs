@@ -24,6 +24,7 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
         {
             vm.RequestOpenProgressDialog += OnRequestOpenProgressDialog;
             vm.RequestCloseProgressDialog += OnRequestCloseProgressDialog;
+            vm.RequestShowMessage += OnRequestShowMessage;
         }
     }
 
@@ -642,6 +643,19 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
     private void OnRequestCloseProgressDialog()
     {
         ScheduleProgressDialog.Hide();
+    }
+
+    private async void OnRequestShowMessage(string title, string content)
+    {
+        var dialog = new ContentDialog
+        {
+            Title = title,
+            Content = content,
+            CloseButtonText = "确认",
+            DefaultButton = ContentDialogButton.Close,
+            XamlRoot = this.XamlRoot
+        };
+        await dialog.ShowAsync();
     }
 
     private void OnProgressDialogCancel(ContentDialog sender, ContentDialogButtonClickEventArgs args)
