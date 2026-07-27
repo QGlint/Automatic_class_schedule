@@ -89,6 +89,7 @@ public sealed class MainViewModel : ObservableObject
         AutoScheduleCommand = new RelayCommand(() => _ = AutoScheduleAsync());
         ValidateCommand = new RelayCommand(ValidateSchedule);
         ClearConflictsCommand = new RelayCommand(() => { Conflicts.Clear(); OnPropertyChanged(nameof(TotalConflicts)); });
+        LocalAdjustCommand = new RelayCommand(() => _ = LocalAdjustAsync(), () => !IsBusy && ScheduleEntries.Count > 0);
         SaveCommand = new RelayCommand(SaveData);
         LoadCommand = new RelayCommand(LoadData);
         NewProjectCommand = new RelayCommand(NewProject);
@@ -634,6 +635,7 @@ public sealed class MainViewModel : ObservableObject
     /// <summary>打开进度弹窗</summary>
     private void OpenProgressDialog(string title)
     {
+        _lastProgressValue = 0;
         DialogTitle = title;
         DialogProgress = 0;
         DialogProgressText = "正在准备...";
@@ -651,8 +653,13 @@ public sealed class MainViewModel : ObservableObject
     }
 
     /// <summary>更新弹窗进度</summary>
+    private double _lastProgressValue;
+
     private void UpdateDialogProgress(double value, string? text = null)
     {
+        // 进度不允许回退（除非重置为0）
+        if (value > 0 && value < _lastProgressValue) value = _lastProgressValue;
+        _lastProgressValue = value;
         DialogProgress = Math.Clamp(value, 0, 1);
         DialogProgressText = text ?? $"正在排课... {DialogProgress * 100:F0}%";
     }
@@ -662,18 +669,18 @@ public sealed class MainViewModel : ObservableObject
     {
         StopSmoothProgress();
         _dispatcherQueue ??= Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
-        double current = from;
+        double current = Math.Max(from, _lastProgressValue);
         var dispatcher = _dispatcherQueue;
         _progressSmoothTimer = new System.Threading.Timer(_ =>
         {
-            // 减速逼近目标：剩余距离的 3%，永远到不了目标
+            // 减速逼近目标：剩余距离的 5%，最低步进0.1%，永远到不了目标
             double remaining = to - current;
-            if (remaining > 0.005)
+            if (remaining > 0.003)
             {
-                current += remaining * 0.03;
+                current += Math.Max(remaining * 0.05, 0.001);
                 dispatcher?.TryEnqueue(() => UpdateDialogProgress(current));
             }
-        }, null, 400, 400);
+        }, null, 300, 300);
     }
 
     /// <summary>停止平滑进度定时器</summary>
@@ -1140,6 +1147,7 @@ public sealed class MainViewModel : ObservableObject
     public RelayCommand AutoScheduleCommand { get; }
     public RelayCommand ValidateCommand { get; }
     public RelayCommand ClearConflictsCommand { get; }
+    public RelayCommand LocalAdjustCommand { get; }
     public RelayCommand SaveCommand { get; }
     public RelayCommand LoadCommand { get; }
     public RelayCommand NewProjectCommand { get; }
@@ -1520,13 +1528,13 @@ public sealed class MainViewModel : ObservableObject
             SchoolData data = BuildSchoolData();
 
             // 求解阶段平滑进度
-            StartSmoothProgress(0.15, 0.85);
+            StartSmoothProgress(0.15, 0.95);
             IProgress<double> progress = new Progress<double>(v =>
             {
-                double mapped = 0.15 + v * 0.70;
+                double mapped = 0.15 + v * 0.80;
                 StopSmoothProgress();
                 UpdateDialogProgress(mapped);
-                StartSmoothProgress(mapped, 0.85);
+                StartSmoothProgress(mapped, 0.95);
             });
 
             ScheduleResult result = await Task.Run(
@@ -1535,8 +1543,8 @@ public sealed class MainViewModel : ObservableObject
 
             StopSmoothProgress();
 
-            // 安全检查：求解失败时回退
-            if (result.Entries.Count < expectedEntryCount - 2)
+            // 安全检查：求解结果条目数不得少于预期（固定课由求解器内部添加）
+            if (result.Entries.Count < expectedEntryCount)
             {
                 // 回退位置
                 draggedEntry.DayIndex = origDragDay;
@@ -1556,7 +1564,7 @@ public sealed class MainViewModel : ObservableObject
                 return;
             }
 
-            UpdateDialogProgress(0.90, "正在整理结果...");
+            UpdateDialogProgress(0.95, "正在整理结果...");
 
             // 更新课表
             ScheduleEntries.Clear();
@@ -1574,6 +1582,8 @@ public sealed class MainViewModel : ObservableObject
             OnPropertyChanged(nameof(TotalScheduleEntries));
             OnPropertyChanged(nameof(TotalConflicts));
 
+            UpdateDialogProgress(0.99, "即将完成...");
+            await Task.Delay(800);
             UpdateDialogProgress(1.0, "重新排课完成！");
             DialogIsComplete = true;
 
@@ -1655,7 +1665,7 @@ public sealed class MainViewModel : ObservableObject
 
             OpenProgressDialog("局部调整");
             UpdateDialogProgress(0.10, "正在局部求解...");
-            StartSmoothProgress(0.10, 0.85);
+            StartSmoothProgress(0.10, 0.95);
 
             ScheduleResult result = await Task.Run(
                 () => _scheduleService.GenerateWithLocks(data, locks, null, _cts.Token, relaxConsecutiveDays: true),
@@ -1663,8 +1673,8 @@ public sealed class MainViewModel : ObservableObject
 
             StopSmoothProgress();
 
-            // 安全检查：如果结果条目数明显少于预期，说明求解失败，回退交换
-            if (result.Entries.Count < expectedCount - conflictEntryIds.Count)
+            // 安全检查：结果条目数不得少于预期
+            if (result.Entries.Count < expectedCount)
             {
                 // 回退交换
                 int tmpDay = swappedA.DayIndex, tmpPeriod = swappedA.PeriodIndex;
@@ -1683,7 +1693,7 @@ public sealed class MainViewModel : ObservableObject
                 return;
             }
 
-            UpdateDialogProgress(0.90, "正在整理结果...");
+            UpdateDialogProgress(0.95, "正在整理结果...");
 
             ScheduleEntries.Clear();
             foreach (var entry in result.Entries.OrderBy(x => x.DayIndex).ThenBy(x => x.PeriodIndex))
@@ -1696,10 +1706,115 @@ public sealed class MainViewModel : ObservableObject
             OnPropertyChanged(nameof(TotalScheduleEntries));
             OnPropertyChanged(nameof(TotalConflicts));
 
+            UpdateDialogProgress(0.99, "即将完成...");
+            await Task.Delay(800);
             UpdateDialogProgress(1.0, "局部调整完成！");
             DialogIsComplete = true;
             StatusMessage = $"局部调整完成（{conflictEntryIds.Count} 节课参与调整）";
             Log($"最小变化求解: {conflictEntryIds.Count} 节课调整");
+            RefreshViews();
+        }
+        catch (OperationCanceledException)
+        {
+            StopSmoothProgress();
+            CloseProgressDialog();
+            StatusMessage = "局部调整已取消";
+            RefreshViews();
+        }
+        catch (Exception ex)
+        {
+            StopSmoothProgress();
+            CloseProgressDialog();
+            StatusMessage = $"局部调整失败: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+            _cts = null;
+        }
+    }
+
+    /// <summary>局部调整按钮：保持所有已锁定课程位置，大范围重新求解，尽量改动小</summary>
+    private async Task LocalAdjustAsync()
+    {
+        if (IsBusy || ScheduleEntries.Count == 0) return;
+        IsBusy = true;
+
+        int expectedEntryCount = ScheduleEntries.Count;
+        var snapshot = ScheduleEntries.Select(e => (e.Id, e.DayIndex, e.PeriodIndex, e.Locked)).ToList();
+
+        try
+        {
+            _cts = new CancellationTokenSource();
+            OpenProgressDialog("局部调整");
+            UpdateDialogProgress(0.05, "正在准备局部调整...");
+
+            foreach (var entry in ScheduleEntries)
+            {
+                if (!entry.IsFixed && entry.RequirementId != Guid.Empty)
+                    entry.Locked = true;
+            }
+
+            var locks = ScheduleEntries
+                .Where(e => e.Locked && !e.IsFixed && e.RequirementId != Guid.Empty)
+                .Select(e => new LockedLesson
+                {
+                    RequirementId = e.RequirementId,
+                    EntryId = e.Id,
+                    DayIndex = e.DayIndex,
+                    PeriodIndex = e.PeriodIndex
+                }).ToList();
+
+            UpdateDialogProgress(0.15, "正在求解...");
+            SchoolData data = BuildSchoolData();
+
+            StartSmoothProgress(0.15, 0.95);
+            IProgress<double> progress = new Progress<double>(v =>
+            {
+                double mapped = 0.15 + v * 0.80;
+                StopSmoothProgress();
+                UpdateDialogProgress(mapped);
+                StartSmoothProgress(mapped, 0.95);
+            });
+
+            ScheduleResult result = await Task.Run(
+                () => _scheduleService.GenerateWithLocks(data, locks, progress, _cts.Token, relaxConsecutiveDays: true),
+                _cts.Token);
+
+            StopSmoothProgress();
+
+            if (result.Entries.Count < expectedEntryCount)
+            {
+                foreach (var (id, day, period, locked) in snapshot)
+                {
+                    var entry = ScheduleEntries.FirstOrDefault(e => e.Id == id);
+                    if (entry != null) { entry.DayIndex = day; entry.PeriodIndex = period; entry.Locked = locked; }
+                }
+                CloseProgressDialog();
+                StatusMessage = "局部调整无解，已恢复";
+                AddInfoMessage("局部调整", "当前锁定位置导致无法求解，已恢复原状");
+                RefreshViews();
+                return;
+            }
+
+            UpdateDialogProgress(0.95, "正在整理结果...");
+            ScheduleEntries.Clear();
+            foreach (var entry in result.Entries.OrderBy(x => x.DayIndex).ThenBy(x => x.PeriodIndex))
+                ScheduleEntries.Add(entry);
+            Conflicts.Clear();
+            foreach (var conflict in result.Conflicts)
+                Conflicts.Add(conflict);
+            OnPropertyChanged(nameof(TotalScheduleEntries));
+            OnPropertyChanged(nameof(TotalConflicts));
+
+            UpdateDialogProgress(0.99, "即将完成...");
+            await Task.Delay(800);
+            UpdateDialogProgress(1.0, "局部调整完成！");
+            DialogIsComplete = true;
+
+            int changedCount = result.Entries.Count(e => e.Note != "锁定课程" && !e.IsFixed);
+            StatusMessage = $"局部调整完成：{changedCount} 节课被优化";
+            Log($"局部调整: {changedCount} 节课变动");
             RefreshViews();
         }
         catch (OperationCanceledException)
@@ -2388,15 +2503,15 @@ public sealed class MainViewModel : ObservableObject
             SchoolData data = BuildSchoolData();
             UpdateDialogProgress(0.15, "正在构建模型... 15%");
 
-            // 阶段3: 求解 (15-97%) — 启动平滑进度
-            StartSmoothProgress(0.15, 0.97);
+            // 阶段3: 求解 (15-95%) — 启动平滑进度
+            StartSmoothProgress(0.15, 0.95);
             IProgress<double> progress = new Progress<double>(v =>
             {
-                // 求解器报告 0-1 映射到 UI 15-97%
-                double mapped = 0.15 + v * 0.82;
+                // 求解器报告 0-1 映射到 UI 15-95%
+                double mapped = 0.15 + v * 0.80;
                 StopSmoothProgress();
                 UpdateDialogProgress(mapped);
-                StartSmoothProgress(mapped, 0.97);
+                StartSmoothProgress(mapped, 0.95);
             });
 
             ScheduleResult result = await Task.Run(
@@ -2404,8 +2519,8 @@ public sealed class MainViewModel : ObservableObject
 
             StopSmoothProgress();
 
-            // 阶段4: 输出结果 (97-99%)
-            UpdateDialogProgress(0.97, "正在整理结果...");
+            // 阶段4: 输出结果 (95-99%)
+            UpdateDialogProgress(0.95, "正在整理结果...");
 
             ScheduleEntries.Clear();
             foreach (ScheduleEntry entry in result.Entries.OrderBy(x => x.DayIndex).ThenBy(x => x.PeriodIndex))
@@ -2423,7 +2538,7 @@ public sealed class MainViewModel : ObservableObject
             OnPropertyChanged(nameof(TotalConflicts));
 
             UpdateDialogProgress(0.99, "即将完成...");
-            await Task.Delay(600); // 99%短暂停留
+            await Task.Delay(800); // 99%短暂停留
             UpdateDialogProgress(1.0, "排课完成！");
             DialogIsComplete = true;
 

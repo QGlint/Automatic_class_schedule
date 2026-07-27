@@ -855,7 +855,12 @@
                         <StackPanel>
                             <!-- 拖拽提示 -->
                             <Border Background="#FFFDF6E3" Padding="8,4" Margin="0,0,0,4">
-                                <TextBlock Text="提示：拖动课程可调整位置，系统将自动重新排课" FontSize="12" Foreground="#FF8B6914" />
+                                <StackPanel Orientation="Horizontal" Spacing="12">
+                                    <TextBlock Text="提示：拖动课程可调整位置，系统将自动重新排课" FontSize="12" Foreground="#FF8B6914" VerticalAlignment="Center" />
+                                    <Button Content="局部调整" Command="{Binding LocalAdjustCommand}"
+                                            FontSize="12" Padding="10,3" CornerRadius="4"
+                                            Background="#FFF0F5FF" Foreground="#FF0066CC" FontWeight="Bold" BorderThickness="0" />
+                                </StackPanel>
                             </Border>
                             <!-- 双层表头 -->
                             <Border Background="#FFF0F5FF" BorderBrush="#FFD9E1EC" BorderThickness="1,1,1,0">
