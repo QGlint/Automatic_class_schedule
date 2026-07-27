@@ -31,11 +31,18 @@ public sealed class ScheduleGridCell
     public bool IsEmpty => string.IsNullOrWhiteSpace(Subject);
     /// <summary>该单元格是否存在冲突（标红）</summary>
     public bool HasConflict { get; set; }
+    /// <summary>是否为手动拖拽过的课程（蓝色字体）</summary>
+    public bool IsManuallyMoved { get; set; }
     /// <summary>单元格背景色（冲突时红色底）</summary>
     public Microsoft.UI.Xaml.Media.SolidColorBrush CellBackground =>
         HasConflict
             ? new Microsoft.UI.Xaml.Media.SolidColorBrush(new Windows.UI.Color { A = 40, R = 255, G = 0, B = 0 })
             : new Microsoft.UI.Xaml.Media.SolidColorBrush(new Windows.UI.Color { A = 0, R = 255, G = 255, B = 255 });
+    /// <summary>科目字体颜色（手动拖拽过蓝色）</summary>
+    public Microsoft.UI.Xaml.Media.SolidColorBrush SubjectForeground =>
+        IsManuallyMoved
+            ? new Microsoft.UI.Xaml.Media.SolidColorBrush(new Windows.UI.Color { A = 255, R = 0, G = 102, B = 204 })
+            : new Microsoft.UI.Xaml.Media.SolidColorBrush(new Windows.UI.Color { A = 255, R = 0, G = 0, B = 0 });
 
     /// <summary>同时段所有条目（教师课表连班用）</summary>
     public List<ScheduleEntry> AllEntries { get; set; } = new();

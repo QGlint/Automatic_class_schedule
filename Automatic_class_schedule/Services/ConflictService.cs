@@ -54,21 +54,25 @@ public sealed class ConflictService
                 if (teacherGroup.Key == Guid.Empty) continue;
                 if (teacherGroup.Count() > 1)
                 {
-                    // 体育教师允许同年级相邻班号连班（最多2班）
+                    // 体育教师允许同年级相邻2个连号班连班，3个及以上报冲突
                     if (teacherGroup.All(e => e.Subject == "体育") && teacherGroup.Count() == 2)
                     {
                         var peEntries = teacherGroup.ToList();
                         if (AreConsecutiveClasses(peEntries[0].ClassName, peEntries[1].ClassName))
-                            continue; // 合法连班，不报告冲突
+                            continue; // 合法2连班，不报告冲突
                     }
 
                     var first = teacherGroup.First();
                     string classes = string.Join("、", teacherGroup.Select(e => e.ClassName).Distinct());
+                    bool isPE = teacherGroup.All(e => e.Subject == "体育");
+                    string reason = isPE
+                        ? $"{first.TeacherName} 在{first.SlotLabel}连班超过2个班（{classes}），体育最多允许2个相邻班连班"
+                        : $"{first.TeacherName} 在{first.SlotLabel}被分配到多个班级（{classes}）";
                     conflicts.Add(new ScheduleConflict
                     {
                         Type = ScheduleConflictType.TeacherConflict,
                         Severity = ScheduleConflictSeverity.Hard,
-                        Message = $"{first.TeacherName} 在{first.SlotLabel}被分配到多个班级（{classes}）",
+                        Message = reason,
                         Scope = $"{first.TeacherName} / {first.SlotLabel}",
                         Target = first.TeacherName
                     });
@@ -205,6 +209,19 @@ public sealed class ConflictService
         var (gradeB, numB) = ParseClassName(classB);
         if (gradeA != gradeB || numA < 0 || numB < 0) return false;
         return Math.Abs(numA - numB) == 1;
+    }
+
+    /// <summary>判断一组班级是否同年级且班号连续（如1,2,3）</summary>
+    private static bool AreConsecutiveGroup(List<string> classNames)
+    {
+        if (classNames.Count <= 1) return true;
+        var parsed = classNames.Select(ParseClassName).ToList();
+        if (parsed.Any(p => p.Number < 0)) return false;
+        if (parsed.Select(p => p.Grade).Distinct().Count() > 1) return false;
+        var numbers = parsed.Select(p => p.Number).OrderBy(n => n).ToList();
+        for (int i = 1; i < numbers.Count; i++)
+            if (numbers[i] != numbers[i - 1] + 1) return false;
+        return true;
     }
 
     private static (string Grade, int Number) ParseClassName(string className)

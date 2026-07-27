@@ -122,12 +122,12 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
             }
             else
             {
-                // 体育教师：允许同时段最多2班，但只限同年级相邻班号
+                // 体育教师：允许同时段最多2班（同年级相邻连号）
                 for (int d = 0; d < days; d++)
                     for (int p = 1; p <= periods; p++)
                         model.Add(LinearExpr.Sum(indices.Select(i => (ILiteral)x[i, d, p]).ToList()) <= 2);
 
-                // 禁止非相邻班号的班级同时段
+                // 禁止非相邻班号的班级同时段（班号差>1不允许，3连班自然由相邻对组成）
                 var peItems = group.ToList();
                 for (int a = 0; a < peItems.Count; a++)
                 {
@@ -142,7 +142,7 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
                         }
                         else
                         {
-                            // 相邻班号允许同时段，但加软约束惩罚以减少连班概率
+                            // 连号班允许同时段，但加软约束惩罚以减少连班概率（轻度惩罚，不影响可行性）
                             int ia = peItems[a].idx, ib = peItems[b].idx;
                             for (int d = 0; d < days; d++)
                                 for (int p = 1; p <= periods; p++)
@@ -151,7 +151,7 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
                                     model.Add(x[ia, d, p] + x[ib, d, p] == 2).OnlyEnforceIf(overlap);
                                     model.Add(x[ia, d, p] + x[ib, d, p] <= 1).OnlyEnforceIf(overlap.Not());
                                     objTerms.Add(overlap);
-                                    objWeights.Add(-8);
+                                    objWeights.Add(-3);
                                 }
                         }
                     }
@@ -678,13 +678,22 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
         return slots;
     }
 
-    /// <summary>判断两个班级是否同年级且班号相邻（如"七1班"和"七2班"）</summary>
+    /// <summary>判断两个班级是否同年级且班号相邻（如“七1班”和“七2班”）</summary>
     private static bool AreConsecutiveClasses(string classA, string classB)
     {
         var (gradeA, numA) = ParseClassName(classA);
         var (gradeB, numB) = ParseClassName(classB);
         if (gradeA != gradeB || numA < 0 || numB < 0) return false;
         return Math.Abs(numA - numB) == 1;
+    }
+    
+    /// <summary>判断两个班级是否同年级且班号差≤maxDiff</summary>
+    private static bool AreCloseClasses(string classA, string classB, int maxDiff)
+    {
+        var (gradeA, numA) = ParseClassName(classA);
+        var (gradeB, numB) = ParseClassName(classB);
+        if (gradeA != gradeB || numA < 0 || numB < 0) return false;
+        return Math.Abs(numA - numB) <= maxDiff;
     }
 
     private static (string Grade, int Number) ParseClassName(string className)

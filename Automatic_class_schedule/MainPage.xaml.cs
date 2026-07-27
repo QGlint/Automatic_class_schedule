@@ -570,7 +570,7 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
 
                 if (targetEntry != null || targetCell.IsEmpty)
                 {
-                    _ = vm.DragRescheduleAsync(source, targetCell.DayIndex, targetCell.PeriodIndex, targetEntry);
+                    _ = vm.DragRescheduleAsync(source, targetCell.DayIndex, targetCell.PeriodIndex, targetEntry, targetCell.ClassName);
                     e.Handled = true;
                 }
             }

@@ -937,7 +937,8 @@
                                                                     Drop="GridCell_Drop"
                                                                     Background="{Binding CellBackground}">
                                                                 <StackPanel Visibility="{Binding IsEmpty, Converter={StaticResource InverseBoolToVisibility}}">
-                                                                    <TextBlock Text="{Binding Subject}" FontSize="18" TextWrapping="Wrap" />
+                                                                    <TextBlock Text="{Binding Subject}" FontSize="18" TextWrapping="Wrap"
+                                                                               Foreground="{Binding SubjectForeground}" />
                                                                     <TextBlock Text="{Binding TeacherName}" FontSize="14" Foreground="#FF556070" TextWrapping="Wrap" />
                                                                 </StackPanel>
                                                             </Border>

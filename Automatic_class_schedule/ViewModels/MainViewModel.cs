@@ -1449,7 +1449,7 @@ public sealed class MainViewModel : ObservableObject
     }
 
     /// <summary>拖拽后最小变化重排</summary>
-    public async Task DragRescheduleAsync(ScheduleEntry draggedEntry, int targetDay, int targetPeriod, ScheduleEntry? targetEntry)
+    public async Task DragRescheduleAsync(ScheduleEntry draggedEntry, int targetDay, int targetPeriod, ScheduleEntry? targetEntry, string targetClassName = "")
     {
         if (IsBusy) return;
 
@@ -1465,8 +1465,16 @@ public sealed class MainViewModel : ObservableObject
             return;
         }
 
+        // ===== 拦截跨班拖拽 =====
+        string effectiveTargetClass = targetEntry?.ClassName ?? targetClassName;
+        if (!string.IsNullOrEmpty(effectiveTargetClass) && effectiveTargetClass != draggedEntry.ClassName)
+        {
+            AddInfoMessage("无法换课", $"不可跨班级换课（{draggedEntry.ClassName} ≠ {effectiveTargetClass}）");
+            return;
+        }
+
         // ===== 同班交换：直接交换位置，冲突仅提示 =====
-        if (targetEntry != null && draggedEntry.ClassName == targetEntry.ClassName)
+        if (targetEntry != null)
         {
             int sDay = draggedEntry.DayIndex, sPeriod = draggedEntry.PeriodIndex;
             draggedEntry.DayIndex = targetEntry.DayIndex;
@@ -1493,70 +1501,6 @@ public sealed class MainViewModel : ObservableObject
             return;
         }
 
-        // ===== 跨班交换：仅允许同科目互换时间槽，拆分为两个同班交换 =====
-        if (targetEntry != null)
-        {
-            // 跨班验证：被拖动课程的老师必须带目标班级
-            bool draggedTeacherCoversTarget = draggedEntry.TeacherName == targetEntry.TeacherName
-                || TeacherAssignments.Any(a => a.TeacherName == draggedEntry.TeacherName
-                    && !string.IsNullOrEmpty(a.ClassNames)
-                    && a.ClassNames.Contains(targetEntry.ClassName));
-            if (!draggedTeacherCoversTarget)
-            {
-                AddInfoMessage("无法交换", $"{draggedEntry.TeacherName} 不带 {targetEntry.ClassName}，不能跨班交换");
-                return;
-            }
-            int srcDay = draggedEntry.DayIndex, srcPeriod = draggedEntry.PeriodIndex;
-            int tgtDay = targetEntry.DayIndex, tgtPeriod = targetEntry.PeriodIndex;
-
-            // 找 draggedEntry 班级在目标位置的课程（同班同时段）
-            var classXMate = ScheduleEntries.FirstOrDefault(e =>
-                e.ClassId == draggedEntry.ClassId && e.DayIndex == tgtDay && e.PeriodIndex == tgtPeriod && e.Id != draggedEntry.Id);
-            // 找 targetEntry 班级在源位置的课程
-            var classYMate = ScheduleEntries.FirstOrDefault(e =>
-                e.ClassId == targetEntry.ClassId && e.DayIndex == srcDay && e.PeriodIndex == srcPeriod && e.Id != targetEntry.Id);
-
-            // 同班交换1：draggedEntry 与 classXMate 交换位置（draggedEntry班级内）
-            if (classXMate != null && !classXMate.IsFixed)
-            {
-                draggedEntry.DayIndex = tgtDay;
-                draggedEntry.PeriodIndex = tgtPeriod;
-                classXMate.DayIndex = srcDay;
-                classXMate.PeriodIndex = srcPeriod;
-                draggedEntry.Locked = true;
-                classXMate.Locked = true;
-                draggedEntry.Note = "换课";
-                classXMate.Note = "换课";
-            }
-            else
-            {
-                // 目标位置无同班课程（空位），直接移动
-                draggedEntry.DayIndex = tgtDay;
-                draggedEntry.PeriodIndex = tgtPeriod;
-                draggedEntry.Locked = true;
-                draggedEntry.Note = "手动调整";
-            }
-
-            // 同班交换2：targetEntry 与 classYMate 交换位置（targetEntry班级内）
-            if (classYMate != null && !classYMate.IsFixed)
-            {
-                targetEntry.DayIndex = srcDay;
-                targetEntry.PeriodIndex = srcPeriod;
-                classYMate.DayIndex = tgtDay;
-                classYMate.PeriodIndex = tgtPeriod;
-                targetEntry.Locked = true;
-                classYMate.Locked = true;
-                targetEntry.Note = "换课";
-                classYMate.Note = "换课";
-            }
-            else
-            {
-                targetEntry.DayIndex = srcDay;
-                targetEntry.PeriodIndex = srcPeriod;
-                targetEntry.Locked = true;
-                targetEntry.Note = "手动调整";
-            }
-        }
         else
         {
             // 移动到空位：同班交换
@@ -1795,13 +1739,15 @@ public sealed class MainViewModel : ObservableObject
             var conflictDays = conflictGroups.Select(g => g.Key.DayIndex).ToHashSet();
             var allEntries = ScheduleEntries.ToList();
 
-            // 定义多轮求解策略
+            // 定义多轮求解策略（手动拖拽过的课程始终保持目标位置，不参与解锁）
+            bool IsManuallyMoved(ScheduleEntry e) => e.Note == "换课" || e.Note == "手动调整";
             var rounds = new List<(string Label, HashSet<Guid> UnlockIds, int RelaxLevel)>
             {
                 // 方向A：逐渐放大修改范围（relaxLevel=1）
                 ("放大范围：冲突教师当天课程",
                     new HashSet<Guid>(allEntries
                         .Where(e => !e.IsFixed && e.RequirementId != Guid.Empty
+                            && !IsManuallyMoved(e)
                             && conflictTeacherNames.Contains(e.TeacherName)
                             && conflictDays.Contains(e.DayIndex))
                         .Select(e => e.Id)),
@@ -1809,18 +1755,21 @@ public sealed class MainViewModel : ObservableObject
                 ("放大范围：冲突教师全部课程",
                     new HashSet<Guid>(allEntries
                         .Where(e => !e.IsFixed && e.RequirementId != Guid.Empty
+                            && !IsManuallyMoved(e)
                             && conflictTeacherNames.Contains(e.TeacherName))
                         .Select(e => e.Id)),
                     1),
                 ("放大范围：所有课程",
                     new HashSet<Guid>(allEntries
-                        .Where(e => !e.IsFixed && e.RequirementId != Guid.Empty)
+                        .Where(e => !e.IsFixed && e.RequirementId != Guid.Empty
+                            && !IsManuallyMoved(e))
                         .Select(e => e.Id)),
                     1),
                 // 方向B：放宽约束（relaxLevel=2，固定范围=冲突教师全部课程）
                 ("放宽约束：副科连天+第一天限制",
                     new HashSet<Guid>(allEntries
                         .Where(e => !e.IsFixed && e.RequirementId != Guid.Empty
+                            && !IsManuallyMoved(e)
                             && conflictTeacherNames.Contains(e.TeacherName))
                         .Select(e => e.Id)),
                     2),
@@ -3153,6 +3102,7 @@ public sealed class MainViewModel : ObservableObject
                         EntryId = entry?.Id ?? Guid.Empty,
                         Entry = entry,
                         HasConflict = entry != null && conflictEntryIds.Contains(entry.Id),
+                        IsManuallyMoved = entry?.Note == "换课" || entry?.Note == "手动调整",
                     });
                 }
             }
