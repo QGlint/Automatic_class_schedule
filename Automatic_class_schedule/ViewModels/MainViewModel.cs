@@ -1453,6 +1453,18 @@ public sealed class MainViewModel : ObservableObject
     {
         if (IsBusy) return;
 
+        // ===== 拦截固定课拖拽 =====
+        if (draggedEntry.IsFixed)
+        {
+            AddInfoMessage("无法拖动", "固定课程不允许拖动调整");
+            return;
+        }
+        if (targetEntry?.IsFixed == true)
+        {
+            AddInfoMessage("无法放置", "目标位置是固定课程，不允许交换");
+            return;
+        }
+
         // ===== 同班交换：先验证无冲突则直接交换，无需重新求解 =====
         if (targetEntry != null && draggedEntry.ClassName == targetEntry.ClassName)
         {
@@ -1605,7 +1617,7 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
-    /// <summary>同班交换有教师冲突时：锁定几乎所有课程，只让冲突相关条目微调</summary>
+    /// <summary>同班交换有教师冲突时：扩大解锁范围求解，尽量改动小</summary>
     private async Task MinimalChangeSolveAsync(ScheduleEntry swappedA, ScheduleEntry swappedB)
     {
         IsBusy = true;
@@ -1614,45 +1626,35 @@ public sealed class MainViewModel : ObservableObject
             _cts = new CancellationTokenSource();
             SchoolData data = BuildSchoolData();
 
-            // 找出交换后产生的教师时间冲突
             var allEntries = ScheduleEntries.ToList();
             int expectedCount = allEntries.Count;
-            var conflictEntryIds = new HashSet<Guid> { swappedA.Id, swappedB.Id };
 
-            // 收集交换后两个entry的教师+时间槽
-            var swappedSlots = new[]
-            {
-                (TeacherId: swappedA.TeacherId, Day: swappedA.DayIndex, Period: swappedA.PeriodIndex),
-                (TeacherId: swappedB.TeacherId, Day: swappedB.DayIndex, Period: swappedB.PeriodIndex)
-            };
+            // 收集涉及的教师ID和天数
+            var involvedTeachers = new HashSet<Guid>();
+            var involvedDays = new HashSet<int>();
+            if (swappedA.TeacherId != Guid.Empty) involvedTeachers.Add(swappedA.TeacherId);
+            if (swappedB.TeacherId != Guid.Empty) involvedTeachers.Add(swappedB.TeacherId);
+            involvedDays.Add(swappedA.DayIndex);
+            involvedDays.Add(swappedB.DayIndex);
 
-            foreach (var (teacherId, day, period) in swappedSlots)
-            {
-                if (teacherId == Guid.Empty) continue;
-                // 找同时段同教师的其它条目（即被冲突的条目）
-                var conflicting = allEntries.Where(e =>
-                    e.TeacherId == teacherId &&
-                    e.DayIndex == day &&
-                    e.PeriodIndex == period &&
-                    e.Id != swappedA.Id &&
-                    e.Id != swappedB.Id).ToList();
-                foreach (var c in conflicting)
-                    conflictEntryIds.Add(c.Id);
-            }
-
-            // 锁定所有不受影响的课程（交换的entry保持锁定，冲突entry解锁让求解器移动）
+            // 第一轮：解锁涉及教师当天的所有课程（交换的entry保持锁定）
+            var unlockIds = new HashSet<Guid>();
             foreach (var entry in allEntries)
             {
-                if (!conflictEntryIds.Contains(entry.Id))
-                    entry.Locked = true;
-            }
-            // 冲突entry解锁
-            foreach (var entry in allEntries.Where(e => conflictEntryIds.Contains(e.Id) && e.Id != swappedA.Id && e.Id != swappedB.Id))
-            {
-                entry.Locked = false;
+                if (entry.Id == swappedA.Id || entry.Id == swappedB.Id) continue;
+                if (entry.IsFixed) continue;
+                // 同教师且同天的条目解锁
+                if (involvedTeachers.Contains(entry.TeacherId) && involvedDays.Contains(entry.DayIndex))
+                    unlockIds.Add(entry.Id);
             }
 
-            // 构建锁定列表（排除固定课，求解器通过PlaceFixedLessons单独处理）
+            foreach (var entry in allEntries)
+            {
+                entry.Locked = !unlockIds.Contains(entry.Id) && !entry.IsFixed;
+            }
+            swappedA.Locked = true;
+            swappedB.Locked = true;
+
             var locks = allEntries
                 .Where(e => e.Locked && !e.IsFixed && e.RequirementId != Guid.Empty)
                 .Select(e => new LockedLesson
@@ -1673,10 +1675,45 @@ public sealed class MainViewModel : ObservableObject
 
             StopSmoothProgress();
 
-            // 安全检查：结果条目数不得少于预期
+            // 第一轮失败：尝试更宽范围（解锁涉及教师的所有课程，不限天）
             if (result.Entries.Count < expectedCount)
             {
-                // 回退交换
+                UpdateDialogProgress(0.50, "扩大范围重新求解...");
+                unlockIds.Clear();
+                foreach (var entry in allEntries)
+                {
+                    if (entry.Id == swappedA.Id || entry.Id == swappedB.Id) continue;
+                    if (entry.IsFixed) continue;
+                    if (involvedTeachers.Contains(entry.TeacherId))
+                        unlockIds.Add(entry.Id);
+                }
+                foreach (var entry in allEntries)
+                {
+                    entry.Locked = !unlockIds.Contains(entry.Id) && !entry.IsFixed;
+                }
+                swappedA.Locked = true;
+                swappedB.Locked = true;
+
+                locks = allEntries
+                    .Where(e => e.Locked && !e.IsFixed && e.RequirementId != Guid.Empty)
+                    .Select(e => new LockedLesson
+                    {
+                        RequirementId = e.RequirementId,
+                        EntryId = e.Id,
+                        DayIndex = e.DayIndex,
+                        PeriodIndex = e.PeriodIndex
+                    }).ToList();
+
+                StartSmoothProgress(0.50, 0.95);
+                result = await Task.Run(
+                    () => _scheduleService.GenerateWithLocks(data, locks, null, _cts.Token, relaxConsecutiveDays: true),
+                    _cts.Token);
+                StopSmoothProgress();
+            }
+
+            // 两轮都失败：回退交换
+            if (result.Entries.Count < expectedCount)
+            {
                 int tmpDay = swappedA.DayIndex, tmpPeriod = swappedA.PeriodIndex;
                 swappedA.DayIndex = swappedB.DayIndex;
                 swappedA.PeriodIndex = swappedB.PeriodIndex;
@@ -1710,8 +1747,8 @@ public sealed class MainViewModel : ObservableObject
             await Task.Delay(800);
             UpdateDialogProgress(1.0, "局部调整完成！");
             DialogIsComplete = true;
-            StatusMessage = $"局部调整完成（{conflictEntryIds.Count} 节课参与调整）";
-            Log($"最小变化求解: {conflictEntryIds.Count} 节课调整");
+            StatusMessage = $"局部调整完成（{unlockIds.Count + 2} 节课参与调整）";
+            Log($"最小变化求解: {unlockIds.Count + 2} 节课调整");
             RefreshViews();
         }
         catch (OperationCanceledException)
