@@ -26,8 +26,8 @@ verify: build
 	dotnet build $(VERIFY) -c $(CONFIG) -nologo
 	$(VERIFYEXE)
 
-# ── Fast run: 跳过编译，直接用上次缓存启动 ──
-run:
+# ── Run: 先编译再启动 ──
+run: build
 	dotnet run --project $(MAIN) -c $(CONFIG) --no-build -nologo
 
 # ── Dev mode: 热重载，修改代码后自动刷新 ──
