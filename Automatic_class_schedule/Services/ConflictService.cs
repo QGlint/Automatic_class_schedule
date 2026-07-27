@@ -54,6 +54,14 @@ public sealed class ConflictService
                 if (teacherGroup.Key == Guid.Empty) continue;
                 if (teacherGroup.Count() > 1)
                 {
+                    // 体育教师允许同年级相邻班号连班（最多2班）
+                    if (teacherGroup.All(e => e.Subject == "体育") && teacherGroup.Count() == 2)
+                    {
+                        var peEntries = teacherGroup.ToList();
+                        if (AreConsecutiveClasses(peEntries[0].ClassName, peEntries[1].ClassName))
+                            continue; // 合法连班，不报告冲突
+                    }
+
                     var first = teacherGroup.First();
                     string classes = string.Join("、", teacherGroup.Select(e => e.ClassName).Distinct());
                     conflicts.Add(new ScheduleConflict
@@ -189,5 +197,24 @@ public sealed class ConflictService
         }
 
         return false;
+    }
+
+    private static bool AreConsecutiveClasses(string classA, string classB)
+    {
+        var (gradeA, numA) = ParseClassName(classA);
+        var (gradeB, numB) = ParseClassName(classB);
+        if (gradeA != gradeB || numA < 0 || numB < 0) return false;
+        return Math.Abs(numA - numB) == 1;
+    }
+
+    private static (string Grade, int Number) ParseClassName(string className)
+    {
+        if (string.IsNullOrEmpty(className)) return ("", -1);
+        string trimmed = className.Replace("班", "");
+        int i = 0;
+        while (i < trimmed.Length && !char.IsDigit(trimmed[i])) i++;
+        if (i == 0 || i >= trimmed.Length) return ("", -1);
+        string grade = trimmed[..i];
+        return int.TryParse(trimmed[i..], out int num) ? (grade, num) : (grade, -1);
     }
 }

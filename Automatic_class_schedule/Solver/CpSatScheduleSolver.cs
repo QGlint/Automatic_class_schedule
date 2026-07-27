@@ -101,7 +101,7 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
                     model.AddAtMostOne(indices.Select(i => (ILiteral)x[i, d, p]).ToList());
         }
 
-        // H3: 教师时间槽互斥（所有教师包括体育均不允许同时段多班）
+        // H3: 教师时间槽互斥（体育教师允许同年级相邻班号连班，最多2班）
         var teacherGroups = requirements
             .Select((req, idx) => (req, idx))
             .Where(t => t.req.TeacherId != Guid.Empty)
@@ -111,9 +111,37 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
         foreach (var group in teacherGroups)
         {
             var indices = group.Select(t => t.idx).ToList();
-            for (int d = 0; d < days; d++)
-                for (int p = 1; p <= periods; p++)
-                    model.AddAtMostOne(indices.Select(i => (ILiteral)x[i, d, p]).ToList());
+            bool isPE = group.All(t => t.req.Subject == "体育");
+
+            if (!isPE)
+            {
+                for (int d = 0; d < days; d++)
+                    for (int p = 1; p <= periods; p++)
+                        model.AddAtMostOne(indices.Select(i => (ILiteral)x[i, d, p]).ToList());
+            }
+            else
+            {
+                // 体育教师：允许同时段最多2班，但只限同年级相邻班号
+                for (int d = 0; d < days; d++)
+                    for (int p = 1; p <= periods; p++)
+                        model.Add(LinearExpr.Sum(indices.Select(i => (ILiteral)x[i, d, p]).ToList()) <= 2);
+
+                // 禁止非相邻班号的班级同时段
+                var peItems = group.ToList();
+                for (int a = 0; a < peItems.Count; a++)
+                {
+                    for (int b = a + 1; b < peItems.Count; b++)
+                    {
+                        if (!AreConsecutiveClasses(peItems[a].req.ClassName, peItems[b].req.ClassName))
+                        {
+                            int ia = peItems[a].idx, ib = peItems[b].idx;
+                            for (int d = 0; d < days; d++)
+                                for (int p = 1; p <= periods; p++)
+                                    model.Add(x[ia, d, p] + x[ib, d, p] <= 1);
+                        }
+                    }
+                }
+            }
         }
 
         // H4: 固定课程占位
@@ -607,6 +635,31 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
             slots.Add((day, fl.PeriodIndex, fl.ScopeValue ?? "全校"));
         }
         return slots;
+    }
+
+    /// <summary>判断两个班级是否同年级且班号相邻（如"七1班"和"七2班"）</summary>
+    private static bool AreConsecutiveClasses(string classA, string classB)
+    {
+        var (gradeA, numA) = ParseClassName(classA);
+        var (gradeB, numB) = ParseClassName(classB);
+        if (gradeA != gradeB || numA < 0 || numB < 0) return false;
+        return Math.Abs(numA - numB) == 1;
+    }
+
+    private static (string Grade, int Number) ParseClassName(string className)
+    {
+        // 格式: "七1班" / "八2班" / "九3班"
+        if (string.IsNullOrEmpty(className)) return ("", -1);
+        string trimmed = className.Replace("班", "");
+        if (trimmed.Length < 2) return ("", -1);
+        // 提取年级部分（非数字前缀）和班号（数字部分）
+        int i = 0;
+        while (i < trimmed.Length && !char.IsDigit(trimmed[i])) i++;
+        if (i == 0 || i >= trimmed.Length) return ("", -1);
+        string grade = trimmed[..i];
+        if (int.TryParse(trimmed[i..], out int num))
+            return (grade, num);
+        return (grade, -1);
     }
 
     private static bool IsSlotBlocked(HashSet<(int Day, int Period, string Scope)> fixedSlots, LessonRequirement req, int day, int period)
