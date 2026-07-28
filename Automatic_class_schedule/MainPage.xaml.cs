@@ -117,6 +117,12 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
         ((MainViewModel)DataContext).SelectSubjectGradeCommand.Execute("固定时间");
     }
 
+    private void CourseTemplateCombo_DropDownClosed(object sender, object e)
+    {
+        var vm = (MainViewModel)DataContext;
+        vm.OnCourseTemplateDropDownClosed();
+    }
+
     private async void SaveTemplateButton_Click(object sender, RoutedEventArgs e)
     {
         var vm = (MainViewModel)DataContext;

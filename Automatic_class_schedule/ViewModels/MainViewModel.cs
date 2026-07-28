@@ -1132,7 +1132,8 @@ public sealed class MainViewModel : ObservableObject
         get => _selectedCourseTemplate;
         set
         {
-            if (SetProperty(ref _selectedCourseTemplate, value) && !string.IsNullOrEmpty(value))
+            bool changed = SetProperty(ref _selectedCourseTemplate, value);
+            if (!string.IsNullOrEmpty(value) && (changed || IsCourseTemplateCustom))
             {
                 IsCourseTemplateCustom = false;
                 LoadCourseTemplate();
@@ -1154,15 +1155,20 @@ public sealed class MainViewModel : ObservableObject
             MarkCourseCustom();
     }
 
-    /// <summary>标记课程配置为自定义（同时取消下拉选中，使重新选择可触发加载）</summary>
+    /// <summary>标记课程配置为自定义</summary>
     private void MarkCourseCustom()
     {
         if (_suppressCourseCustomMark) return;
         IsCourseTemplateCustom = true;
-        if (_selectedCourseTemplate != string.Empty)
+    }
+
+    /// <summary>下拉关闭时调用：若处于自定义状态且仍有选中模板，重新加载</summary>
+    public void OnCourseTemplateDropDownClosed()
+    {
+        if (IsCourseTemplateCustom && !string.IsNullOrEmpty(_selectedCourseTemplate))
         {
-            _selectedCourseTemplate = string.Empty;
-            OnPropertyChanged(nameof(SelectedCourseTemplate));
+            IsCourseTemplateCustom = false;
+            LoadCourseTemplate();
         }
     }
 

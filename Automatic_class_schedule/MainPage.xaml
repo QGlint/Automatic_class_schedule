@@ -523,8 +523,8 @@
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="配置方案" VerticalAlignment="Center" Margin="0,0,8,0" />
                                 <Grid>
-                                    <ComboBox ItemsSource="{Binding CourseTemplates}" SelectedItem="{Binding SelectedCourseTemplate, Mode=TwoWay}"
-                                              Width="180" Margin="0,0,8,0" />
+                                    <ComboBox x:Name="CourseTemplateCombo" ItemsSource="{Binding CourseTemplates}" SelectedItem="{Binding SelectedCourseTemplate, Mode=TwoWay}"
+                                              Width="180" Margin="0,0,8,0" DropDownClosed="CourseTemplateCombo_DropDownClosed" />
                                     <Border Background="White" VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
                                             Margin="3,3,30,3" IsHitTestVisible="False"
                                             Visibility="{Binding IsCourseTemplateCustom, Converter={StaticResource BoolToVisibility}}">
