@@ -1722,11 +1722,13 @@ public sealed class MainViewModel : ObservableObject
             OpenProgressDialog("局部调整");
             UpdateDialogProgress(0.03, "正在检测冲突...");
 
-            // 检测当前教师时间槽冲突
+            // 检测当前教师时间槽冲突（体育2连班除外）
             var conflictGroups = ScheduleEntries
                 .Where(e => e.TeacherId != Guid.Empty && !e.IsFixed)
                 .GroupBy(e => (e.TeacherName, e.DayIndex, e.PeriodIndex))
                 .Where(g => g.Select(e => e.ClassId).Distinct().Count() > 1)
+                .Where(g => !(g.All(e => e.Subject == "体育") && g.Count() == 2
+                    && AreAdjacentClasses(g.First().ClassName, g.Last().ClassName)))
                 .ToList();
 
             if (conflictGroups.Count == 0)
@@ -1739,6 +1741,7 @@ public sealed class MainViewModel : ObservableObject
 
             var conflictTeacherNames = conflictGroups.Select(g => g.Key.TeacherName).ToHashSet();
             var conflictDays = conflictGroups.Select(g => g.Key.DayIndex).ToHashSet();
+            var conflictClassIds = conflictGroups.SelectMany(g => g.Select(e => e.ClassId)).ToHashSet();
             var allEntries = ScheduleEntries.ToList();
 
             // 定义多轮求解策略（手动拖拽过的课程始终保持目标位置，不参与解锁）
@@ -1746,7 +1749,7 @@ public sealed class MainViewModel : ObservableObject
             var rounds = new List<(string Label, HashSet<Guid> UnlockIds, int RelaxLevel)>
             {
                 // 方向A：逐渐放大修改范围（relaxLevel=1）
-                ("放大范围：冲突教师当天课程",
+                ("冲突教师当天课程",
                     new HashSet<Guid>(allEntries
                         .Where(e => !e.IsFixed && e.RequirementId != Guid.Empty
                             && !IsManuallyMoved(e)
@@ -1754,25 +1757,32 @@ public sealed class MainViewModel : ObservableObject
                             && conflictDays.Contains(e.DayIndex))
                         .Select(e => e.Id)),
                     1),
-                ("放大范围：冲突教师全部课程",
+                ("冲突教师全部课程",
                     new HashSet<Guid>(allEntries
                         .Where(e => !e.IsFixed && e.RequirementId != Guid.Empty
                             && !IsManuallyMoved(e)
                             && conflictTeacherNames.Contains(e.TeacherName))
                         .Select(e => e.Id)),
                     1),
-                ("放大范围：所有课程",
+                ("冲突班级全部课程",
+                    new HashSet<Guid>(allEntries
+                        .Where(e => !e.IsFixed && e.RequirementId != Guid.Empty
+                            && !IsManuallyMoved(e)
+                            && conflictClassIds.Contains(e.ClassId))
+                        .Select(e => e.Id)),
+                    1),
+                ("所有课程",
                     new HashSet<Guid>(allEntries
                         .Where(e => !e.IsFixed && e.RequirementId != Guid.Empty
                             && !IsManuallyMoved(e))
                         .Select(e => e.Id)),
                     1),
-                // 方向B：放宽约束（relaxLevel=2，固定范围=冲突教师全部课程）
-                ("放宽约束：副科连天+第一天限制",
+                // 方向B：放宽约束（relaxLevel=2，范围=冲突班级全部课程）
+                ("放宽约束：冲突班级全部课程",
                     new HashSet<Guid>(allEntries
                         .Where(e => !e.IsFixed && e.RequirementId != Guid.Empty
                             && !IsManuallyMoved(e)
-                            && conflictTeacherNames.Contains(e.TeacherName))
+                            && conflictClassIds.Contains(e.ClassId))
                         .Select(e => e.Id)),
                     2),
             };
@@ -1809,11 +1819,13 @@ public sealed class MainViewModel : ObservableObject
 
                 if (result.Entries.Count >= expectedEntryCount)
                 {
-                    // 检查结果中的教师冲突数
+                    // 检查结果中的教师冲突数（体育2连班除外）
                     int resultConflicts = result.Entries
                         .Where(e => e.TeacherId != Guid.Empty && !e.IsFixed)
                         .GroupBy(e => (e.TeacherName, e.DayIndex, e.PeriodIndex))
-                        .Count(g => g.Select(e => e.ClassId).Distinct().Count() > 1);
+                        .Where(g => g.Select(e => e.ClassId).Distinct().Count() > 1)
+                        .Count(g => !(g.All(e => e.Subject == "体育") && g.Count() == 2
+                            && AreAdjacentClasses(g.First().ClassName, g.Last().ClassName)));
 
                     if (resultConflicts < bestConflictCount)
                     {
@@ -2208,6 +2220,8 @@ public sealed class MainViewModel : ObservableObject
 
         var configControls = new Dictionary<(string Grade, string Subject), (Microsoft.UI.Xaml.Controls.ComboBox Mode, Microsoft.UI.Xaml.Controls.NumberBox Num)>();
         var gradeToggles = new Dictionary<string, Microsoft.UI.Xaml.Controls.ToggleSwitch>();
+        // 年级页中每个科目的UI元素（用于动态显示/隐藏）
+        var gradeSubjectElements = new Dictionary<string, List<Microsoft.UI.Xaml.UIElement>>();
 
         var contentArea = new Microsoft.UI.Xaml.Controls.Grid { MinHeight = 320 };
         var tabPages = new Dictionary<string, Microsoft.UI.Xaml.UIElement>();
@@ -2258,6 +2272,30 @@ public sealed class MainViewModel : ObservableObject
                 grid.Children.Add(numBox);
 
                 configControls[(gradeKey, subj)] = (modeCombo, numBox);
+
+                if (gradeKey == "全局")
+                {
+                    // 全局页模式切换联动年级页显示/隐藏
+                    string subjectName = subj;
+                    modeCombo.SelectionChanged += (_, _) =>
+                    {
+                        bool isSchoolWide = modeCombo.SelectedIndex == 2;
+                        if (gradeSubjectElements.TryGetValue(subjectName, out var elems))
+                        {
+                            var vis = isSchoolWide ? Microsoft.UI.Xaml.Visibility.Collapsed : Microsoft.UI.Xaml.Visibility.Visible;
+                            foreach (var el in elems) el.Visibility = vis;
+                        }
+                    };
+                }
+                else
+                {
+                    // 年级页：注册元素以便全局页联动控制
+                    if (!gradeSubjectElements.ContainsKey(subj))
+                        gradeSubjectElements[subj] = new List<Microsoft.UI.Xaml.UIElement>();
+                    gradeSubjectElements[subj].Add(nameLabel);
+                    gradeSubjectElements[subj].Add(modeCombo);
+                    gradeSubjectElements[subj].Add(numBox);
+                }
             }
 
             return new Microsoft.UI.Xaml.Controls.ScrollViewer { Content = grid, VerticalScrollBarVisibility = Microsoft.UI.Xaml.Controls.ScrollBarVisibility.Auto };
@@ -2279,9 +2317,9 @@ public sealed class MainViewModel : ObservableObject
             };
             gradeToggles[gName] = toggle;
 
-            // 年级自定义：只显示该年级存在的课程，排除全校科目
+            // 年级自定义：显示该年级存在的课程（全校科目由全局页联动隐藏）
             var gradeSubjectNames = Subjects
-                .Where(s => (string.IsNullOrEmpty(s.GradeName) || s.GradeName == gName) && !IsDefaultSchoolWide(s.Name))
+                .Where(s => string.IsNullOrEmpty(s.GradeName) || s.GradeName == gName)
                 .Select(s => s.Name).Distinct().OrderBy(n => n).ToList();
             var gradeGrid = BuildSubjectGrid(gName, gradeSubjectNames);
             gradeGrid.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
@@ -2402,13 +2440,13 @@ public sealed class MainViewModel : ObservableObject
     internal static bool IsDefaultByGrade(string subject)
     {
         // 默认“按年级”的科目
-        return subject is "物理" or "化学" or "地理" or "生物" or "历史" or "道德" or "音乐" or "美术" or "信息" or "劳动";
+        return subject is "物理" or "化学" or "地理" or "生物" or "历史" or "道德" or "音乐" or "美术" or "信息" or "劳动" or "体育";
     }
 
     /// <summary>是否为默认“全校”模式的科目</summary>
     internal static bool IsDefaultSchoolWide(string subject)
     {
-        return subject is "体育";
+        return false; // 无科目默认全校，用户可手动选择
     }
 
     internal static int GetDefaultTeacherConfig(string subject, bool isClassesPerTeacherMode)
@@ -2433,7 +2471,7 @@ public sealed class MainViewModel : ObservableObject
                 "物理" or "化学" => 3,
                 "地理" or "生物" or "历史" or "道德" => 2,
                 "音乐" or "美术" or "信息" or "劳动" => 1,
-                "体育" => 6,
+                "体育" => 2,
                 _ => 2
             };
         }
