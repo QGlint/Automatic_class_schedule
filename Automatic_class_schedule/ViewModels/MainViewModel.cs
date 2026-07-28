@@ -96,6 +96,8 @@ public sealed class MainViewModel : ObservableObject
         NewProjectCommand = new RelayCommand(NewProject);
         ExportCommand = new RelayCommand(() => _ = ExportExcelAsync());
         SelectExportFolderCommand = new RelayCommand(() => _ = SelectExportFolderAsync());
+        OpenExportFolderCommand = new RelayCommand(OpenExportFolder);
+        OpenProjectFolderCommand = new RelayCommand(OpenProjectFolder);
         ImportCommand = new RelayCommand(() => _ = ImportExcelAsync());
         CancelCommand = new RelayCommand(CancelOperation, () => IsBusy);
         UseFiveDayCommand = new RelayCommand(() => SetDaysPerWeek(5));
@@ -632,6 +634,8 @@ public sealed class MainViewModel : ObservableObject
 
     /// <summary>请求显示消息弹窗</summary>
     public event Action<string, string>? RequestShowMessage;
+    /// <summary>导出成功弹窗（带打开文件夹按钮）</summary>
+    public event Action<string>? RequestShowExportSuccess;
 
     /// <summary>打开进度弹窗</summary>
     private void OpenProgressDialog(string title)
@@ -1154,6 +1158,8 @@ public sealed class MainViewModel : ObservableObject
     public RelayCommand NewProjectCommand { get; }
     public RelayCommand ExportCommand { get; }
     public RelayCommand SelectExportFolderCommand { get; }
+    public RelayCommand OpenExportFolderCommand { get; }
+    public RelayCommand OpenProjectFolderCommand { get; }
     public RelayCommand ImportCommand { get; }
     public RelayCommand CancelCommand { get; }
     public RelayCommand UseFiveDayCommand { get; }
@@ -1924,9 +1930,19 @@ public sealed class MainViewModel : ObservableObject
                 return false; // 丢课了，拒绝应用
         }
 
+        // 保留原始"手动调整"条目的属性（蓝色标记）
+        var manualNotes = ScheduleEntries
+            .Where(e => e.Note == "手动调整")
+            .ToDictionary(e => e.Id, e => e.Note);
+
         ScheduleEntries.Clear();
         foreach (var entry in result.Entries.OrderBy(x => x.DayIndex).ThenBy(x => x.PeriodIndex))
+        {
+            // 恢复手动调整标记
+            if (manualNotes.TryGetValue(entry.Id, out var origNote))
+                entry.Note = origNote;
             ScheduleEntries.Add(entry);
+        }
         Conflicts.Clear();
         foreach (var conflict in result.Conflicts)
             Conflicts.Add(conflict);
@@ -2940,7 +2956,7 @@ public sealed class MainViewModel : ObservableObject
             await Task.Run(() => _excelService.ExportAll(BuildSchoolData(), exportPath));
             StatusMessage = $"已导出到 {exportPath}";
             Log($"导出 Excel: {exportPath}");
-            RequestShowMessage?.Invoke("导出成功", $"课表已导出到：\n{exportPath}");
+            RequestShowExportSuccess?.Invoke(exportPath);
         }
         catch (Exception ex)
         {
@@ -2970,6 +2986,40 @@ public sealed class MainViewModel : ObservableObject
         {
             ExportFolderPath = folder.Path;
             StatusMessage = $"导出位置已更改为: {folder.Path}";
+        }
+    }
+
+    /// <summary>打开输出文件夹</summary>
+    private void OpenExportFolder()
+    {
+        try
+        {
+            string path = ExportFolderPath;
+            if (!string.IsNullOrEmpty(path) && Directory.Exists(path))
+                System.Diagnostics.Process.Start("explorer.exe", path);
+            else
+                StatusMessage = "输出文件夹不存在";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"无法打开文件夹: {ex.Message}";
+        }
+    }
+
+    /// <summary>打开项目文件夹</summary>
+    private void OpenProjectFolder()
+    {
+        try
+        {
+            string path = ProjectDirectory;
+            if (!string.IsNullOrEmpty(path) && Directory.Exists(path))
+                System.Diagnostics.Process.Start("explorer.exe", path);
+            else
+                StatusMessage = "项目文件夹不存在";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"无法打开文件夹: {ex.Message}";
         }
     }
 

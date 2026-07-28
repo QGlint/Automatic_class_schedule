@@ -25,6 +25,7 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
             vm.RequestOpenProgressDialog += OnRequestOpenProgressDialog;
             vm.RequestCloseProgressDialog += OnRequestCloseProgressDialog;
             vm.RequestShowMessage += OnRequestShowMessage;
+            vm.RequestShowExportSuccess += OnRequestShowExportSuccess;
         }
     }
 
@@ -656,6 +657,30 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
             XamlRoot = this.XamlRoot
         };
         await dialog.ShowAsync();
+    }
+
+    private async void OnRequestShowExportSuccess(string exportPath)
+    {
+        var dialog = new ContentDialog
+        {
+            Title = "导出成功",
+            Content = $"课表已导出到：\n{exportPath}",
+            PrimaryButtonText = "打开输出位置",
+            CloseButtonText = "确认",
+            DefaultButton = ContentDialogButton.Close,
+            XamlRoot = this.XamlRoot
+        };
+        var result = await dialog.ShowAsync();
+        if (result == ContentDialogResult.Primary)
+        {
+            try
+            {
+                string dir = System.IO.Path.GetDirectoryName(exportPath) ?? exportPath;
+                if (System.IO.Directory.Exists(dir))
+                    System.Diagnostics.Process.Start("explorer.exe", dir);
+            }
+            catch { }
+        }
     }
 
     private void OnProgressDialogCancel(ContentDialog sender, ContentDialogButtonClickEventArgs args)
