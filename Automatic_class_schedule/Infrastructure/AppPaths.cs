@@ -34,6 +34,8 @@ public static class AppPaths
     public static string DataFile => Path.Combine(AppFolder, "school-data.json");
     public static string ExportFolder => Path.Combine(AppFolder, "Export");
     public static string TemplatesFile => Path.Combine(AppFolder, "templates.json");
+    /// <summary>教师生成配置全局默认文件</summary>
+    public static string TeacherGenDefaultFile => Path.Combine(AppFolder, "teacher-gen-default.json");
 
     // ========== 辅助方法 ==========
 

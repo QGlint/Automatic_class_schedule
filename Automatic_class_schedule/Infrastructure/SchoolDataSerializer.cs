@@ -26,6 +26,7 @@ public static class SchoolDataSerializer
         ProjectName = 0x0A,
         CacheRef = 0x0B,
         GradeConfigs = 0x0C,
+        TeacherGenConfig = 0x0D,
         End = 0xFF
     }
 
@@ -64,6 +65,13 @@ public static class SchoolDataSerializer
             WriteListSection(writer, SectionTag.TeacherAssignments, data.TeacherAssignments, WriteTeacherAssignment);
             WriteListSection(writer, SectionTag.Requirements, data.Requirements, WriteLessonRequirement);
             WriteListSection(writer, SectionTag.FixedLessons, data.FixedLessons, WriteFixedLesson);
+
+            // 教师生成配置（JSON字符串）
+            if (data.TeacherGenConfig != null)
+            {
+                string tgJson = System.Text.Json.JsonSerializer.Serialize(data.TeacherGenConfig);
+                WriteSection(writer, SectionTag.TeacherGenConfig, w => w.Write(tgJson));
+            }
 
             // ScheduleEntries — 大列表拆分到子缓存
             if (splitEntries)
@@ -285,6 +293,12 @@ public static class SchoolDataSerializer
                     break;
                 case SectionTag.ScheduleEntries:
                     ReadList(reader.ReadInt32(), reader, data.ScheduleEntries, ReadScheduleEntry);
+                    break;
+
+                case SectionTag.TeacherGenConfig:
+                    reader.ReadInt32(); // skip -1
+                    string tgJson = reader.ReadString();
+                    data.TeacherGenConfig = System.Text.Json.JsonSerializer.Deserialize<TeacherGenConfig>(tgJson);
                     break;
 
                 default:

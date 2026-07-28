@@ -23,6 +23,7 @@ public sealed class MainViewModel : ObservableObject
     private string _selectedViewMode = "年级总表";
     private string _projectFilePath = string.Empty;
     private string _projectName = string.Empty;
+    private TeacherGenConfig? _teacherGenConfig;
     private GradeInput? _selectedGradeInput;
     private SchoolClass? _selectedClass;
     private Teacher? _selectedTeacher;
@@ -2200,8 +2201,15 @@ public sealed class MainViewModel : ObservableObject
 
         var root = new Microsoft.UI.Xaml.Controls.StackPanel { Spacing = 6, Width = 780 };
 
+        // 科目配置区域
+        var allSubjectNames = Subjects.Select(s => s.Name).Distinct().OrderBy(n => n).ToList();
+
+        // 加载已保存的配置（项目 > 全局默认文件 > 内置默认）
+        var savedConfig = _teacherGenConfig ?? LoadGlobalTeacherGenConfig() ?? TeacherGenConfig.CreateDefault(allSubjectNames);
+        var savedGradeOverrides = savedConfig.GradeOverrides ?? new Dictionary<string, GradeGenOverride>();
+
         // 替换选项
-        var replaceCb = new Microsoft.UI.Xaml.Controls.CheckBox { Content = "替换现有教师配置（取消则追加）", IsChecked = true };
+        var replaceCb = new Microsoft.UI.Xaml.Controls.CheckBox { Content = "替换现有教师配置（取消则追加）", IsChecked = savedConfig.ReplaceExisting };
         root.Children.Add(replaceCb);
 
         // 年级选择
@@ -2214,9 +2222,6 @@ public sealed class MainViewModel : ObservableObject
             gradePanel.Children.Add(cb);
         }
         root.Children.Add(gradePanel);
-
-        // 科目配置区域
-        var allSubjectNames = Subjects.Select(s => s.Name).Distinct().OrderBy(n => n).ToList();
 
         var configControls = new Dictionary<(string Grade, string Subject), (Microsoft.UI.Xaml.Controls.ComboBox Mode, Microsoft.UI.Xaml.Controls.NumberBox Num)>();
         var gradeToggles = new Dictionary<string, Microsoft.UI.Xaml.Controls.ToggleSwitch>();
@@ -2254,13 +2259,21 @@ public sealed class MainViewModel : ObservableObject
                 modeCombo.Items.Add("按班");
                 modeCombo.Items.Add("按年级");
                 modeCombo.Items.Add("全校");
-                // 默认模式：全校 > 按年级 > 按班
-                modeCombo.SelectedIndex = IsDefaultSchoolWide(subj) ? 2 : IsDefaultByGrade(subj) ? 1 : 0;
+                // 从已保存配置加载模式
+                int savedMode = 0;
+                int savedVal = 0;
+                if (gradeKey == "全局" && savedConfig.GlobalConfigs.TryGetValue(subj, out var gs))
+                { savedMode = gs.Mode; savedVal = gs.Value; }
+                else if (gradeKey != "全局" && savedGradeOverrides.TryGetValue(gradeKey, out var go) && go.Configs.TryGetValue(subj, out var gsub))
+                { savedMode = gsub.Mode; savedVal = gsub.Value; }
+                else
+                { savedMode = IsDefaultSchoolWide(subj) ? 2 : IsDefaultByGrade(subj) ? 1 : 0; savedVal = GetDefaultTeacherConfig(subj, savedMode == 0); }
+                modeCombo.SelectedIndex = savedMode;
                 Microsoft.UI.Xaml.Controls.Grid.SetRow(modeCombo, rowIdx);
                 Microsoft.UI.Xaml.Controls.Grid.SetColumn(modeCombo, colOffset + 1);
                 grid.Children.Add(modeCombo);
 
-                int defaultVal = GetDefaultTeacherConfig(subj, modeCombo.SelectedIndex == 0);
+                int defaultVal = savedVal > 0 ? savedVal : GetDefaultTeacherConfig(subj, modeCombo.SelectedIndex == 0);
                 var numBox = new Microsoft.UI.Xaml.Controls.NumberBox
                 {
                     Value = defaultVal, Minimum = 1, Maximum = 30, SmallChange = 1,
@@ -2312,7 +2325,7 @@ public sealed class MainViewModel : ObservableObject
             var toggle = new Microsoft.UI.Xaml.Controls.ToggleSwitch
             {
                 Header = "自定义配置",
-                IsOn = false,
+                IsOn = savedGradeOverrides.TryGetValue(gName, out var savedOverride) && savedOverride.UseCustom,
                 Margin = new Microsoft.UI.Xaml.Thickness(0, 4, 0, 0)
             };
             gradeToggles[gName] = toggle;
@@ -2435,6 +2448,29 @@ public sealed class MainViewModel : ObservableObject
         StatusMessage = $"已生成 {newAssignments.Count} 位教师配置";
         Log($"生成教师: {newAssignments.Count} 位");
         OnPropertyChanged(nameof(TotalAssignments));
+
+        // 保存教师生成配置（项目级 + 全局默认）
+        var newConfig = new TeacherGenConfig { ReplaceExisting = replaceCb.IsChecked == true };
+        foreach (var subj in allSubjectNames)
+        {
+            if (configControls.TryGetValue(("全局", subj), out var gCtrl))
+                newConfig.GlobalConfigs[subj] = new SubjectGenSetting { Mode = gCtrl.Mode.SelectedIndex, Value = (int)gCtrl.Num.Value };
+        }
+        foreach (var grade in GradeInputs)
+        {
+            string gn = grade.GradeName;
+            bool customOn = gradeToggles.TryGetValue(gn, out var tg) && tg.IsOn;
+            var gradeOvr = new GradeGenOverride { UseCustom = customOn };
+            if (customOn)
+            {
+                foreach (var subj in allSubjectNames)
+                    if (configControls.TryGetValue((gn, subj), out var gc))
+                        gradeOvr.Configs[subj] = new SubjectGenSetting { Mode = gc.Mode.SelectedIndex, Value = (int)gc.Num.Value };
+            }
+            newConfig.GradeOverrides[gn] = gradeOvr;
+        }
+        _teacherGenConfig = newConfig;
+        SaveGlobalTeacherGenConfig(newConfig);
     }
 
     internal static bool IsDefaultByGrade(string subject)
@@ -2475,6 +2511,32 @@ public sealed class MainViewModel : ObservableObject
                 _ => 2
             };
         }
+    }
+
+    /// <summary>加载全局教师生成配置默认文件</summary>
+    private static TeacherGenConfig? LoadGlobalTeacherGenConfig()
+    {
+        try
+        {
+            string path = AppPaths.TeacherGenDefaultFile;
+            if (!File.Exists(path)) return null;
+            string json = File.ReadAllText(path);
+            return System.Text.Json.JsonSerializer.Deserialize<TeacherGenConfig>(json);
+        }
+        catch { return null; }
+    }
+
+    /// <summary>保存教师生成配置到全局默认文件</summary>
+    private static void SaveGlobalTeacherGenConfig(TeacherGenConfig config)
+    {
+        try
+        {
+            string path = AppPaths.TeacherGenDefaultFile;
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            var json = System.Text.Json.JsonSerializer.Serialize(config, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(path, json);
+        }
+        catch { /* 文件权限受限时静默跳过 */ }
     }
 
     private void GenerateTeachersWithConfig(ICollection<TeacherAssignment> assignments, IEnumerable<SubjectDefinition> subjects,
@@ -3267,6 +3329,9 @@ public sealed class MainViewModel : ObservableObject
         ReplaceCollection(FixedLessons, data.FixedLessons);
         ReplaceCollection(ScheduleEntries, data.ScheduleEntries);
 
+        // 加载教师生成配置
+        _teacherGenConfig = data.TeacherGenConfig;
+
         // 加载年级个性化配置
         if (data.GradeConfigs.Count > 0)
             ReplaceCollection(GradeConfigs, data.GradeConfigs);
@@ -3306,7 +3371,8 @@ public sealed class MainViewModel : ObservableObject
             TeacherAssignments = TeacherAssignments.ToList(),
             Requirements = Requirements.ToList(),
             FixedLessons = FixedLessons.ToList(),
-            ScheduleEntries = ScheduleEntries.ToList()
+            ScheduleEntries = ScheduleEntries.ToList(),
+            TeacherGenConfig = _teacherGenConfig
         };
     }
 

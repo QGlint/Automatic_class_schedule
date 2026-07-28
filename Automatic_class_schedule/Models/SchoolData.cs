@@ -13,4 +13,6 @@ public sealed class SchoolData
     public List<LessonRequirement> Requirements { get; set; } = new();
     public List<FixedLesson> FixedLessons { get; set; } = new();
     public List<ScheduleEntry> ScheduleEntries { get; set; } = new();
+    /// <summary>教师生成配置（随项目保存）</summary>
+    public TeacherGenConfig? TeacherGenConfig { get; set; }
 }
