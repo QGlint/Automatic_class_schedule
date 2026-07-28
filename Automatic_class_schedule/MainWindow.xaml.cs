@@ -43,6 +43,16 @@ public sealed partial class MainWindow : Window
 
         var appWindow = GetAppWindow();
         appWindow.Closing += OnWindowClosing;
+
+        // 设置窗口图标
+        try
+        {
+            string iconPath = System.IO.Path.Combine(
+                Windows.ApplicationModel.Package.Current.InstalledLocation.Path, "Assets", "ACS.ico");
+            if (System.IO.File.Exists(iconPath))
+                appWindow.SetIcon(iconPath);
+        }
+        catch { }
     }
 
     /// <summary>更新当前窗口关联的项目路径</summary>

@@ -41,6 +41,8 @@ public sealed class MainViewModel : ObservableObject
     private string _currentSubjectGradeName = string.Empty;
     private CancellationTokenSource? _cts;
     private string _selectedCourseTemplate = string.Empty;
+    private bool _isCourseTemplateCustom;
+    private bool _suppressCourseCustomMark;
     private bool _isToolbarExpanded = true;
     private bool _hasActiveProject;
     private byte[]? _savedSnapshot;
@@ -66,9 +68,29 @@ public sealed class MainViewModel : ObservableObject
         Classes = new ObservableCollection<SchoolClass>();
         Teachers = new ObservableCollection<Teacher>();
         Subjects = new ObservableCollection<SubjectDefinition>();
+        Subjects.CollectionChanged += (_, e) =>
+        {
+            if (e.NewItems != null)
+                foreach (SubjectDefinition item in e.NewItems)
+                    item.PropertyChanged += OnCourseItemChanged;
+            if (e.OldItems != null)
+                foreach (SubjectDefinition item in e.OldItems)
+                    item.PropertyChanged -= OnCourseItemChanged;
+            if (!_suppressCourseCustomMark) MarkCourseCustom();
+        };
         TeacherAssignments = new ObservableCollection<TeacherAssignment>();
         Requirements = new ObservableCollection<LessonRequirement>();
         FixedLessons = new ObservableCollection<FixedLesson>();
+        FixedLessons.CollectionChanged += (_, e) =>
+        {
+            if (e.NewItems != null)
+                foreach (FixedLesson item in e.NewItems)
+                    item.PropertyChanged += OnCourseItemChanged;
+            if (e.OldItems != null)
+                foreach (FixedLesson item in e.OldItems)
+                    item.PropertyChanged -= OnCourseItemChanged;
+            if (!_suppressCourseCustomMark) MarkCourseCustom();
+        };
         ScheduleEntries = new ObservableCollection<ScheduleEntry>();
         VisibleScheduleEntries = new ObservableCollection<ScheduleEntry>();
         Conflicts = new ObservableCollection<ScheduleConflict>();
@@ -1108,7 +1130,40 @@ public sealed class MainViewModel : ObservableObject
     public string SelectedCourseTemplate
     {
         get => _selectedCourseTemplate;
-        set => SetProperty(ref _selectedCourseTemplate, value);
+        set
+        {
+            if (SetProperty(ref _selectedCourseTemplate, value) && !string.IsNullOrEmpty(value))
+            {
+                IsCourseTemplateCustom = false;
+                LoadCourseTemplate();
+            }
+        }
+    }
+
+    /// <summary>课程配置是否已修改为自定义状态</summary>
+    public bool IsCourseTemplateCustom
+    {
+        get => _isCourseTemplateCustom;
+        set => SetProperty(ref _isCourseTemplateCustom, value);
+    }
+
+    /// <summary>课程配置项属性变化时触发自定义标记</summary>
+    private void OnCourseItemChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (!_suppressCourseCustomMark)
+            MarkCourseCustom();
+    }
+
+    /// <summary>标记课程配置为自定义（同时取消下拉选中，使重新选择可触发加载）</summary>
+    private void MarkCourseCustom()
+    {
+        if (_suppressCourseCustomMark) return;
+        IsCourseTemplateCustom = true;
+        if (_selectedCourseTemplate != string.Empty)
+        {
+            _selectedCourseTemplate = string.Empty;
+            OnPropertyChanged(nameof(SelectedCourseTemplate));
+        }
     }
 
     public string CurrentSubjectGradeName
@@ -1387,8 +1442,11 @@ public sealed class MainViewModel : ObservableObject
             return;
         }
 
+        _suppressCourseCustomMark = true;
         var json = File.ReadAllText(path);
         LoadTemplateFromJson(json);
+        _suppressCourseCustomMark = false;
+        IsCourseTemplateCustom = false;
         StatusMessage = $"已载入模板: {_selectedCourseTemplate}";
     }
 
@@ -2257,66 +2315,97 @@ public sealed class MainViewModel : ObservableObject
         var templatePanel = new Microsoft.UI.Xaml.Controls.StackPanel { Orientation = Microsoft.UI.Xaml.Controls.Orientation.Horizontal, Spacing = 8 };
         var templateCombo = new Microsoft.UI.Xaml.Controls.ComboBox { MinWidth = 160, FontSize = 13 };
         foreach (var tn in templateNames) templateCombo.Items.Add(tn);
-        templateCombo.Items.Add("自定义");
         templateCombo.SelectedIndex = 0;
+
+        // "自定义"覆盖层（只显示不可选）
+        var customOverlay = new Microsoft.UI.Xaml.Controls.TextBlock
+        {
+            Text = "自定义",
+            VerticalAlignment = Microsoft.UI.Xaml.VerticalAlignment.Center,
+            Margin = new Microsoft.UI.Xaml.Thickness(10, 0, 0, 0),
+            FontSize = 13,
+            Visibility = Microsoft.UI.Xaml.Visibility.Collapsed,
+            IsHitTestVisible = false
+        };
+        var comboGrid = new Microsoft.UI.Xaml.Controls.Grid();
+        comboGrid.Children.Add(templateCombo);
+        comboGrid.Children.Add(customOverlay);
 
         // 标记已修改 → 显示"自定义"
         void MarkCustom()
         {
-            if (!isLoadingTemplate && templateCombo.SelectedItem is string cur && cur != "自定义")
+            if (!isLoadingTemplate)
             {
                 isLoadingTemplate = true;
-                templateCombo.SelectedItem = "自定义";
+                templateCombo.SelectedIndex = -1;
+                customOverlay.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
                 isLoadingTemplate = false;
             }
         }
 
         var saveTemplateBtn = new Microsoft.UI.Xaml.Controls.Button { Content = "保存方案", FontSize = 12 };
-        saveTemplateBtn.Click += async (_, _) =>
+        // 内联保存区域（避免嵌套ContentDialog导致闪退）
+        var saveArea = new Microsoft.UI.Xaml.Controls.StackPanel
         {
-            // 弹出命名对话框
-            var nameBox = new Microsoft.UI.Xaml.Controls.TextBox { MinWidth = 200, PlaceholderText = "输入方案名称" };
-            if (templateCombo.SelectedItem is string current && current != "自定义")
-                nameBox.Text = current;
-            var nameDialog = new Microsoft.UI.Xaml.Controls.ContentDialog
-            {
-                Title = "保存教师配置方案",
-                Content = nameBox,
-                PrimaryButtonText = "保存",
-                CloseButtonText = "取消",
-                DefaultButton = Microsoft.UI.Xaml.Controls.ContentDialogButton.Primary,
-                XamlRoot = App.CurrentWindow!.Content.XamlRoot
-            };
-            var dr = await nameDialog.ShowAsync();
-            if (dr != Microsoft.UI.Xaml.Controls.ContentDialogResult.Primary) return;
-            string tName = nameBox.Text.Trim();
+            Orientation = Microsoft.UI.Xaml.Controls.Orientation.Horizontal,
+            Spacing = 6,
+            Visibility = Microsoft.UI.Xaml.Visibility.Collapsed,
+            Margin = new Microsoft.UI.Xaml.Thickness(0, 4, 0, 0)
+        };
+        var saveNameBox = new Microsoft.UI.Xaml.Controls.TextBox { MinWidth = 160, PlaceholderText = "输入方案名称", FontSize = 12 };
+        var saveConfirmBtn = new Microsoft.UI.Xaml.Controls.Button { Content = "确认保存", FontSize = 12 };
+        var saveCancelBtn = new Microsoft.UI.Xaml.Controls.Button { Content = "取消", FontSize = 12 };
+        saveArea.Children.Add(new Microsoft.UI.Xaml.Controls.TextBlock { Text = "方案名称:", VerticalAlignment = Microsoft.UI.Xaml.VerticalAlignment.Center, FontSize = 12 });
+        saveArea.Children.Add(saveNameBox);
+        saveArea.Children.Add(saveConfirmBtn);
+        saveArea.Children.Add(saveCancelBtn);
+        
+        saveTemplateBtn.Click += (_, _) =>
+        {
+            if (templateCombo.SelectedItem is string cur && cur != "自定义")
+                saveNameBox.Text = cur;
+            else
+                saveNameBox.Text = "";
+            saveArea.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
+            saveNameBox.Focus(Microsoft.UI.Xaml.FocusState.Programmatic);
+        };
+        saveCancelBtn.Click += (_, _) =>
+        {
+            saveArea.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+        };
+        saveConfirmBtn.Click += (_, _) =>
+        {
+            string tName = saveNameBox.Text.Trim();
             if (string.IsNullOrWhiteSpace(tName) || tName == "自定义")
             {
-                StatusMessage = "方案名称无效，不能保存为‘自定义’";
+                StatusMessage = "方案名称无效，不能保存为'自定义'";
                 return;
             }
             var cfg = CollectTeacherGenConfig(allSubjectNames, configControls, gradeToggles, replaceCb.IsChecked == true);
             SaveTeacherGenTemplate(tName, cfg);
             SaveGlobalTeacherGenConfig(cfg);
-            // 更新下拉列表
             if (!templateCombo.Items.Contains(tName))
-                templateCombo.Items.Insert(templateCombo.Items.Count - 1, tName); // 插在"自定义"前
+                templateCombo.Items.Add(tName);
             isLoadingTemplate = true;
             templateCombo.SelectedItem = tName;
+            customOverlay.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             isLoadingTemplate = false;
+            saveArea.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             StatusMessage = $"已保存教师配置方案: {tName}";
         };
         templatePanel.Children.Add(new Microsoft.UI.Xaml.Controls.TextBlock { Text = "方案:", VerticalAlignment = Microsoft.UI.Xaml.VerticalAlignment.Center, FontSize = 13 });
-        templatePanel.Children.Add(templateCombo);
+        templatePanel.Children.Add(comboGrid);
         templatePanel.Children.Add(saveTemplateBtn);
         root.Children.Add(templatePanel);
+        root.Children.Add(saveArea);
 
         // 模板切换自动加载
         templateCombo.SelectionChanged += (_, _) =>
         {
             if (isLoadingTemplate) return;
-            if (templateCombo.SelectedItem is string selName && selName != "自定义")
+            if (templateCombo.SelectedItem is string selName)
             {
+                customOverlay.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
                 var loaded = LoadTeacherGenTemplate(selName);
                 if (loaded != null)
                 {
@@ -3525,6 +3614,7 @@ public sealed class MainViewModel : ObservableObject
 
     private void ApplySchoolData(SchoolData data)
     {
+        _suppressCourseCustomMark = true;
         DaysPerWeek = data.Settings.DaysPerWeek;
         PeriodsPerDay = data.Settings.PeriodsPerDay;
         MorningPeriods = data.Settings.MorningPeriods;
@@ -3560,6 +3650,8 @@ public sealed class MainViewModel : ObservableObject
         SelectedFixedLesson = FixedLessons.FirstOrDefault();
         SelectedTeacherAssignment = TeacherAssignments.FirstOrDefault();
         SelectedSettingsTabIndex = 0;
+        _suppressCourseCustomMark = false;
+        IsCourseTemplateCustom = false;
     }
 
     private SchoolData BuildSchoolData()

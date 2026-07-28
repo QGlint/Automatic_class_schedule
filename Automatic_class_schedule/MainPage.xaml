@@ -522,9 +522,15 @@
                         <Border Style="{StaticResource SectionBorderStyle}" Margin="0,0,0,8">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="配置方案" VerticalAlignment="Center" Margin="0,0,8,0" />
-                                <ComboBox ItemsSource="{Binding CourseTemplates}" SelectedItem="{Binding SelectedCourseTemplate, Mode=TwoWay}"
-                                          Width="180" Margin="0,0,8,0" />
-                                <Button Content="载入" Command="{Binding LoadCourseTemplateCommand}" Style="{StaticResource RoundButtonBase}" Background="#FF214E78" Foreground="White" Margin="0,0,6,0" />
+                                <Grid>
+                                    <ComboBox ItemsSource="{Binding CourseTemplates}" SelectedItem="{Binding SelectedCourseTemplate, Mode=TwoWay}"
+                                              Width="180" Margin="0,0,8,0" />
+                                    <Border Background="White" VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
+                                            Margin="3,3,30,3" IsHitTestVisible="False"
+                                            Visibility="{Binding IsCourseTemplateCustom, Converter={StaticResource BoolToVisibility}}">
+                                        <TextBlock Text="自定义" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="13" />
+                                    </Border>
+                                </Grid>
                                 <Button Content="保存配置" Click="SaveTemplateButton_Click" Style="{StaticResource RoundButtonBase}" Background="#FFF0F5FF" Foreground="#FF214E78" Margin="0,0,6,0" />
                                 <Button Content="删除" Command="{Binding DeleteCourseTemplateCommand}" Style="{StaticResource RoundButtonBase}" Background="#FFF0F5FF" Foreground="#FFCC4444" />
                             </StackPanel>
