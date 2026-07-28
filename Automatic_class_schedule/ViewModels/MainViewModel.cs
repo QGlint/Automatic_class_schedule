@@ -1455,6 +1455,22 @@ public sealed class MainViewModel : ObservableObject
         StatusMessage = "换课失败：存在冲突";
     }
 
+    /// <summary>右键切换课程保留状态（蓝色标记）</summary>
+    public void ToggleEntryProtected(ScheduleEntry entry)
+    {
+        if (entry.Note == "手动调整")
+        {
+            entry.Note = string.Empty;
+            StatusMessage = $"已取消保留: {entry.Subject}-{entry.TeacherName}";
+        }
+        else
+        {
+            entry.Note = "手动调整";
+            StatusMessage = $"已标记保留: {entry.Subject}-{entry.TeacherName}（局部调整时不会被移动）";
+        }
+        RefreshViews();
+    }
+
     /// <summary>拖拽后最小变化重排</summary>
     public async Task DragRescheduleAsync(ScheduleEntry draggedEntry, int targetDay, int targetPeriod, ScheduleEntry? targetEntry, string targetClassName = "")
     {

@@ -862,7 +862,7 @@
                         <StackPanel>
                             <!-- 拖拽提示 -->
                             <Border Background="#FFFDF6E3" Padding="8,4" Margin="0,0,0,4">
-                                <TextBlock Text="提示：拖动课程可调整位置，冲突课程将标红显示" FontSize="12" Foreground="#FF8B6914" />
+                                <TextBlock Text="提示：拖动课程可调整位置，右键课程可标记/取消保留（蓝色），保留的课程在局部调整时不会被移动，冲突课程将标红显示" FontSize="12" Foreground="#FF8B6914" TextWrapping="Wrap" />
                             </Border>
                             <!-- 双层表头 -->
                             <Border Background="#FFF0F5FF" BorderBrush="#FFD9E1EC" BorderThickness="1,1,1,0">
@@ -966,7 +966,7 @@
                             </Grid.RowDefinitions>
                             <!-- 拖拽引导提示 -->
                             <Border Background="#FFF0F5FF" Padding="8,4">
-                                <TextBlock Text="提示：如需调整课程位置，请切换到年级总表进行拖动" FontSize="12" Foreground="#FF556070" />
+                                <TextBlock Text="提示：右键课程可标记/取消保留（蓝色），保留的课程在局部调整时不会被移动。拖动请切换到年级总表" FontSize="12" Foreground="#FF556070" TextWrapping="Wrap" />
                             </Border>
 
                             <Border Grid.Row="1" Background="#FFF0F5FF" BorderBrush="#FFD9E1EC" BorderThickness="1,1,1,0">
@@ -1024,7 +1024,8 @@
                                                     </ItemsControl.ItemsPanel>
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate>
-                                                            <Border Width="Auto" MinWidth="100" MinHeight="36" BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,0" Padding="4">
+                                                            <Border Width="Auto" MinWidth="100" MinHeight="36" BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,0" Padding="4"
+                                                                    RightTapped="ScheduleCell_RightTapped">
                                                                 <Grid>
                                                                     <Border Background="#FFF5F5F5"
                                                                             Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibility}}" />
@@ -1111,7 +1112,8 @@
                                                     </ItemsControl.ItemsPanel>
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate>
-                                                            <Border Width="120" MinHeight="36" BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,0" Padding="4">
+                                                            <Border Width="120" MinHeight="36" BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,0" Padding="4"
+                                                                    RightTapped="ScheduleCell_RightTapped">
                                                                 <Grid>
                                                                     <Border Background="#FFF5F5F5"
                                                                             Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibility}}" />

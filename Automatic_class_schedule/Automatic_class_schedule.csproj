@@ -15,6 +15,7 @@
     <EnableMsixTooling>true</EnableMsixTooling>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationIcon>Assets\ACS.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>

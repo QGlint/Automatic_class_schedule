@@ -578,6 +578,29 @@ public sealed partial class MainPage : Page, Infrastructure.IRuntimeInspectable
         }
     }
 
+    private void ScheduleCell_RightTapped(object sender, Microsoft.UI.Xaml.Input.RightTappedRoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement element) return;
+        if (element.DataContext is not ScheduleGridCell cell) return;
+        if (cell.Entry == null || cell.IsEmpty) return;
+
+        var vm = (MainViewModel)DataContext;
+        bool isProtected = cell.Entry.Note == "手动调整";
+
+        var flyout = new MenuFlyout();
+        var item = new MenuFlyoutItem
+        {
+            Text = isProtected ? "取消保留（恢复普通状态）" : "标记为保留（局部调整不变）"
+        };
+        item.Click += (_, _) =>
+        {
+            vm.ToggleEntryProtected(cell.Entry!);
+        };
+        flyout.Items.Add(item);
+        flyout.ShowAt(element, e.GetPosition(element));
+        e.Handled = true;
+    }
+
     // ===== 基础设置页事件处理 =====
 
     private void EveningDayButton_Click(object sender, RoutedEventArgs e)
