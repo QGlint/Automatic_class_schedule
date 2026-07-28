@@ -2217,49 +2217,91 @@ public sealed class MainViewModel : ObservableObject
         var templateNames = GetTeacherGenTemplateNames();
         if (templateNames.Count == 0)
         {
-            // 首次使用：创建"初中标准"默认模板
             var defaultCfg = TeacherGenConfig.CreateDefault(allSubjectNames);
             SaveTeacherGenTemplate("初中标准", defaultCfg);
             templateNames = new List<string> { "初中标准" };
         }
+        bool isLoadingTemplate = false; // 防止加载时触发"自定义"
         var templatePanel = new Microsoft.UI.Xaml.Controls.StackPanel { Orientation = Microsoft.UI.Xaml.Controls.Orientation.Horizontal, Spacing = 8 };
         var templateCombo = new Microsoft.UI.Xaml.Controls.ComboBox { MinWidth = 160, FontSize = 13 };
         foreach (var tn in templateNames) templateCombo.Items.Add(tn);
+        templateCombo.Items.Add("自定义");
         templateCombo.SelectedIndex = 0;
-        var saveTemplateBtn = new Microsoft.UI.Xaml.Controls.Button { Content = "保存方案", FontSize = 12 };
-        saveTemplateBtn.Click += (_, _) =>
+
+        // 标记已修改 → 显示"自定义"
+        void MarkCustom()
         {
-            if (templateCombo.SelectedItem is string tName && !string.IsNullOrWhiteSpace(tName))
+            if (!isLoadingTemplate && templateCombo.SelectedItem is string cur && cur != "自定义")
             {
-                var cfg = CollectTeacherGenConfig(allSubjectNames, configControls, gradeToggles, replaceCb.IsChecked == true);
-                SaveTeacherGenTemplate(tName, cfg);
-                SaveGlobalTeacherGenConfig(cfg);
-                StatusMessage = $"已保存教师配置方案: {tName}";
+                isLoadingTemplate = true;
+                templateCombo.SelectedItem = "自定义";
+                isLoadingTemplate = false;
             }
+        }
+
+        var saveTemplateBtn = new Microsoft.UI.Xaml.Controls.Button { Content = "保存方案", FontSize = 12 };
+        saveTemplateBtn.Click += async (_, _) =>
+        {
+            // 弹出命名对话框
+            var nameBox = new Microsoft.UI.Xaml.Controls.TextBox { MinWidth = 200, PlaceholderText = "输入方案名称" };
+            if (templateCombo.SelectedItem is string current && current != "自定义")
+                nameBox.Text = current;
+            var nameDialog = new Microsoft.UI.Xaml.Controls.ContentDialog
+            {
+                Title = "保存教师配置方案",
+                Content = nameBox,
+                PrimaryButtonText = "保存",
+                CloseButtonText = "取消",
+                DefaultButton = Microsoft.UI.Xaml.Controls.ContentDialogButton.Primary,
+                XamlRoot = App.CurrentWindow!.Content.XamlRoot
+            };
+            var dr = await nameDialog.ShowAsync();
+            if (dr != Microsoft.UI.Xaml.Controls.ContentDialogResult.Primary) return;
+            string tName = nameBox.Text.Trim();
+            if (string.IsNullOrWhiteSpace(tName) || tName == "自定义")
+            {
+                StatusMessage = "方案名称无效，不能保存为‘自定义’";
+                return;
+            }
+            var cfg = CollectTeacherGenConfig(allSubjectNames, configControls, gradeToggles, replaceCb.IsChecked == true);
+            SaveTeacherGenTemplate(tName, cfg);
+            SaveGlobalTeacherGenConfig(cfg);
+            // 更新下拉列表
+            if (!templateCombo.Items.Contains(tName))
+                templateCombo.Items.Insert(templateCombo.Items.Count - 1, tName); // 插在"自定义"前
+            isLoadingTemplate = true;
+            templateCombo.SelectedItem = tName;
+            isLoadingTemplate = false;
+            StatusMessage = $"已保存教师配置方案: {tName}";
         };
         templatePanel.Children.Add(new Microsoft.UI.Xaml.Controls.TextBlock { Text = "方案:", VerticalAlignment = Microsoft.UI.Xaml.VerticalAlignment.Center, FontSize = 13 });
         templatePanel.Children.Add(templateCombo);
         templatePanel.Children.Add(saveTemplateBtn);
         root.Children.Add(templatePanel);
 
-        // 模板切换加载
+        // 模板切换自动加载
         templateCombo.SelectionChanged += (_, _) =>
         {
-            if (templateCombo.SelectedItem is string selName)
+            if (isLoadingTemplate) return;
+            if (templateCombo.SelectedItem is string selName && selName != "自定义")
             {
                 var loaded = LoadTeacherGenTemplate(selName);
                 if (loaded != null)
                 {
+                    isLoadingTemplate = true;
                     foreach (var subj in allSubjectNames)
                     {
                         if (loaded.GlobalConfigs.TryGetValue(subj, out var gs) && configControls.TryGetValue(("全局", subj), out var ctrl))
                         { ctrl.Mode.SelectedIndex = gs.Mode; ctrl.Num.Value = gs.Value; }
                     }
                     replaceCb.IsChecked = loaded.ReplaceExisting;
+                    isLoadingTemplate = false;
                 }
             }
         };
 
+        replaceCb.Checked += (_, _) => MarkCustom();
+        replaceCb.Unchecked += (_, _) => MarkCustom();
         root.Children.Add(replaceCb);
 
         // 年级选择
@@ -2336,10 +2378,11 @@ public sealed class MainViewModel : ObservableObject
 
                 if (gradeKey == "全局")
                 {
-                    // 全局页模式切换联动年级页显示/隐藏
+                    // 全局页模式切换联动年级页显示/隐藏 + 标记自定义
                     string subjectName = subj;
                     modeCombo.SelectionChanged += (_, _) =>
                     {
+                        MarkCustom();
                         bool isSchoolWide = modeCombo.SelectedIndex == 2;
                         if (gradeSubjectElements.TryGetValue(subjectName, out var elems))
                         {
@@ -2347,6 +2390,7 @@ public sealed class MainViewModel : ObservableObject
                             foreach (var el in elems) el.Visibility = vis;
                         }
                     };
+                    numBox.ValueChanged += (_, _) => MarkCustom();
                 }
                 else
                 {
