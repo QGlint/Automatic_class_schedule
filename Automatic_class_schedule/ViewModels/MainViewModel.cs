@@ -2208,8 +2208,58 @@ public sealed class MainViewModel : ObservableObject
         var savedConfig = _teacherGenConfig ?? LoadGlobalTeacherGenConfig() ?? TeacherGenConfig.CreateDefault(allSubjectNames);
         var savedGradeOverrides = savedConfig.GradeOverrides ?? new Dictionary<string, GradeGenOverride>();
 
-        // 替换选项
+        // 替换选项（提前声明，模板事件需要引用）
         var replaceCb = new Microsoft.UI.Xaml.Controls.CheckBox { Content = "替换现有教师配置（取消则追加）", IsChecked = savedConfig.ReplaceExisting };
+        var configControls = new Dictionary<(string Grade, string Subject), (Microsoft.UI.Xaml.Controls.ComboBox Mode, Microsoft.UI.Xaml.Controls.NumberBox Num)>();
+        var gradeToggles = new Dictionary<string, Microsoft.UI.Xaml.Controls.ToggleSwitch>();
+
+        // 模板选择器
+        var templateNames = GetTeacherGenTemplateNames();
+        if (templateNames.Count == 0)
+        {
+            // 首次使用：创建"初中标准"默认模板
+            var defaultCfg = TeacherGenConfig.CreateDefault(allSubjectNames);
+            SaveTeacherGenTemplate("初中标准", defaultCfg);
+            templateNames = new List<string> { "初中标准" };
+        }
+        var templatePanel = new Microsoft.UI.Xaml.Controls.StackPanel { Orientation = Microsoft.UI.Xaml.Controls.Orientation.Horizontal, Spacing = 8 };
+        var templateCombo = new Microsoft.UI.Xaml.Controls.ComboBox { MinWidth = 160, FontSize = 13 };
+        foreach (var tn in templateNames) templateCombo.Items.Add(tn);
+        templateCombo.SelectedIndex = 0;
+        var saveTemplateBtn = new Microsoft.UI.Xaml.Controls.Button { Content = "保存方案", FontSize = 12 };
+        saveTemplateBtn.Click += (_, _) =>
+        {
+            if (templateCombo.SelectedItem is string tName && !string.IsNullOrWhiteSpace(tName))
+            {
+                var cfg = CollectTeacherGenConfig(allSubjectNames, configControls, gradeToggles, replaceCb.IsChecked == true);
+                SaveTeacherGenTemplate(tName, cfg);
+                SaveGlobalTeacherGenConfig(cfg);
+                StatusMessage = $"已保存教师配置方案: {tName}";
+            }
+        };
+        templatePanel.Children.Add(new Microsoft.UI.Xaml.Controls.TextBlock { Text = "方案:", VerticalAlignment = Microsoft.UI.Xaml.VerticalAlignment.Center, FontSize = 13 });
+        templatePanel.Children.Add(templateCombo);
+        templatePanel.Children.Add(saveTemplateBtn);
+        root.Children.Add(templatePanel);
+
+        // 模板切换加载
+        templateCombo.SelectionChanged += (_, _) =>
+        {
+            if (templateCombo.SelectedItem is string selName)
+            {
+                var loaded = LoadTeacherGenTemplate(selName);
+                if (loaded != null)
+                {
+                    foreach (var subj in allSubjectNames)
+                    {
+                        if (loaded.GlobalConfigs.TryGetValue(subj, out var gs) && configControls.TryGetValue(("全局", subj), out var ctrl))
+                        { ctrl.Mode.SelectedIndex = gs.Mode; ctrl.Num.Value = gs.Value; }
+                    }
+                    replaceCb.IsChecked = loaded.ReplaceExisting;
+                }
+            }
+        };
+
         root.Children.Add(replaceCb);
 
         // 年级选择
@@ -2223,8 +2273,6 @@ public sealed class MainViewModel : ObservableObject
         }
         root.Children.Add(gradePanel);
 
-        var configControls = new Dictionary<(string Grade, string Subject), (Microsoft.UI.Xaml.Controls.ComboBox Mode, Microsoft.UI.Xaml.Controls.NumberBox Num)>();
-        var gradeToggles = new Dictionary<string, Microsoft.UI.Xaml.Controls.ToggleSwitch>();
         // 年级页中每个科目的UI元素（用于动态显示/隐藏）
         var gradeSubjectElements = new Dictionary<string, List<Microsoft.UI.Xaml.UIElement>>();
 
@@ -2450,11 +2498,23 @@ public sealed class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(TotalAssignments));
 
         // 保存教师生成配置（项目级 + 全局默认）
-        var newConfig = new TeacherGenConfig { ReplaceExisting = replaceCb.IsChecked == true };
+        var newConfig = CollectTeacherGenConfig(allSubjectNames, configControls, gradeToggles, replaceCb.IsChecked == true);
+        _teacherGenConfig = newConfig;
+        SaveGlobalTeacherGenConfig(newConfig);
+    }
+
+    /// <summary>从对话框控件收集教师生成配置</summary>
+    private TeacherGenConfig CollectTeacherGenConfig(
+        List<string> allSubjectNames,
+        Dictionary<(string Grade, string Subject), (Microsoft.UI.Xaml.Controls.ComboBox Mode, Microsoft.UI.Xaml.Controls.NumberBox Num)> configControls,
+        Dictionary<string, Microsoft.UI.Xaml.Controls.ToggleSwitch> gradeToggles,
+        bool replaceExisting)
+    {
+        var config = new TeacherGenConfig { ReplaceExisting = replaceExisting };
         foreach (var subj in allSubjectNames)
         {
             if (configControls.TryGetValue(("全局", subj), out var gCtrl))
-                newConfig.GlobalConfigs[subj] = new SubjectGenSetting { Mode = gCtrl.Mode.SelectedIndex, Value = (int)gCtrl.Num.Value };
+                config.GlobalConfigs[subj] = new SubjectGenSetting { Mode = gCtrl.Mode.SelectedIndex, Value = (int)gCtrl.Num.Value };
         }
         foreach (var grade in GradeInputs)
         {
@@ -2467,10 +2527,9 @@ public sealed class MainViewModel : ObservableObject
                     if (configControls.TryGetValue((gn, subj), out var gc))
                         gradeOvr.Configs[subj] = new SubjectGenSetting { Mode = gc.Mode.SelectedIndex, Value = (int)gc.Num.Value };
             }
-            newConfig.GradeOverrides[gn] = gradeOvr;
+            config.GradeOverrides[gn] = gradeOvr;
         }
-        _teacherGenConfig = newConfig;
-        SaveGlobalTeacherGenConfig(newConfig);
+        return config;
     }
 
     internal static bool IsDefaultByGrade(string subject)
@@ -2513,7 +2572,7 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
-    /// <summary>加载全局教师生成配置默认文件</summary>
+    /// <summary>加载全局教师生成配置默认文件（最近使用的模板）</summary>
     private static TeacherGenConfig? LoadGlobalTeacherGenConfig()
     {
         try
@@ -2537,6 +2596,51 @@ public sealed class MainViewModel : ObservableObject
             File.WriteAllText(path, json);
         }
         catch { /* 文件权限受限时静默跳过 */ }
+    }
+
+    // ========== 教师配置模板系统 ==========
+
+    private static string GetTeacherGenTemplatePath(string name)
+    {
+        string safe = string.Join("_", name.Split(Path.GetInvalidFileNameChars()));
+        return Path.Combine(Path.GetDirectoryName(AppPaths.TeacherGenDefaultFile)!, $"teacher-gen_{safe}.json");
+    }
+
+    /// <summary>获取所有教师配置模板名称</summary>
+    private static List<string> GetTeacherGenTemplateNames()
+    {
+        try
+        {
+            string dir = Path.GetDirectoryName(AppPaths.TeacherGenDefaultFile)!;
+            if (!Directory.Exists(dir)) return new List<string>();
+            return Directory.GetFiles(dir, "teacher-gen_*.json")
+                .Select(f => Path.GetFileNameWithoutExtension(f).Replace("teacher-gen_", ""))
+                .OrderBy(n => n).ToList();
+        }
+        catch { return new List<string>(); }
+    }
+
+    private static TeacherGenConfig? LoadTeacherGenTemplate(string name)
+    {
+        try
+        {
+            string path = GetTeacherGenTemplatePath(name);
+            if (!File.Exists(path)) return null;
+            return System.Text.Json.JsonSerializer.Deserialize<TeacherGenConfig>(File.ReadAllText(path));
+        }
+        catch { return null; }
+    }
+
+    private static void SaveTeacherGenTemplate(string name, TeacherGenConfig config)
+    {
+        try
+        {
+            string path = GetTeacherGenTemplatePath(name);
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            var json = System.Text.Json.JsonSerializer.Serialize(config, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(path, json);
+        }
+        catch { /* 静默跳过 */ }
     }
 
     private void GenerateTeachersWithConfig(ICollection<TeacherAssignment> assignments, IEnumerable<SubjectDefinition> subjects,

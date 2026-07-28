@@ -526,21 +526,23 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
                         }
                 }
 
-                // C10: 同班同时段同科目一周出现>=3次惩罚（软约束）
-                for (int p = 1; p <= periods; p++)
+                // C10: 同班同时段同科目一周出现>=3次惩罚（软约束，仅初始生成时生效）
+                if (relaxLevel == 0)
                 {
-                    List<ILiteral> periodVars = new();
-                    for (int d = 0; d < days; d++)
-                        foreach (int idx in subjIndices)
-                            periodVars.Add(x[idx, d, p]);
-                    // 只在可能出现3次以上时才添加（周课时>=3）
-                    if (periodVars.Count >= 3)
+                    for (int p = 1; p <= periods; p++)
                     {
-                        var ge3 = model.NewBoolVar($"sameSlot3_{group.Key}_{subject}_{p}");
-                        model.Add(LinearExpr.Sum(periodVars) >= 3).OnlyEnforceIf(ge3);
-                        model.Add(LinearExpr.Sum(periodVars) < 3).OnlyEnforceIf(ge3.Not());
-                        objTerms.Add(ge3);
-                        objWeights.Add(-4);
+                        List<ILiteral> periodVars = new();
+                        for (int d = 0; d < days; d++)
+                            foreach (int idx in subjIndices)
+                                periodVars.Add(x[idx, d, p]);
+                        if (periodVars.Count >= 3)
+                        {
+                            var ge3 = model.NewBoolVar($"sameSlot3_{group.Key}_{subject}_{p}");
+                            model.Add(LinearExpr.Sum(periodVars) >= 3).OnlyEnforceIf(ge3);
+                            model.Add(LinearExpr.Sum(periodVars) < 3).OnlyEnforceIf(ge3.Not());
+                            objTerms.Add(ge3);
+                            objWeights.Add(-4);
+                        }
                     }
                 }
             }
@@ -565,8 +567,8 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
         model.Maximize(LinearExpr.WeightedSum(objTerms.ToArray(), objWeights.ToArray()));
 
         CpSolver solver = new();
-        int timeLimit = relaxLevel >= 1 ? 15 : 30;
-        solver.StringParameters = $"max_time_in_seconds:{timeLimit};num_workers:4;random_seed:42;";
+        int timeLimit = 30;
+        solver.StringParameters = $"max_time_in_seconds:{timeLimit};num_workers:4;random_seed:{42 + relaxLevel};";
 
         progress?.Report(0.6);
         var callback = new ProgressCallback(progress, ct);
