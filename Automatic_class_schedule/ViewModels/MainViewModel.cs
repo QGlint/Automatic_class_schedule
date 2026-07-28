@@ -1483,8 +1483,8 @@ public sealed class MainViewModel : ObservableObject
             targetEntry.PeriodIndex = sPeriod;
             draggedEntry.Locked = true;
             targetEntry.Locked = true;
-            draggedEntry.Note = "换课";
-            targetEntry.Note = "换课";
+            draggedEntry.Note = "手动调整";
+            targetEntry.Note = "被换";
 
             // 检测教师冲突并提示
             SchoolData data = BuildSchoolData();
@@ -1515,8 +1515,8 @@ public sealed class MainViewModel : ObservableObject
                 classMate.PeriodIndex = origPeriod;
                 draggedEntry.Locked = true;
                 classMate.Locked = true;
-                draggedEntry.Note = "换课";
-                classMate.Note = "换课";
+                draggedEntry.Note = "手动调整";
+                classMate.Note = "被换";
             }
             else
             {
@@ -1527,11 +1527,13 @@ public sealed class MainViewModel : ObservableObject
             }
         }
 
-        // 检测冲突并提示（显示具体原因）
+        // 检测冲突并提示（显示具体原因，体育2连班除外）
         var conflictDetails = ScheduleEntries
             .Where(e => e.TeacherId != Guid.Empty && !e.IsFixed)
             .GroupBy(e => (e.TeacherName, e.DayIndex, e.PeriodIndex))
             .Where(g => g.Select(e => e.ClassId).Distinct().Count() > 1)
+            .Where(g => !(g.All(e => e.Subject == "体育") && g.Count() == 2
+                && AreAdjacentClasses(g.First().ClassName, g.Last().ClassName)))
             .Select(g => $"{g.Key.TeacherName} 在{GetDayName(g.Key.DayIndex)}第{g.Key.PeriodIndex}节同时出现在 {string.Join("、", g.Select(e => e.ClassName).Distinct())}")
             .ToList();
 
@@ -1740,7 +1742,7 @@ public sealed class MainViewModel : ObservableObject
             var allEntries = ScheduleEntries.ToList();
 
             // 定义多轮求解策略（手动拖拽过的课程始终保持目标位置，不参与解锁）
-            bool IsManuallyMoved(ScheduleEntry e) => e.Note == "换课" || e.Note == "手动调整";
+            bool IsManuallyMoved(ScheduleEntry e) => e.Note == "手动调整";
             var rounds = new List<(string Label, HashSet<Guid> UnlockIds, int RelaxLevel)>
             {
                 // 方向A：逐渐放大修改范围（relaxLevel=1）
@@ -1822,24 +1824,26 @@ public sealed class MainViewModel : ObservableObject
                     if (resultConflicts == 0)
                     {
                         // 冲突完全解决
-                        ApplyLocalAdjustResult(result, expectedEntryCount);
-                        UpdateDialogProgress(0.99, "即将完成...");
-                        await Task.Delay(800);
-                        UpdateDialogProgress(1.0, "局部调整完成！");
-                        DialogIsComplete = true;
-                        int changedCount = result.Entries.Count(e => e.Note != "锁定课程" && !e.IsFixed);
-                        StatusMessage = $"局部调整完成：{changedCount} 节课被优化，冲突已全部解决";
-                        Log($"局部调整第{i + 1}轮成功: {label}, {changedCount} 节课变动");
-                        RefreshViews();
-                        return;
+                        if (ApplyLocalAdjustResult(result, expectedEntryCount))
+                        {
+                            UpdateDialogProgress(0.99, "即将完成...");
+                            await Task.Delay(800);
+                            UpdateDialogProgress(1.0, "局部调整完成！");
+                            DialogIsComplete = true;
+                            int changedCount = result.Entries.Count(e => e.Note != "锁定课程" && !e.IsFixed);
+                            StatusMessage = $"局部调整完成：{changedCount} 节课被优化，冲突已全部解决";
+                            Log($"局部调整第{i + 1}轮成功: {label}, {changedCount} 节课变动");
+                            RefreshViews();
+                            return;
+                        }
+                        // 数量校验失败，继续下一轮
                     }
                 }
             }
 
             // 所有轮次完毕，使用最佳结果（如果有）
-            if (bestResult != null)
+            if (bestResult != null && ApplyLocalAdjustResult(bestResult, expectedEntryCount))
             {
-                ApplyLocalAdjustResult(bestResult, expectedEntryCount);
                 UpdateDialogProgress(0.99, "即将完成...");
                 await Task.Delay(800);
                 UpdateDialogProgress(1.0, "局部调整完成");
@@ -1886,9 +1890,27 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
-    /// <summary>应用局部调整结果到ScheduleEntries</summary>
-    private void ApplyLocalAdjustResult(ScheduleResult result, int expectedEntryCount)
+    /// <summary>应用局部调整结果到ScheduleEntries（含数量安全校验）</summary>
+    private bool ApplyLocalAdjustResult(ScheduleResult result, int expectedEntryCount)
     {
+        // 安全校验：总数
+        if (result.Entries.Count < expectedEntryCount)
+            return false;
+
+        // 安全校验：每个班级每个科目数量不得减少
+        var expectedCounts = Requirements
+            .GroupBy(r => (r.ClassId, r.Subject))
+            .ToDictionary(g => g.Key, g => g.Sum(r => r.WeeklyCount));
+        var actualCounts = result.Entries
+            .Where(e => !e.IsFixed)
+            .GroupBy(e => (e.ClassId, e.Subject))
+            .ToDictionary(g => g.Key, g => g.Count());
+        foreach (var kv in expectedCounts)
+        {
+            if (!actualCounts.TryGetValue(kv.Key, out int actual) || actual < kv.Value)
+                return false; // 丢课了，拒绝应用
+        }
+
         ScheduleEntries.Clear();
         foreach (var entry in result.Entries.OrderBy(x => x.DayIndex).ThenBy(x => x.PeriodIndex))
             ScheduleEntries.Add(entry);
@@ -1897,6 +1919,7 @@ public sealed class MainViewModel : ObservableObject
             Conflicts.Add(conflict);
         OnPropertyChanged(nameof(TotalScheduleEntries));
         OnPropertyChanged(nameof(TotalConflicts));
+        return true;
     }
 
     /// <summary>弹窗完成后点击确认关闭</summary>
@@ -3042,15 +3065,22 @@ public sealed class MainViewModel : ObservableObject
 
     private void BuildGradeMatrix(List<SchoolClass> classes, int periodsPerDay, int daysPerWeek)
     {
-        // 检测教师时间槽冲突：同教师同天同节不同班 → 标红
+        // 检测教师时间槽冲突：同教师同天同节不同班 → 标红（体育2连班除外）
         var conflictEntryIds = new HashSet<Guid>();
         var teacherSlots = VisibleScheduleEntries
             .Where(e => e.TeacherId != Guid.Empty && !e.IsFixed)
             .GroupBy(e => (e.TeacherName, e.DayIndex, e.PeriodIndex))
             .Where(g => g.Select(e => e.ClassId).Distinct().Count() > 1);
         foreach (var g in teacherSlots)
-            foreach (var e in g)
+        {
+            var entries = g.ToList();
+            // 体育教师2个相邻连号班同时段不算冲突
+            if (entries.All(e => e.Subject == "体育") && entries.Count == 2
+                && AreAdjacentClasses(entries[0].ClassName, entries[1].ClassName))
+                continue;
+            foreach (var e in entries)
                 conflictEntryIds.Add(e.Id);
+        }
 
         // 构建双层表头
         var dayHeaders = new ObservableCollection<GradeDayHeader>();
@@ -3102,7 +3132,7 @@ public sealed class MainViewModel : ObservableObject
                         EntryId = entry?.Id ?? Guid.Empty,
                         Entry = entry,
                         HasConflict = entry != null && conflictEntryIds.Contains(entry.Id),
-                        IsManuallyMoved = entry?.Note == "换课" || entry?.Note == "手动调整",
+                        IsManuallyMoved = entry?.Note == "手动调整",
                     });
                 }
             }
@@ -3296,5 +3326,25 @@ public sealed class MainViewModel : ObservableObject
             6 => "周日",
             _ => $"周{dayIndex + 1}"
         };
+    }
+
+    /// <summary>判断两个班级是否同年级且班号相邻（如“七1班”和“七2班”）</summary>
+    private static bool AreAdjacentClasses(string classA, string classB)
+    {
+        var (gradeA, numA) = ParseClassNameLocal(classA);
+        var (gradeB, numB) = ParseClassNameLocal(classB);
+        if (gradeA != gradeB || numA < 0 || numB < 0) return false;
+        return Math.Abs(numA - numB) == 1;
+    }
+
+    private static (string Grade, int Number) ParseClassNameLocal(string className)
+    {
+        if (string.IsNullOrEmpty(className)) return ("", -1);
+        string trimmed = className.Replace("班", "");
+        int i = 0;
+        while (i < trimmed.Length && !char.IsDigit(trimmed[i])) i++;
+        if (i == 0 || i >= trimmed.Length) return ("", -1);
+        string grade = trimmed[..i];
+        return int.TryParse(trimmed[i..], out int num) ? (grade, num) : (grade, -1);
     }
 }

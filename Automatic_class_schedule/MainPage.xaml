@@ -1072,7 +1072,7 @@
                                         </ItemsControl.ItemsPanel>
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
-                                                <Border Width="Auto" MinWidth="100" BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,1" Padding="4"
+                                                <Border Width="120" BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,1" Padding="4"
                                                     Background="#FFF0F5FF">
                                                     <TextBlock Text="{Binding Name}" FontSize="12" FontWeight="SemiBold"
                                                                HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -1109,7 +1109,7 @@
                                                     </ItemsControl.ItemsPanel>
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate>
-                                                            <Border Width="Auto" MinWidth="100" MinHeight="36" BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,0" Padding="4">
+                                                            <Border Width="120" MinHeight="36" BorderBrush="#FFD9E1EC" BorderThickness="0,0,1,0" Padding="4">
                                                                 <Grid>
                                                                     <Border Background="#FFF5F5F5"
                                                                             Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibility}}" />
