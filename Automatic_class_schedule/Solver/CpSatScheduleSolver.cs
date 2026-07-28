@@ -43,7 +43,6 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
         int morning = problem.Settings.MorningPeriods; // 上午节次数(通常4)
 
         var fixedSlots = BuildFixedSlots(problem);
-        var lockedMap = locks.GroupBy(x => x.RequirementId).ToDictionary(x => x.Key, x => x.Count());
         var requirements = problem.Requirements.ToList();
 
         // ========== 容量预检 ==========
@@ -71,11 +70,10 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
 
         // ==================== 硬约束 ====================
 
-        // H1: 课时数约束
+        // H1: 课时数约束（x 变量包含锁定位置，H5 会强制锁定位置=1）
         for (int r = 0; r < reqCount; r++)
         {
-            int lockedCount = lockedMap.TryGetValue(requirements[r].Id, out int lc) ? lc : 0;
-            int needed = Math.Max(0, requirements[r].WeeklyCount - lockedCount);
+            int needed = requirements[r].WeeklyCount;
 
             List<ILiteral> all = new();
             for (int d = 0; d < days; d++)
@@ -588,12 +586,21 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
             result.Entries.Add(CreateEntry(req, locked.DayIndex, locked.PeriodIndex, locked.EntryId ?? Guid.NewGuid(), true, "锁定课程"));
         }
 
+        // 构建锁定位置集合（避免提取结果时重复）
+        var lockedPositions = new HashSet<(int ReqIdx, int Day, int Period)>();
+        foreach (var locked in locks)
+        {
+            int rIdx = requirements.FindIndex(rq => rq.Id == locked.RequirementId);
+            if (rIdx >= 0)
+                lockedPositions.Add((rIdx, locked.DayIndex, locked.PeriodIndex));
+        }
+
         if (status is CpSolverStatus.Optimal or CpSolverStatus.Feasible)
         {
             for (int r = 0; r < reqCount; r++)
                 for (int d = 0; d < days; d++)
                     for (int p = 1; p <= periods; p++)
-                        if (solver.BooleanValue(x[r, d, p]))
+                        if (solver.BooleanValue(x[r, d, p]) && !lockedPositions.Contains((r, d, p)))
                             result.Entries.Add(CreateEntry(requirements[r], d, p, Guid.NewGuid(), false, null));
         }
         else
