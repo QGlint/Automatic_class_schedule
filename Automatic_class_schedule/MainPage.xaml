@@ -936,6 +936,7 @@
                                                                     DragStarting="GridCell_DragStarting"
                                                                     DragOver="GridCell_DragOver"
                                                                     Drop="GridCell_Drop"
+                                                                    RightTapped="ScheduleCell_RightTapped"
                                                                     Background="{Binding CellBackground}">
                                                                 <StackPanel Visibility="{Binding IsEmpty, Converter={StaticResource InverseBoolToVisibility}}">
                                                                     <TextBlock Text="{Binding Subject}" FontSize="18" TextWrapping="Wrap"
