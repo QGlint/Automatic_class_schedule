@@ -2,6 +2,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using Automatic_class_schedule.ViewModels;
+using System.Runtime.InteropServices;
 
 namespace Automatic_class_schedule;
 
@@ -44,13 +45,20 @@ public sealed partial class MainWindow : Window
         var appWindow = GetAppWindow();
         appWindow.Closing += OnWindowClosing;
 
-        // 设置窗口图标
+        // 设置窗口图标（从 EXE 嵌入资源加载，ApplicationIcon 已将 ACS.ico 编入）
         try
         {
-            string iconPath = System.IO.Path.Combine(
-                Windows.ApplicationModel.Package.Current.InstalledLocation.Path, "Assets", "ACS.ico");
-            if (System.IO.File.Exists(iconPath))
-                appWindow.SetIcon(iconPath);
+            nint hModule = GetModuleHandleW(null);
+            // 加载自定义图标资源（MAKEINTRESOURCE(1)），失败则回退默认应用图标
+            nint hIcon = LoadImageW(hModule, "#1", 1, 0, 0, 0x00000040); // IMAGE_ICON=1, LR_DEFAULTSIZE=0x40
+            if (hIcon == 0)
+                hIcon = LoadIconW(hModule, 32512); // IDI_APPLICATION
+            if (hIcon != 0)
+            {
+                const int WM_SETICON = 0x0080;
+                SendMessageW(_hwnd, WM_SETICON, 1, hIcon); // ICON_BIG=1
+                SendMessageW(_hwnd, WM_SETICON, 0, hIcon); // ICON_SMALL=0
+            }
         }
         catch { }
     }
@@ -112,4 +120,16 @@ public sealed partial class MainWindow : Window
         var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hwnd);
         return Microsoft.UI.Windowing.AppWindow.GetFromWindowId(windowId);
     }
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+    private static extern nint GetModuleHandleW(string? lpModuleName);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern nint LoadIconW(nint hInstance, int lpIconName);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern nint LoadImageW(nint hInstance, string lpName, int uType, int cx, int cy, int fuLoad);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern nint SendMessageW(nint hWnd, int Msg, nint wParam, nint lParam);
 }
