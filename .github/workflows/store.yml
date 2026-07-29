@@ -1,0 +1,91 @@
+name: Store
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+env:
+  PROJECT: Automatic_class_schedule\Automatic_class_schedule.csproj
+
+jobs:
+  build-msix:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Get version
+        id: version
+        shell: pwsh
+        run: |
+          $ver = "${{ github.ref_name }}" -replace '^v', ''
+          if (-not $ver) { $ver = "1.0.0" }
+          echo "VERSION=$ver" >> $env:GITHUB_OUTPUT
+
+      # 从 Secrets 注入真实 Publisher 信息
+      - name: Generate manifest from secrets
+        shell: pwsh
+        run: |
+          $manifest = "Automatic_class_schedule\Package.appxmanifest"
+          $content = Get-Content $manifest -Raw
+          $content = $content -replace 'CN=YOUR_PUBLISHER_ID_HERE', '${{ secrets.PUBLISHER_ID }}'
+          $content = $content -replace 'YOUR_PUBLISHER_DISPLAY_NAME', '${{ secrets.PUBLISHER_DISPLAY_NAME }}'
+          Set-Content $manifest $content -Encoding UTF8
+          Write-Host "Manifest updated with Publisher from secrets"
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build MSIX
+        run: >
+          dotnet build ${{ env.PROJECT }}
+          -c Release
+          -r win-x64
+          --self-contained
+          -p:WindowsPackageType=MSIX
+          -p:AppxPackageSigningEnabled=false
+          -p:PublishTrimmed=false
+          -p:DebugType=none
+          -p:DebugSymbols=false
+          "-t:Build;_GenerateAppxPackage"
+
+      - name: Collect MSIX
+        shell: pwsh
+        run: |
+          $ver = "${{ steps.version.outputs.VERSION }}"
+          $msix = Get-ChildItem -Path "Automatic_class_schedule\AppPackages" -Recurse -Filter "*.msix" |
+            Where-Object { $_.Name -like "Automatic_class_schedule*" } |
+            Select-Object -First 1
+          if (-not $msix) { throw "MSIX not found!" }
+          $dest = "Automatic_class_schedule_v${ver}_win-x64.msix"
+          Copy-Item $msix.FullName $dest
+          echo "MSIX_PATH=$dest" >> $env:GITHUB_ENV
+          Write-Host "MSIX: $dest ($([math]::Round($msix.Length/1MB,1)) MB)"
+
+      # 上传到 Partner Center（需要 Azure AD 凭据）
+      - name: Upload to Partner Center
+        if: ${{ secrets.AZURE_CLIENT_ID != '' }}
+        shell: pwsh
+        run: |
+          # 安装 Partner Center 提交模块
+          Install-Module -Name MSStore -Force -Scope CurrentUser
+          # 或使用 Partner Center API 提交
+          # 参考: https://learn.microsoft.com/en-us/partner-center/developer/
+          Write-Host "TODO: Upload ${{ env.MSIX_PATH }} to Partner Center"
+          Write-Host "Requires: AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID, STORE_ACCOUNT_ID"
+
+      # 备选：上传为 Actions Artifact 供手动提交
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: msix-package
+          path: ${{ env.MSIX_PATH }}
+          retention-days: 30

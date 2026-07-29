@@ -27,6 +27,7 @@ public static class SchoolDataSerializer
         CacheRef = 0x0B,
         GradeConfigs = 0x0C,
         TeacherGenConfig = 0x0D,
+        AppVersion = 0x0E,
         End = 0xFF
     }
 
@@ -54,6 +55,12 @@ public static class SchoolDataSerializer
 
             // ProjectName
             WriteSection(writer, SectionTag.ProjectName, w => w.Write(projectName));
+
+            // AppVersion（当前应用版本号）
+            string appVer = data.AppVersion;
+            if (string.IsNullOrEmpty(appVer))
+                appVer = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.0.0";
+            WriteSection(writer, SectionTag.AppVersion, w => w.Write(appVer));
 
             // Settings
             WriteSection(writer, SectionTag.Settings, w => WriteSettings(w, data.Settings));
@@ -299,6 +306,11 @@ public static class SchoolDataSerializer
                     reader.ReadInt32(); // skip -1
                     string tgJson = reader.ReadString();
                     data.TeacherGenConfig = System.Text.Json.JsonSerializer.Deserialize<TeacherGenConfig>(tgJson);
+                    break;
+
+                case SectionTag.AppVersion:
+                    reader.ReadInt32(); // skip -1
+                    data.AppVersion = reader.ReadString();
                     break;
 
                 default:

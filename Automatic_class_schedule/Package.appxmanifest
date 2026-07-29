@@ -8,14 +8,14 @@
 
   <Identity
     Name="AutomaticClassSchedule"
-    Publisher="CN=AppPublisher"
+    Publisher="CN=YOUR_PUBLISHER_ID_HERE"
     Version="1.0.0.0" />
 
   <mp:PhoneIdentity PhoneProductId="00000000-0000-0000-0000-000000000000" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
   <Properties>
     <DisplayName>自动排课系统</DisplayName>
-    <PublisherDisplayName>AppPublisher</PublisherDisplayName>
+    <PublisherDisplayName>YOUR_PUBLISHER_DISPLAY_NAME</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
 
@@ -46,7 +46,7 @@
           <uap:FileTypeAssociation Name="acsproj">
             <uap:DisplayName>自动排课项目文件</uap:DisplayName>
             <uap:SupportedFileTypes>
-              <uap:FileType ContentType="application/octet-stream">.acsproj</uap:FileType>
+              <uap:FileType>.acsproj</uap:FileType>
             </uap:SupportedFileTypes>
           </uap:FileTypeAssociation>
         </uap:Extension>

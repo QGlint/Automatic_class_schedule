@@ -3,6 +3,8 @@ namespace Automatic_class_schedule.Models;
 public sealed class SchoolData
 {
     public string ProjectName { get; set; } = "";
+    /// <summary>创建/保存此项目的应用版本号（用于后续版本兼容）</summary>
+    public string AppVersion { get; set; } = "";
     public ScheduleSettings Settings { get; set; } = new();
     public List<GradeScheduleConfig> GradeConfigs { get; set; } = new();
     public List<GradeInput> GradeInputs { get; set; } = new();
