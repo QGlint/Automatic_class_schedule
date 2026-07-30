@@ -566,7 +566,10 @@ public sealed class CpSatScheduleSolver : IScheduleSolver
 
         CpSolver solver = new();
         int timeLimit = 30;
-        solver.StringParameters = $"max_time_in_seconds:{timeLimit};num_workers:4;random_seed:{42 + relaxLevel};";
+        string? envLimit = Environment.GetEnvironmentVariable("ACS_SOLVER_TIME_LIMIT");
+        if (int.TryParse(envLimit, out int parsed) && parsed > 0) timeLimit = parsed;
+        int workers = Environment.ProcessorCount >= 4 ? 4 : Environment.ProcessorCount;
+        solver.StringParameters = $"max_time_in_seconds:{timeLimit};num_workers:{workers};random_seed:{42 + relaxLevel};";
 
         progress?.Report(0.6);
         var callback = new ProgressCallback(progress, ct);

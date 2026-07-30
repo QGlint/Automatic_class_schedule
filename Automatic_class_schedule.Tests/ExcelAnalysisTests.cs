@@ -16,6 +16,7 @@ public sealed class ExcelAnalysisTests
     }
 
     [Fact]
+    [Trait("Category", "LocalOnly")]
     public void ReadOutXlsx_PrintContent()
     {
         var path = @"c:\Project_Repository\winproject\Automatic_class_schedule\out.xlsx";

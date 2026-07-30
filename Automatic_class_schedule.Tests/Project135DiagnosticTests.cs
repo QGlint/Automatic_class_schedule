@@ -5,6 +5,7 @@ using Automatic_class_schedule.Services;
 namespace Automatic_class_schedule.Tests;
 
 /// <summary>使用真实项目135数据诊断局部调整是否能解决冲突</summary>
+[Trait("Category", "LocalOnly")]
 public class Project135DiagnosticTests
 {
     private static readonly string Project135Path =

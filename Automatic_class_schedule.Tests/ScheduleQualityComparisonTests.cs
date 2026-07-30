@@ -10,6 +10,7 @@ namespace Automatic_class_schedule.Tests;
 /// 开发验证用：运行CP-SAT求解器后与人工课表 out.xlsx 进行全面统计对比。
 /// 输出完整质量报告到 comparison_report.txt。
 /// </summary>
+[Trait("Category", "LocalOnly")]
 public sealed class ScheduleQualityComparisonTests
 {
     private readonly ITestOutputHelper _output;

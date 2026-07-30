@@ -7,7 +7,7 @@ public sealed class SampleDataFactoryTests
     [Fact]
     public void Create_ReturnsValidSchoolData()
     {
-        var data = SampleDataFactory.Create();
+        var data = SampleDataFactory.Create(skipSolve: true);
         Assert.NotNull(data);
         Assert.Equal("", data.Settings.SchoolName);
         Assert.Equal(5, data.Settings.DaysPerWeek);
@@ -19,7 +19,7 @@ public sealed class SampleDataFactoryTests
     [Fact]
     public void Create_HasCorrectGradeCounts()
     {
-        var data = SampleDataFactory.Create();
+        var data = SampleDataFactory.Create(skipSolve: true);
         Assert.Equal(3, data.GradeInputs.Count);
         Assert.Contains(data.GradeInputs, g => g.GradeName == "七年级" && g.ClassCount == 7);
         Assert.Contains(data.GradeInputs, g => g.GradeName == "八年级" && g.ClassCount == 8);
@@ -29,7 +29,7 @@ public sealed class SampleDataFactoryTests
     [Fact]
     public void Create_HasAllSubjects()
     {
-        var data = SampleDataFactory.Create();
+        var data = SampleDataFactory.Create(skipSolve: true);
         string[] expected = { "语文", "数学", "英语", "物理", "化学", "生物", "历史", "地理", "道德", "体育", "音乐", "美术", "信息", "劳动" };
         // 科目含年级特定条目，检查去重后的科目名
         var distinctNames = data.Subjects.Select(s => s.Name).Distinct().ToList();
@@ -41,7 +41,7 @@ public sealed class SampleDataFactoryTests
     [Fact]
     public void Create_HasClasses()
     {
-        var data = SampleDataFactory.Create();
+        var data = SampleDataFactory.Create(skipSolve: true);
         int expected = 7 + 8 + 8;
         Assert.Equal(expected, data.Classes.Count);
     }
@@ -49,14 +49,14 @@ public sealed class SampleDataFactoryTests
     [Fact]
     public void Create_HasTeacherAssignments()
     {
-        var data = SampleDataFactory.Create();
+        var data = SampleDataFactory.Create(skipSolve: true);
         Assert.NotEmpty(data.TeacherAssignments);
     }
 
     [Fact]
     public void Create_HasRequirements()
     {
-        var data = SampleDataFactory.Create();
+        var data = SampleDataFactory.Create(skipSolve: true);
         Assert.NotEmpty(data.Requirements);
     }
 
