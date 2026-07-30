@@ -1882,7 +1882,7 @@
           "buildTransitive/Microsoft.Windows.SDK.BuildTools.targets": {}
         }
       },
-      "Microsoft.Windows.SDK.BuildTools.MSIX/1.7.251221100": {
+      "Microsoft.Windows.SDK.BuildTools.MSIX/1.7.260610101": {
         "type": "package",
         "build": {
           "buildTransitive/Microsoft.Windows.SDK.BuildTools.MSIX.props": {},
@@ -2458,7 +2458,7 @@
           "buildTransitive/Microsoft.Windows.SDK.BuildTools.targets": {}
         }
       },
-      "Microsoft.Windows.SDK.BuildTools.MSIX/1.7.251221100": {
+      "Microsoft.Windows.SDK.BuildTools.MSIX/1.7.260610101": {
         "type": "package",
         "build": {
           "buildTransitive/Microsoft.Windows.SDK.BuildTools.MSIX.props": {},
@@ -3016,7 +3016,7 @@
           "buildTransitive/Microsoft.Windows.SDK.BuildTools.targets": {}
         }
       },
-      "Microsoft.Windows.SDK.BuildTools.MSIX/1.7.251221100": {
+      "Microsoft.Windows.SDK.BuildTools.MSIX/1.7.260610101": {
         "type": "package",
         "build": {
           "buildTransitive/Microsoft.Windows.SDK.BuildTools.MSIX.props": {},
@@ -3557,7 +3557,7 @@
           "buildTransitive/Microsoft.Windows.SDK.BuildTools.targets": {}
         }
       },
-      "Microsoft.Windows.SDK.BuildTools.MSIX/1.7.251221100": {
+      "Microsoft.Windows.SDK.BuildTools.MSIX/1.7.260610101": {
         "type": "package",
         "build": {
           "buildTransitive/Microsoft.Windows.SDK.BuildTools.MSIX.props": {},
@@ -4939,16 +4939,16 @@
         "schemas/10.0.28000.0/winrt/UapManifestSchema_v8.xsd"
       ]
     },
-    "Microsoft.Windows.SDK.BuildTools.MSIX/1.7.251221100": {
-      "sha512": "f4aIZJ0NUth2403oxrpR+9rxVzZVI6dabqB21u8ncnk8eJAKCs9m77E4iYAnvP1YwrRe4axz3f8+yUcttNSfEA==",
+    "Microsoft.Windows.SDK.BuildTools.MSIX/1.7.260610101": {
+      "sha512": "rNVrt/rCi6O40aPu1azacyirHaPAd/MzhvtMEF2wKlvvS6ptIqtlyLEpimMYO6/HkkW1RInMEMdP1aI4L7jQTw==",
       "type": "package",
-      "path": "microsoft.windows.sdk.buildtools.msix/1.7.251221100",
+      "path": "microsoft.windows.sdk.buildtools.msix/1.7.260610101",
       "hasTools": true,
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
-        "CodeSignSummary-34a989ae-5598-48e7-b302-56214d6dedd2.md",
-        "CodeSignSummary-4cb9e1f6-b51b-45be-8060-c27804d99cc4.md",
+        "CodeSignSummary-01038aed-7dee-4147-9f79-8001de02b260.md",
+        "CodeSignSummary-e759ea59-81c4-4839-af1d-c49e549800f6.md",
         "NOTICE.txt",
         "build/AppDevPackageScripts/Add-AppDevPackage.ps1",
         "build/AppDevPackageScripts/Add-AppDevPackage.resources/Add-AppDevPackage.psd1",
@@ -4995,10 +4995,10 @@
         "build/Templates/Package.appinstaller",
         "buildTransitive/Microsoft.Windows.SDK.BuildTools.MSIX.props",
         "buildTransitive/Microsoft.Windows.SDK.BuildTools.MSIX.targets",
-        "microsoft.windows.sdk.buildtools.msix.1.7.251221100.nupkg.sha512",
+        "microsoft.windows.sdk.buildtools.msix.1.7.260610101.nupkg.sha512",
         "microsoft.windows.sdk.buildtools.msix.nuspec",
         "nuget_icon.png",
-        "sdk_license.txt",
+        "preview_sdk_license.txt",
         "tools/net472/Microsoft.Cci.dll",
         "tools/net472/Microsoft.VisualStudio.RemoteControl.dll",
         "tools/net472/Microsoft.VisualStudio.Telemetry.dll",
@@ -6636,6 +6636,7 @@
       "CommunityToolkit.WinUI.UI.Controls.DataGrid >= 7.1.2",
       "Google.OrTools >= 9.14.6206",
       "Microsoft.Windows.SDK.BuildTools >= 10.0.28000.2270",
+      "Microsoft.Windows.SDK.BuildTools.MSIX >= 1.7.260610101",
       "Microsoft.Windows.SDK.BuildTools.WinApp >= 0.5.0",
       "Microsoft.WindowsAppSDK >= 2.3.1"
     ]
@@ -6699,6 +6700,10 @@
           "Microsoft.Windows.SDK.BuildTools": {
             "target": "Package",
             "version": "[10.0.28000.2270, )"
+          },
+          "Microsoft.Windows.SDK.BuildTools.MSIX": {
+            "target": "Package",
+            "version": "[1.7.260610101, )"
           },
           "Microsoft.Windows.SDK.BuildTools.WinApp": {
             "target": "Package",

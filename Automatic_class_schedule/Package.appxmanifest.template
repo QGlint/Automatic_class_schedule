@@ -7,15 +7,15 @@
   IgnorableNamespaces="uap rescap">
 
   <Identity
-    Name="AutomaticClassSchedule"
-    Publisher="CN=YOUR_PUBLISHER_ID_HERE"
-    Version="1.0.0.0" />
+    Name="QGlint.ACS"
+    Publisher="{{PUBLISHER}}"
+    Version="{{VERSION}}" />
 
   <mp:PhoneIdentity PhoneProductId="00000000-0000-0000-0000-000000000000" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
   <Properties>
     <DisplayName>ACS自动排课</DisplayName>
-    <PublisherDisplayName>YOUR_PUBLISHER_DISPLAY_NAME</PublisherDisplayName>
+    <PublisherDisplayName>{{AUTHOR}}</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
 

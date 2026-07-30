@@ -5,3 +5,7 @@ obj/
 *.xlsx
 AppPackages/
 publish/
+
+# 发布配置（含证书信息，禁止上传）
+publish.conf
+Automatic_class_schedule/Package.appxmanifest

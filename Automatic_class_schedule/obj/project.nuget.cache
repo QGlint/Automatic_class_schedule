@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "PhAt8GpqrZo=",
+  "dgSpecHash": "fRkp4gu9B7k=",
   "success": true,
   "projectFilePath": "C:\\Project_Repository\\winproject\\Automatic_class_schedule\\Automatic_class_schedule\\Automatic_class_schedule.csproj",
   "expectedPackageFiles": [
@@ -20,7 +20,7 @@
     "C:\\Users\\EGlint\\.nuget\\packages\\microsoft.web.webview2\\1.0.3719.77\\microsoft.web.webview2.1.0.3719.77.nupkg.sha512",
     "C:\\Users\\EGlint\\.nuget\\packages\\microsoft.windows.ai.machinelearning\\2.1.74\\microsoft.windows.ai.machinelearning.2.1.74.nupkg.sha512",
     "C:\\Users\\EGlint\\.nuget\\packages\\microsoft.windows.sdk.buildtools\\10.0.28000.2270\\microsoft.windows.sdk.buildtools.10.0.28000.2270.nupkg.sha512",
-    "C:\\Users\\EGlint\\.nuget\\packages\\microsoft.windows.sdk.buildtools.msix\\1.7.251221100\\microsoft.windows.sdk.buildtools.msix.1.7.251221100.nupkg.sha512",
+    "C:\\Users\\EGlint\\.nuget\\packages\\microsoft.windows.sdk.buildtools.msix\\1.7.260610101\\microsoft.windows.sdk.buildtools.msix.1.7.260610101.nupkg.sha512",
     "C:\\Users\\EGlint\\.nuget\\packages\\microsoft.windows.sdk.buildtools.winapp\\0.5.0\\microsoft.windows.sdk.buildtools.winapp.0.5.0.nupkg.sha512",
     "C:\\Users\\EGlint\\.nuget\\packages\\microsoft.windowsappsdk\\2.3.1\\microsoft.windowsappsdk.2.3.1.nupkg.sha512",
     "C:\\Users\\EGlint\\.nuget\\packages\\microsoft.windowsappsdk.ai\\2.3.4\\microsoft.windowsappsdk.ai.2.3.4.nupkg.sha512",
