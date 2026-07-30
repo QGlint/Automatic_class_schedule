@@ -44,15 +44,26 @@ jobs:
       - name: Restore
         run: dotnet restore
 
-      - name: Build MSIX
+      - name: Build MSIX (StoreUpload)
         run: >
           dotnet build ${{ env.PROJECT }}
           -c Release
           -r win-x64
           --self-contained
           -p:WindowsPackageType=MSIX
+          -p:UapAppxPackageBuildMode=StoreUpload
           -p:AppxPackageSigningEnabled=false
           -p:PublishTrimmed=false
           -p:DebugType=none
           -p:DebugSymbols=false
           "-t:Build;_GenerateAppxPackage"
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Automatic_class_schedule-${{ steps.version.outputs.VERSION }}
+          path: |
+            Automatic_class_schedule/**/*.msixupload
+            Automatic_class_schedule/**/*.msix
+            Automatic_class_schedule/**/*.msixbundle
+          if-no-files-found: error
