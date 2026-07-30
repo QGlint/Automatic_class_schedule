@@ -39,6 +39,8 @@ jobs:
           --self-contained true
           -p:WindowsPackageType=None
           -p:PublishSingleFile=false
+          -p:PublishReadyToRun=true
+          -p:PublishTrimmed=true
           -p:DebugType=none
           -p:DebugSymbols=false
           -o publish\app
