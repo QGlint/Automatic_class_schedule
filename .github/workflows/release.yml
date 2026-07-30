@@ -29,9 +29,12 @@ jobs:
       - name: Restore
         run: dotnet restore
 
+      - name: Build
+        run: dotnet build ${{ env.TEST_PROJECT }} -c Release --no-restore
+
       - name: Test
-        run: dotnet test ${{ env.TEST_PROJECT }} -c Release --no-restore --verbosity minimal --filter "Category!=LocalOnly"
-        timeout-minutes: 10
+        run: dotnet test ${{ env.TEST_PROJECT }} -c Release --no-build --verbosity normal --filter "Category!=LocalOnly"
+        timeout-minutes: 5
 
       - name: Publish (self-contained)
         run: >

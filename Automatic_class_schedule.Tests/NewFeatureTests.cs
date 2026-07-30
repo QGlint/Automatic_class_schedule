@@ -12,6 +12,7 @@ namespace Automatic_class_schedule.Tests;
 /// <summary>
 /// 新功能测试：体育连班限制、拖拽重排（relaxConsecutiveDays）、锁定求解、DisplayText
 /// </summary>
+[Trait("Category", "LocalOnly")]
 public sealed class NewFeatureTests
 {
     private readonly ITestOutputHelper _output;

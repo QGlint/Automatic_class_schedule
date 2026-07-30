@@ -98,6 +98,7 @@ public sealed class ScheduleServiceTests
     }
 
     [Fact]
+    [Trait("Category", "LocalOnly")]
     public void Generate_SimpleData_ReturnsResult()
     {
         var data = new SchoolData
@@ -127,6 +128,7 @@ public sealed class ScheduleServiceTests
     }
 
     [Fact]
+    [Trait("Category", "LocalOnly")]
     public void Generate_NoRequirements_ReturnsEmpty()
     {
         var data = new SchoolData

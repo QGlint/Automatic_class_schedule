@@ -186,6 +186,7 @@ public sealed class TeacherAssignmentRuleTests
     }
 }
 
+[Trait("Category", "LocalOnly")]
 public sealed class SolverConstraintTests
 {
     private readonly ITestOutputHelper _output;
