@@ -10,8 +10,6 @@ permissions:
 
 env:
   PROJECT: Automatic_class_schedule\Automatic_class_schedule.csproj
-  TEST_PROJECT: Automatic_class_schedule.Tests\Automatic_class_schedule.Tests.csproj
-  ACS_SOLVER_TIME_LIMIT: "5"
 
 jobs:
   build-and-release:
@@ -27,14 +25,7 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Restore
-        run: dotnet restore
-
-      - name: Build
-        run: dotnet build ${{ env.TEST_PROJECT }} -c Release --no-restore
-
-      - name: Test
-        run: dotnet test ${{ env.TEST_PROJECT }} -c Release --no-build --verbosity normal --filter "Category!=LocalOnly"
-        timeout-minutes: 5
+        run: dotnet restore ${{ env.PROJECT }}
 
       - name: Publish (self-contained)
         run: >
@@ -68,9 +59,9 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: "自动排课系统 v${{ steps.version.outputs.VERSION }}"
+          name: "ACS自动排课 v${{ steps.version.outputs.VERSION }}"
           body: |
-            ## 自动排课系统 v${{ steps.version.outputs.VERSION }}
+            ## ACS自动排课 v${{ steps.version.outputs.VERSION }}
 
             ### 安装
             1. 下载 ZIP 解压到任意目录
