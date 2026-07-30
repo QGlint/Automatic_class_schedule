@@ -59,9 +59,6 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Automatic_class_schedule-${{ steps.version.outputs.VERSION }}
-          path: |
-            Automatic_class_schedule/**/*.msixupload
-            Automatic_class_schedule/**/*.msix
-            Automatic_class_schedule/**/*.msixbundle
+          name: ACS自动排课-${{ steps.version.outputs.VERSION }}-Store
+          path: Automatic_class_schedule/**/*.msixupload
           if-no-files-found: error

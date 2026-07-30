@@ -354,6 +354,7 @@ public sealed class SolverConstraintTests
     }
 
     [Fact]
+    [Trait("Category", "LocalOnly")]
     public void Period3_HasNonMainSubjects()
     {
         // 使用完整示例数据验证第3节有文/理科
@@ -507,6 +508,7 @@ public sealed class ConflictModelTests
     }
 
     [Fact]
+    [Trait("Category", "LocalOnly")]
     public void FullWorkflow_ConflictsHaveTargetAndChineseText()
     {
         var data = SampleDataFactory.Create();

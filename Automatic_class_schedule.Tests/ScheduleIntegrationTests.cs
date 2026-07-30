@@ -4,6 +4,7 @@ using Automatic_class_schedule.Solver;
 
 namespace Automatic_class_schedule.Tests;
 
+[Trait("Category", "LocalOnly")]
 public sealed class ScheduleIntegrationTests
 {
     [Fact]

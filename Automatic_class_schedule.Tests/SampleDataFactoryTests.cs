@@ -61,6 +61,7 @@ public sealed class SampleDataFactoryTests
     }
 
     [Fact]
+    [Trait("Category", "LocalOnly")]
     public void Create_HasScheduleEntries()
     {
         var data = SampleDataFactory.Create();

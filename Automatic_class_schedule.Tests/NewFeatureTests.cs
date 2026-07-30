@@ -432,6 +432,7 @@ public sealed class NewFeatureTests
     #region 导出功能
 
     [Fact]
+    [Trait("Category", "LocalOnly")]
     public void ExportAll_CreatesWorkbookWithMultipleSheets()
     {
         // 使用示例数据测试导出
@@ -489,6 +490,7 @@ public sealed class NewFeatureTests
     }
 
     [Fact]
+    [Trait("Category", "LocalOnly")]
     public void ExportAll_SimplifiedSheet_ShowsFirstCharOnly()
     {
         var data = SampleDataFactory.Create();

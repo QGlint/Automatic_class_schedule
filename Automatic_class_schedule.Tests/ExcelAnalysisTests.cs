@@ -6,6 +6,7 @@ using Xunit.Abstractions;
 
 namespace Automatic_class_schedule.Tests;
 
+[Trait("Category", "LocalOnly")]
 public sealed class ExcelAnalysisTests
 {
     private readonly ITestOutputHelper _output;
