@@ -49,11 +49,9 @@ jobs:
           dotnet build ${{ env.PROJECT }}
           -c Release
           -r win-x64
-          --self-contained
           -p:WindowsPackageType=MSIX
           -p:UapAppxPackageBuildMode=StoreUpload
           -p:AppxPackageSigningEnabled=false
-          -p:PublishTrimmed=false
           -p:DebugType=none
           -p:DebugSymbols=false
           "-t:Build;_GenerateAppxPackage"

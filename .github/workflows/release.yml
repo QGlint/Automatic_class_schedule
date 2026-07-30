@@ -11,7 +11,7 @@ permissions:
 env:
   PROJECT: Automatic_class_schedule\Automatic_class_schedule.csproj
   TEST_PROJECT: Automatic_class_schedule.Tests\Automatic_class_schedule.Tests.csproj
-  ACS_SOLVER_TIME_LIMIT: "10"
+  ACS_SOLVER_TIME_LIMIT: "5"
 
 jobs:
   build-and-release:
@@ -30,7 +30,8 @@ jobs:
         run: dotnet restore
 
       - name: Test
-        run: dotnet test ${{ env.TEST_PROJECT }} -c Release --no-restore --verbosity minimal --timeout 600000 --filter "Category!=LocalOnly"
+        run: dotnet test ${{ env.TEST_PROJECT }} -c Release --no-restore --verbosity minimal --filter "Category!=LocalOnly"
+        timeout-minutes: 10
 
       - name: Publish (self-contained)
         run: >
